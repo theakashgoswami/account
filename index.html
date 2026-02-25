@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AG TechScript Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header will be injected here -->
+        <header id="mainHeader"></header>
+        
+        <!-- Main Content -->
+        <main id="mainContent">
+            <div class="loader">
+                <div class="spinner"></div>
+                <p>Verifying access...</p>
+            </div>
+        </main>
+        
+        <!-- Footer -->
+        <footer id="mainFooter"></footer>
+    </div>
+    
+    <!-- Hidden Templates -->
+    <template id="unauthorized-template">
+        <div class="unauthorized-container">
+            <div class="error-card">
+                <div class="error-icon">🚫</div>
+                <h1>Access Denied</h1>
+                <p>You don't have permission to access this panel.</p>
+                <p class="error-detail" id="errorDetail"></p>
+                <button onclick="window.location.href='https://agtechscript.in'" 
+                        class="btn-primary">
+                    Go to Homepage
+                </button>
+            </div>
+        </div>
+    </template>
+    
+    <script src="config.js"></script>
+    <script src="auth.js"></script>
+    <script src="dashboard.js"></script>
+</body>
+</html>
