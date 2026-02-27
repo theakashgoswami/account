@@ -1,21 +1,21 @@
 document.addEventListener("DOMContentLoaded", async () => {
 
-    // 1) Render navbar
     renderNavbar("home");
 
-    // 2) guard.js ne already user auth check kar diya hota hai
+    // Wait for guard.js to fill window.currentUser
     if (!window.currentUser) return;
 
-    // 3) Show dashboard content
     document.getElementById("dashboardContent").style.display = "block";
-    document.getElementById("username").innerText = window.currentUser.user_id;
 
-    // 4) Load Notifications
+    const name = window.currentUser.name || window.currentUser.user_id;
+    document.getElementById("username").innerText = name;
+
+    // Load user notifications
     const result = await getNotifications();
 
     const box = document.getElementById("notifications");
 
-    if (!result.success || result.notifications.length === 0) {
+    if (!result.success || !result.notifications?.length) {
         box.innerHTML = "<div class='note-card'>No notifications found.</div>";
         return;
     }
