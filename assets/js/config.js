@@ -5,6 +5,3 @@ const CONFIG = {
     MAIN_SITE: "https://agtechscript.in",
     CDN_URL: "https://cdn.agtechscript.in"
 };
-
-// Global level par variables set kardo purani scripts ke liye
-const API_URL = CONFIG.SHEET_URL;
