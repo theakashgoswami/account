@@ -13,7 +13,7 @@ async function requireAuth() {
         });
 
         const data = await res.json();
-
+window.currentUser = data;
         console.log("AUTH RESULT =>", data);
 
         // ❌ Not logged in
