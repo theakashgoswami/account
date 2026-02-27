@@ -1,16 +1,20 @@
+// dashboard.js
 document.addEventListener("DOMContentLoaded", async () => {
+    // 1. Wait for Auth Guard to finish
+    const isAuthenticated = await requireAuth(); 
+    
+    // 2. Agar auth fail hua (false aaya), toh aage mat badho
+    if (!isAuthenticated) return; 
 
-    renderNavbar("home");
-
-    // Wait for guard.js to fill window.currentUser
-    if (!window.currentUser) return;
-
+    // 3. Ab data safely use karo
+    console.log("User Verified:", window.currentUser);
+    
     document.getElementById("dashboardContent").style.display = "block";
-
-    const name = window.currentUser.name || window.currentUser.user_id;
+    const name = window.currentUser.user_id || "User";
     document.getElementById("username").innerText = name;
 
-    // Load user notifications
+    // Load Data
+    renderNavbar("home");
     const result = await getNotifications();
 
     const box = document.getElementById("notifications");

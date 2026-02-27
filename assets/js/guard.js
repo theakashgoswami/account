@@ -50,6 +50,3 @@ function showUnauthorized() {
 
     return false;
 }
-
-// Auto-run
-requireAuth();
