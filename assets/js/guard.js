@@ -1,42 +1,22 @@
 async function requireAuth() {
-    const WORKER = "https://api.agtechscript.in";
-    const host = window.location.host;
+    const clientHost = window.location.host;
 
-    console.log("CLIENT HOST =>", host);
+    const res = await fetch(`${CONFIG.WORKER_URL}/api/auth/status`, {
+        credentials: "include",
+        headers: { "X-Client-Host": clientHost }
+    });
 
-    try {
-        const res = await fetch(`${CONFIG.WORKER_URL}/api/auth/status`, {
-            credentials: "include",
-            headers: {
-                "X-Client-Host": host
-            }
-        });
+    const data = await res.json();
 
-        const data = await res.json();
-window.currentUser = data;
-        console.log("AUTH RESULT =>", data);
+    console.log("AUTH RESULT =>", data);
 
-        // ❌ Not logged in
-        if (!data.authenticated) {
-            return showUnauthorized();
-        }
-
-        // 🔥 Save user globally
-        window.currentUser = {
-            user_id: data.user_id,
-            role: data.role,
-            profile_image: data.profile_image,
-            redirect: data.redirect
-        };
-
-        return true;
-
-    } catch (err) {
-        console.error("AUTH ERROR =>", err);
-        return showUnauthorized();
+    // ⭐⭐⭐ MAIN FIX ⭐⭐⭐
+    if (data.authenticated) {
+        window.currentUser = data;   // <-- यहीं problem थी
     }
-}
 
+    return data.authenticated;
+}
 function showUnauthorized() {
     document.body.innerHTML = `
     <div style="padding:40px;color:white;text-align:center">
