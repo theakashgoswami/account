@@ -1,12 +1,10 @@
 // guard.js
 async function requireAuth() {
-    const WORKER = "https://api.agtechscript.in";
-
     try {
         const clientHost = window.location.host || "";
         console.log("CLIENT HOST =>", clientHost);
 
-        const res = await fetch(`${WORKER}/api/auth/status`, {
+        const res = await fetch(`${CONFIG.WORKER_URL}/api/auth/status`, {
             credentials: "include",
             headers: {
                 "X-Client-Host": clientHost  // 🔥 FINAL FIX
