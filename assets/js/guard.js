@@ -3,9 +3,12 @@ async function requireAuth() {
     const WORKER = "https://api.agtechscript.in";
 
     try {
-        // Session check
+        // Session check (X-Client-Host added)
         const res = await fetch(`${WORKER}/api/auth/status`, {
-            credentials: "include"
+            credentials: "include",
+            headers: {
+                "X-Client-Host": window.location.host
+            }
         });
 
         const data = await res.json();
@@ -14,8 +17,7 @@ async function requireAuth() {
             return showUnauthorized();
         }
 
-        // Subdomain + role check worker already करता है
-        // बस error repeat ना हो इसलिए double check
+        // Subdomain check (Optional, because worker already does)
         const host = window.location.host.split(".")[0];
         const allowed = data.redirect.replace("https://", "").split(".")[0];
 
@@ -23,7 +25,6 @@ async function requireAuth() {
             return showUnauthorized();
         }
 
-        // Auth OK → save globally
         window.currentUser = data;
         return true;
 
