@@ -5,7 +5,7 @@ async function requireAuth() {
     console.log("CLIENT HOST =>", host);
 
     try {
-        const res = await fetch(`${WORKER}/api/auth/status`, {
+        const res = await fetch(`${CONFIG.WORKER_URL}/api/auth/status`, {
             credentials: "include",
             headers: {
                 "X-Client-Host": host
