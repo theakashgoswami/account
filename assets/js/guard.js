@@ -3,27 +3,24 @@ async function requireAuth() {
     const WORKER = "https://api.agtechscript.in";
 
     try {
-        // Session check (X-Client-Host added)
+        const clientHost = window.location.host || "";
+        console.log("CLIENT HOST =>", clientHost);
+
         const res = await fetch(`${WORKER}/api/auth/status`, {
             credentials: "include",
             headers: {
-                "X-Client-Host": window.location.host
+                "X-Client-Host": clientHost  // 🔥 FINAL FIX
             }
         });
 
         const data = await res.json();
 
-        if (!data.authenticated) {
-            return showUnauthorized();
-        }
+        if (!data.authenticated) return showUnauthorized();
 
-        // Subdomain check (Optional, because worker already does)
-        const host = window.location.host.split(".")[0];
-        const allowed = data.redirect.replace("https://", "").split(".")[0];
+        const hostSub = clientHost.split(".")[0];
+        const allowedSub = data.redirect.replace("https://", "").split(".")[0];
 
-        if (host !== allowed) {
-            return showUnauthorized();
-        }
+        if (hostSub !== allowedSub) return showUnauthorized();
 
         window.currentUser = data;
         return true;
