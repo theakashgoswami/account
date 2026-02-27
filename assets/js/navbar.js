@@ -4,7 +4,7 @@ function renderNavbar(active = "home") {
     const NAV = `
         <nav class="navbar">
             <div class="nav-left">
-                <img src="https://cdn.agtechscript.in/logo.png" class="logo">
+                <img src="https://cdn.agtechscript.in/AGTechScript.webp" class="logo">
                 <span class="brand">AG TechScript</span>
             </div>
 

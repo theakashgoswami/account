@@ -35,7 +35,7 @@ function showUnauthorized() {
     <div style="
         background:#000;
         color:#fff;
-        height:100vh;
+        height:50vw;
         display:flex;
         flex-direction:column;
         align-items:center;
@@ -44,7 +44,7 @@ function showUnauthorized() {
     ">
         <h1>Unauthorized Access 🚫</h1>
         <p>You are not logged in or session expired.</p>
-        <button onclick="window.location.href='https://agtechscript.in?action=openAuth'"
+        <button onclick="window.location.href='https://agtechscript.in?action=openAuthOverlay()'"
             style="padding:12px 25px; border-radius:8px; border:none; background:#0ff; cursor:pointer;">
             Go to Login
         </button>
