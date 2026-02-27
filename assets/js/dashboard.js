@@ -29,25 +29,63 @@ document.addEventListener("DOMContentLoaded", async () => {
     await loadNotifications();
 });
 
+// assets/js/dashboard.js - ADD DETAILED LOGGING
 async function loadNotifications() {
     const box = document.getElementById("notifications");
     
+    console.log("📊 Loading notifications...");
+    console.log("window.currentUser:", window.currentUser);
+    
+    // Check if user is authenticated
+    if (!window.currentUser) {
+        console.error("❌ No user found!");
+        box.innerHTML = "<div class='note-card error'>Please login again</div>";
+        return;
+    }
+    
+    console.log("👤 User ID:", window.currentUser.user_id);
+    
     try {
         const result = await getNotifications();
-
-        if (!result.success || !result.notifications || result.notifications.length === 0) {
+        
+        console.log("📨 Notifications result:", result);
+        
+        // Check for different response structures
+        if (!result) {
+            console.error("❌ No response data");
+            box.innerHTML = "<div class='note-card error'>No response from server</div>";
+            return;
+        }
+        
+        if (result.error) {
+            console.error("❌ API Error:", result.error);
+            box.innerHTML = `<div class='note-card error'>Error: ${result.error}</div>`;
+            return;
+        }
+        
+        // Check both possible response formats
+        const notifications = result.notifications || result.data || [];
+        
+        if (!result.success || notifications.length === 0) {
+            console.log("ℹ️ No notifications found");
             box.innerHTML = "<div class='note-card'>No notifications found.</div>";
             return;
         }
 
-        box.innerHTML = result.notifications.map(n => `
+        console.log(`✅ Found ${notifications.length} notifications`);
+        
+        box.innerHTML = notifications.map((n, index) => {
+            console.log(`Notification ${index}:`, n);
+            return `
             <div class="note-card">
-                <b>${n.activity || 'Activity'}</b>
-                <p>${n.details || 'No details'}</p>
-                <span class="note-time">${n.timestamp || new Date().toLocaleString()}</span>
+                <b>${n.activity || n.title || 'Activity'}</b>
+                <p>${n.details || n.message || n.description || 'No details'}</p>
+                <span class="note-time">${n.timestamp || n.date || n.created_at || new Date().toLocaleString()}</span>
             </div>
-        `).join("");
+        `}).join("");
+        
     } catch (error) {
+        console.error("❌ Error in loadNotifications:", error);
         box.innerHTML = "<div class='note-card error'>Failed to load notifications</div>";
     }
 }

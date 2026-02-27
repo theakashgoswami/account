@@ -1,5 +1,7 @@
-// assets/js/api.js - REPLACE ENTIRE FILE
 async function getNotifications() {
+    console.log("🔍 Fetching notifications...");
+    console.log("Current user:", window.currentUser);
+    
     try {
         const res = await fetch(`${CONFIG.WORKER_URL}/api/user/notifications`, {
             credentials: "include",
@@ -9,13 +11,15 @@ async function getNotifications() {
             }
         });
         
-        if (!res.ok) {
-            throw new Error(`HTTP ${res.status}`);
-        }
+        console.log("📡 Response status:", res.status);
+        console.log("📡 Response headers:", [...res.headers.entries()]);
         
-        return await res.json();
+        const data = await res.json();
+        console.log("📦 Response data:", data);
+        
+        return data;
     } catch (error) {
-        console.error("getNotifications failed:", error);
+        console.error("❌ Fetch failed:", error);
         return { success: false, error: error.message };
     }
 }
