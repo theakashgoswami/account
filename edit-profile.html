@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Profile · AG Neon</title>
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <!-- Your CSS -->
+    <link rel="stylesheet" href="assets/css/style.css">
+    
+    <!-- Your JS Files -->
+<!-- ✅ SCRIPT ORDER - IMPORTANT! -->
+<script src="assets/js/config.js"></script>   <!-- PEHLE CONFIG -->
+<script src="assets/js/api.js"></script>      <!-- PHIR API -->
+<script src="assets/js/guard.js"></script>    
+<script src="assets/js/navbar.js"></script>
+<script src="assets/js/edit-profile.js" defer></script>
+</head>
+<body>
+<!-- HEADER -->
+<script src="assets/js/header.js"></script>
+<div id="navbar"></div>
+
+<div class="profile-container">
+    
+    <!-- Header -->
+    <div class="profile-header">
+        <div class="profile-title">
+            <i class="fas fa-user-astronaut"></i>
+            Edit Profile
+        </div>
+        
+        <div class="profile-stats-badge">
+            <div class="stat-pill">
+                <i class="fas fa-star"></i>
+                <span id="displayPoints">0</span> <small>pts</small>
+            </div>
+            <div class="stat-pill">
+                <i class="fas fa-ticket-alt"></i>
+                <span id="displayStamps">0</span> <small>stamps</small>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Profile Card -->
+    <div class="profile-card">
+        
+        <!-- Left - Profile Image -->
+        <div class="profile-image-section">
+            <div class="image-container">
+                <img id="profilePreview" class="profile-preview" 
+                     src="https://via.placeholder.com/150?text=User" 
+                     alt="Profile Picture">
+                
+                <!-- Upload Button -->
+                <div id="uploadBtn" class="image-upload-btn">
+                    <i class="fas fa-camera"></i>
+                </div>
+                
+                <!-- Hidden File Input -->
+                <input type="file" id="profileImage" accept="image/*" style="display: none;">
+            </div>
+            
+            <!-- Remove Image Button -->
+            <div id="removeImageBtn" class="remove-image-btn" style="display: none;">
+                <i class="fas fa-trash-alt"></i> Remove Image
+            </div>
+            
+            <div class="member-info">
+                <p id="memberId">
+                    <i class="fas fa-id-card"></i> AG1001
+                </p>
+                <p id="memberSince">
+                    <i class="fas fa-calendar-alt"></i> Member since 2026
+                </p>
+                <p>
+                    <i class="fas fa-shield-alt"></i> Account: Active
+                </p>
+            </div>
+        </div>
+        
+        <!-- Right - Edit Form -->
+        <div class="profile-form-section">
+            
+            <!-- Personal Information -->
+            <div class="form-section-title">
+                <i class="fas fa-user"></i>
+                Personal Information
+            </div>
+            
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" id="fullName" class="form-control" 
+                           placeholder="Enter your full name">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" id="email" class="form-control" 
+                           placeholder="your@email.com">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Mobile Number</label>
+                    <input type="tel" id="mobile" class="form-control" 
+                           placeholder="10-digit mobile number">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Date of Birth</label>
+                    <input type="date" id="dob" class="form-control">
+                </div>
+                
+                <div class="form-group full-width">
+                    <label class="form-label">Address</label>
+                    <textarea id="address" class="form-control" 
+                              placeholder="Enter your complete address" rows="3"></textarea>
+                </div>
+            </div>
+            
+            <!-- Password Change Section -->
+            <div class="password-section">
+                <div class="form-section-title">
+                    <i class="fas fa-lock"></i>
+                    Change Password
+                </div>
+                
+                <div class="password-hint">
+                    <i class="fas fa-info-circle"></i>
+                    Leave blank to keep current password
+                </div>
+                
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">New Password</label>
+                        <input type="password" id="newPassword" class="form-control" 
+                               placeholder="••••••••">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Confirm Password</label>
+                        <input type="password" id="confirmPassword" class="form-control" 
+                               placeholder="••••••••">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Form Actions -->
+            <div class="form-actions">
+                <button onclick="cancelEdit()" class="btn btn-secondary">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+                <button onclick="saveProfile()" id="saveProfileBtn" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save Changes
+                </button>
+            </div>
+            
+        </div>
+    </div>
+    
+    <!-- Info Card -->
+    <div style="background: rgba(0,0,0,0.2); border-radius: 20px; padding: 15px 25px; margin-top: 30px; border: 1px solid rgba(255,255,255,0.03); display: flex; align-items: center; gap: 15px; backdrop-filter: blur(10px);">
+        <i class="fas fa-shield-alt" style="color: #00ffe0; font-size: 1.3rem;"></i>
+        <span style="opacity: 0.8;">Your information is encrypted and secure. Profile pictures are stored in Google Drive.</span>
+        <span style="margin-left: auto; background: rgba(0,255,200,0.1); padding: 5px 15px; border-radius: 50px; font-size: 0.8rem;">
+            <i class="fas fa-lock"></i> SSL Secure
+        </span>
+    </div>
+    
+</div>
+
+<script>
+    renderNavbar("profile");
+</script>
+<!-- FOOTER -->
+<script src="assets/js/footer.js"></script>
+</body>
+</html>

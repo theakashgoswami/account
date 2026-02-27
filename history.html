@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>History · AG Neon</title>
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <!-- Your CSS -->
+    <link rel="stylesheet" href="assets/css/style.css">
+    
+    <!-- Your JS Files -->
+    <script src="assets/js/guard.js"></script>
+    <script src="assets/js/config.js"></script>
+    <script src="assets/js/api.js"></script>
+    <script src="assets/js/navbar.js"></script>
+    <script src="assets/js/history.js" defer></script>
+</head>
+<body>
+<!-- HEADER -->
+<script src="assets/js/header.js"></script>
+<div id="navbar"></div>
+
+<div class="history-container">
+    
+    <!-- Header with Title and Filter -->
+    <div class="history-header">
+        <div class="history-title">
+            <i class="fas fa-history"></i>
+            Activity History
+        </div>
+        
+        <div class="filter-container">
+            <span class="filter-label">
+                <i class="fas fa-filter" style="margin-right: 5px;"></i> Filter:
+            </span>
+            <select id="historyType" class="history-filter">
+                <option value="purchase">🛒 Purchase History</option>
+                <option value="spin">🎡 Spin History</option>
+                <option value="quiz">🧠 Quiz History</option>
+                <option value="points">💎 Points Log</option>
+            </select>
+        </div>
+    </div>
+    
+    <!-- Summary Stats Cards -->
+    <div class="summary-stats">
+        <!-- Dynamically populated by JS -->
+    </div>
+    
+    <!-- History Table - Glass Card -->
+    <div class="table-wrapper">
+        <table id="historyTable">
+            <thead>
+                <tr id="historyHeader"></tr>
+            </thead>
+            <tbody id="historyBody">
+                <!-- Content loaded via JS -->
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Info Card -->
+    <div style="background: rgba(0,0,0,0.2); border-radius: 20px; padding: 15px 25px; margin-top: 30px; border: 1px solid rgba(255,255,255,0.03); display: flex; align-items: center; gap: 15px; backdrop-filter: blur(10px);">
+        <i class="fas fa-chart-line" style="color: #00ffe0; font-size: 1.3rem;"></i>
+        <span style="opacity: 0.8;">Showing last 50 transactions. View full history in your profile.</span>
+        <span style="margin-left: auto; background: rgba(0,255,200,0.1); padding: 5px 15px; border-radius: 50px; font-size: 0.8rem;">
+            <i class="fas fa-sync-alt"></i> Live
+        </span>
+    </div>
+    
+</div>
+
+<script>
+    renderNavbar("history");
+</script>
+<!-- FOOTER -->
+<script src="assets/js/footer.js"></script>
+</body>
+</html>

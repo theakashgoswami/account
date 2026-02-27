@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Earn · AG</title>
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <!-- Your CSS -->
+    <link rel="stylesheet" href="assets/css/style.css">
+    
+    <!-- Your JS Files -->
+    <script src="assets/js/guard.js"></script>
+    <script src="assets/js/config.js"></script>
+    <script src="assets/js/api.js"></script>
+    <script src="assets/js/navbar.js"></script>
+	<script src="assets/js/spin.js"></script> 
+    <script src="assets/js/earn.js" defer></script>
+</head>
+<body>
+<!-- HEADER -->
+<script src="assets/js/header.js"></script>
+<div id="navbar"></div>
+
+<div class="earn-container">
+    
+    <!-- Header -->
+    <div class="earn-header">
+        <i class="fas fa-coins"></i>
+        Earn Points & Stamps
+        <span style="font-size: 0.9rem; background: rgba(0,255,200,0.1); padding: 5px 15px; border-radius: 50px; margin-left: 15px;">
+            <i class="fas fa-bolt"></i> daily rewards
+        </span>
+    </div>
+
+    <!-- Quiz Section -->
+    <div class="earn-section">
+        <h3>
+            <i class="fas fa-brain"></i>
+            Weekly Quiz
+            <span style="font-size: 0.9rem; background: rgba(255,215,0,0.1); padding: 5px 15px; border-radius: 50px; color: #ffd700;">
+                <i class="fas fa-star"></i> +50 pts
+            </span>
+        </h3>
+        <div id="quizContainer">Loading quiz...</div>
+    </div>
+	<!-- Spin Counter Display -->
+<div id="spinCounter" class="spin-counter"></div>
+
+<!-- Spin Wheel -->
+<div class="spin-wheel-preview"></div>
+
+<!-- Spin Button -->
+<button onclick="spinWheel()" class="spin-btn">
+    <i class="fas fa-play"></i> SPIN NOW
+</button>
+
+<!-- Spin Result -->
+<div id="spinResult" class="spin-result"></div>
+    <!-- Small info card -->
+    <div style="background: rgba(0,0,0,0.2); border-radius: 20px; padding: 15px 25px; margin-top: 20px; border: 1px solid rgba(255,255,255,0.03); display: flex; align-items: center; gap: 15px; backdrop-filter: blur(10px);">
+        <i class="fas fa-info-circle" style="color: #00ffe0; font-size: 1.3rem;"></i>
+        <span style="opacity: 0.8;">Complete quiz and spin wheel to earn points & stamps!</span>
+    </div>
+    
+</div>
+
+<script>
+    renderNavbar("earn");
+</script>
+<!-- FOOTER -->
+<script src="assets/js/footer.js"></script>
+</body>
+</html>

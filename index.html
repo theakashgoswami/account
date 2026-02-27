@@ -1,46 +1,28 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AG TechScript Dashboard</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Dashboard</title>
+
+    <link rel="stylesheet" href="../assets/css/style.css">
+
+    <script src="../assets/js/guard.js"></script>
+    <script src="../assets/js/config.js"></script>
+    <script src="../assets/js/api.js"></script>
+    <script src="../assets/js/navbar.js"></script>
+
+    <script src="../assets/js/dashboard.js" defer></script>
 </head>
+
 <body>
-    <div id="app">
-        <!-- Header will be injected here -->
-        <header id="mainHeader"></header>
-        
-        <!-- Main Content -->
-        <main id="mainContent">
-            <div class="loader">
-                <div class="spinner"></div>
-                <p>Verifying access...</p>
-            </div>
-        </main>
-        
-        <!-- Footer -->
-        <footer id="mainFooter"></footer>
-    </div>
-    
-    <!-- Hidden Templates -->
-    <template id="unauthorized-template">
-        <div class="unauthorized-container">
-            <div class="error-card">
-                <div class="error-icon">🚫</div>
-                <h1>Access Denied</h1>
-                <p>You don't have permission to access this panel.</p>
-                <p class="error-detail" id="errorDetail"></p>
-                <button onclick="window.location.href='https://agtechscript.in'" 
-                        class="btn-primary">
-                    Go to Homepage
-                </button>
-            </div>
-        </div>
-    </template>
-    
-    <script src="config.js"></script>
-    <script src="auth.js"></script>
-    <script src="dashboard.js"></script>
+
+<div id="navbar"></div>
+
+<div id="dashboardContent" style="display:none;">
+    <h2 class="welcome-text">Welcome <span id="username"></span> 👋</h2>
+
+    <h3 class="section-title">Notifications</h3>
+    <div id="notifications"></div>
+</div>
+
 </body>
 </html>
