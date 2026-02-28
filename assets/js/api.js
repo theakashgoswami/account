@@ -11,7 +11,7 @@ async function getNotifications() {
         
         return await res.json();
     } catch (error) {
-        console.error("getNotifications failed:", error); // Sirf error log rakho
+        console.error("getNotifications failed:", error); 
         return { success: false, error: error.message };
     }
 }

@@ -4,8 +4,7 @@ let currentUserData = null;
 
 // Initialize page
 document.addEventListener("DOMContentLoaded", async function() {
-    console.log("📝 Edit profile page loaded");
-    
+        
     // Load header
     await loadHeader();
     
@@ -49,8 +48,6 @@ async function waitForUser() {
         window.location.href = "https://agtechscript.in";
         return;
     }
-    
-    console.log("✅ User authenticated:", window.currentUser);
 }
 
 // Load profile data from API
@@ -65,7 +62,7 @@ async function loadProfileData() {
         });
         
         const data = await response.json();
-        console.log("📦 Profile data:", data);
+       
         
         if (data.success) {
             currentUserData = data;

@@ -118,3 +118,23 @@
         initHeader();
     }
 })();
+async function loadHeader() {
+    try {
+        const response = await fetch("/partials/header.html");
+        const html = await response.text();
+        
+        document.getElementById("header-container").innerHTML = html;
+        
+        // Wait a tiny bit for DOM to update
+        await new Promise(r => setTimeout(r, 50));
+        
+        // Load user profile icon
+        if (window.currentUser?.user_id && typeof loadUserProfileIcon === 'function') {
+            await loadUserProfileIcon(window.currentUser.user_id);
+           
+        }
+        
+    } catch (error) {
+        console.error("❌ Header load failed:", error);
+    }
+}

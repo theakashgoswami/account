@@ -54,16 +54,16 @@
         }
     </style>
     
-    <!-- Critical script to show loading indicator -->
+
     <script>
-        // Show loading indicator if dashboard takes too long
+       
         setTimeout(() => {
             if (document.getElementById('dashboardContent').style.display === 'none') {
                 document.getElementById('loadingIndicator').style.display = 'block';
             }
         }, 2000);
         
-        // Hide loading indicator when dashboard loads
+      
         window.addEventListener('load', function() {
             setTimeout(() => {
                 document.getElementById('loadingIndicator').style.display = 'none';

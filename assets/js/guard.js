@@ -31,7 +31,6 @@ async function requireAuth() {
     }
 }
 
-// Rest of the functions remain same...
 
 function showSubdomainError(expected, current) {
     document.body.innerHTML = `
