@@ -16,8 +16,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
     }
 
-    // Render navbar first
-    renderNavbar("home");
 
     // Show dashboard
     document.getElementById("dashboardContent").style.display = "block";
