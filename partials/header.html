@@ -1,0 +1,194 @@
+<header id="header" class="header">
+    <div class="header-wrapper">
+        
+        <div class='header-logo-title'>
+            <a class='header-logo-link' href='https://about.me/agtechscript' target="_blank">
+                <img class="header-logo-image" alt="AG TechScript" src="/assets/images/AGTechScript.webp"> 
+            </a>
+
+            <h1 class='header-blog-title'>
+                <a class='blog-title-link' href='https://agtechscript.in'>AG TechScript</a>
+            </h1>
+
+            <button class='nav-toggle' id='navToggle' aria-label='Toggle navigation'>&#9776;</button>
+        </div>
+
+        <nav class='navbar' id='mainNav'>
+            <div class='nav-container'>
+                <ul class='nav-menu' id='nav-menu'>
+
+                    <!-- home - Gift SVG -->
+                    <li>
+                        <a href='#'>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                <polyline points="20 12 20 22 4 22 4 12"></polyline>
+                                <rect x="2" y="7" width="20" height="5"></rect>
+                                <line x1="12" y1="22" x2="12" y2="7"></line>
+                                <path d="M12 7c-2 0-3.5-1.5-3.5-3S10 1 12 3v4z"></path>
+                                <path d="M12 7c2 0 3.5-1.5 3.5-3S14 1 12 3v4z"></path>
+                            </svg>
+                            Home
+                        </a>
+                    </li>
+
+                    <!-- Earn - Briefcase SVG -->
+                    <li>
+                        <a href='/earn.html'>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                                <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"></path>
+                            </svg>
+                            Earn
+                        </a>
+                    </li>
+
+                    <!-- Use - Box SVG -->
+                    <li>
+                        <a href='/use.html'>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 
+                                2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 
+                                0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 
+                                0 0 21 16z"></path>
+                                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                            </svg>
+                            Use
+                        </a>
+                    </li>
+
+                    <!-- History - Info Circle SVG -->
+                    <li>
+                        <a href='/history.html'>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="16" x2="12" y2="12"></line>
+                                <circle cx="12" cy="8" r="1"></circle>
+                            </svg>
+                            History
+                        </a>
+                    </li>
+
+                    <!-- User Icon with Overlay -->
+                    <li>
+                        <div class="header-right">
+                            <div class="user-icon" onclick="toggleUserOverlay()" id="userIcon">
+                                <svg width="24" height="24" viewBox="0 0 24 24"
+                                     fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 
+                                    0-4 4v2"></path>
+                                    <circle cx="12" cy="7" r="4"></circle>
+                                </svg>
+                                <span class="user-status" id="userStatus"></span>
+                            </div>
+                        </div>
+                    </li>
+
+                </ul>
+            </div>
+        </nav>
+
+    </div>
+</header>
+
+<!-- User Overlay (Right Top Box) -->
+<div class="user-overlay" id="userOverlay">
+    <div class="overlay-header">
+        <div class="user-profile-mini">
+            <img id="overlayUserImage" src="/assets/images/default-avatar.png" alt="User" class="overlay-avatar">
+            <div class="overlay-user-info">
+                <h3 id="overlayUserName">Loading...</h3>
+                <span class="overlay-user-id" id="overlayUserId">@username</span>
+            </div>
+            <button class="close-overlay" onclick="toggleUserOverlay()">&times;</button>
+        </div>
+    </div>
+    
+    <div class="overlay-stats">
+        <div class="stat-item">
+            <span class="stat-label">Points</span>
+            <span class="stat-value" id="userPoints">0</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Stamps</span>
+            <span class="stat-value" id="userStamps">0</span>
+        </div>
+    </div>
+    
+    <div class="overlay-actions">
+        <button class="overlay-btn edit-btn" onclick="openEditProfile()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+            </svg>
+            Edit Profile
+        </button>
+        
+        <button class="overlay-btn logout-btn" onclick="logout()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            Logout
+        </button>
+    </div>
+</div>
+
+<!-- Edit Profile Full Screen Overlay -->
+<div class="edit-profile-overlay" id="editProfileOverlay">
+    <div class="edit-profile-container">
+        <div class="edit-profile-header">
+            <h2>Edit Profile</h2>
+            <button class="close-edit" onclick="closeEditProfile()">&times;</button>
+        </div>
+        
+        <div class="edit-profile-body">
+            <div class="profile-image-upload">
+                <img id="editProfileImage" src="/assets/images/default-avatar.png" alt="Profile">
+                <button class="change-photo-btn" onclick="triggerFileUpload()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                        <circle cx="12" cy="13" r="4"></circle>
+                    </svg>
+                    Change Photo
+                </button>
+                <input type="file" id="profileImageInput" accept="image/*" style="display: none;">
+            </div>
+            
+            <form id="editProfileForm">
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="editName" placeholder="Enter your name">
+                </div>
+                
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="editEmail" placeholder="Enter your email" readonly>
+                    <small>Email cannot be changed</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Phone</label>
+                    <input type="tel" id="editPhone" placeholder="Enter phone number">
+                </div>
+                
+                <div class="form-group">
+                    <label>Address</label>
+                    <textarea id="editAddress" placeholder="Enter your address" rows="3"></textarea>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="cancel-btn" onclick="closeEditProfile()">Cancel</button>
+                    <button type="submit" class="save-btn">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Overlay Background -->
+<div class="overlay-backdrop" id="overlayBackdrop" onclick="closeAllOverlays()"></div>
