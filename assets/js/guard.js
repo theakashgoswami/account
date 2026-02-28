@@ -1,4 +1,4 @@
-// assets/js/guard.js - REPLACE ENTIRE FILE
+// assets/js/guard.js - FINAL VERSION
 async function requireAuth() {
     const clientHost = window.location.host;
 
@@ -10,10 +10,9 @@ async function requireAuth() {
 
         const data = await res.json();
 
-        console.log("AUTH RESULT =>", data);
-
-        // ⭐⭐⭐ CHECK FOR SUBDOMAIN ERROR ⭐⭐⭐
+        // Sirf error case mein log karo
         if (data.error === "Unauthorized Subdomain") {
+            console.warn("Subdomain mismatch:", data);
             showSubdomainError(data.expected, data.current);
             return false;
         }
@@ -22,7 +21,6 @@ async function requireAuth() {
             window.currentUser = data;
             return true;
         } else {
-            // Redirect to main site if not authenticated
             window.location.href = "https://agtechscript.in";
             return false;
         }
@@ -32,6 +30,8 @@ async function requireAuth() {
         return false;
     }
 }
+
+// Rest of the functions remain same...
 
 function showSubdomainError(expected, current) {
     document.body.innerHTML = `

@@ -1,7 +1,5 @@
+// assets/js/api.js - FINAL VERSION (remove all console.log)
 async function getNotifications() {
-    console.log("🔍 Fetching notifications...");
-    console.log("Current user:", window.currentUser);
-    
     try {
         const res = await fetch(`${CONFIG.WORKER_URL}/api/user/notifications`, {
             credentials: "include",
@@ -11,20 +9,13 @@ async function getNotifications() {
             }
         });
         
-        console.log("📡 Response status:", res.status);
-        console.log("📡 Response headers:", [...res.headers.entries()]);
-        
-        const data = await res.json();
-        console.log("📦 Response data:", data);
-        
-        return data;
+        return await res.json();
     } catch (error) {
-        console.error("❌ Fetch failed:", error);
+        console.error("getNotifications failed:", error); // Sirf error log rakho
         return { success: false, error: error.message };
     }
 }
 
-// Add other API functions here
 async function getUserProfile() {
     if (!window.currentUser?.user_id) return null;
     
