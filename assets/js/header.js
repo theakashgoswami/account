@@ -2,7 +2,7 @@
 (function() {
     // Guard to prevent multiple initializations
     if (window.headerInitialized) {
-        console.log("Header already initialized, skipping...");
+       
         return;
     }
     
@@ -12,12 +12,12 @@
         const customHeader = document.getElementById("header");
 
         if (!navToggle || !mainNav || !customHeader) {
-            console.warn("⏳ Header not found. Retrying...");
+          
             setTimeout(initHeader, 300);
             return;
         }
 
-        console.log("✅ Header Ready");
+        
 
         let lastScrollY = window.scrollY;
         let ticking = false;
@@ -42,10 +42,10 @@
             if (mainNav.classList.contains("active")) {
                 finalNavToggle.innerHTML = "✕";
                 finalNavToggle.style.fontSize = "1.8rem";
-                console.log("Nav opened"); // Single log
+                
             } else {
                 finalNavToggle.innerHTML = "☰";
-                console.log("Nav closed"); // Single log
+               
             }
         });
 

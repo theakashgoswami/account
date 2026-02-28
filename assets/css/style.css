@@ -18,6 +18,10 @@ header{background:linear-gradient(135deg,#0a0f2c,#081b61,#0047ff);position:fixed
 .nav-toggle:hover{background-color:#ffffff26;transform:scale(1.05)}
 @media (min-width:769px){.nav-menu li a::after{content:'';position:absolute;bottom:5px;left:50%;transform:translateX(-50%);width:0;height:2px;background:#00e6ff;transition:width .3s}
 .nav-menu li a:hover::after{width:30px}}
+@media (max-width:1024px){.footer-main{grid-template-columns:1fr 1fr}.footer-contact-section{grid-column:span 2}}
+@media (max-width:768px){.header-wrapper{flex-direction:column}.header-logo-title{width:100%;justify-content:space-between}.header-logo-image{height:40px}.header-blog-title{font-size:1.3rem}.nav-toggle{display:block}.navbar{width:100%;display:none;margin-top:15px;background:#0a0f2cf2;backdrop-filter:blur(10px);border-radius:15px;padding:10px 0}.navbar.active{display:block;animation:slideDown .3s}.nav-menu{flex-direction:column}.nav-menu li a{padding:14px 20px;border-radius:0}.brand-heading{font-size:20px;padding-top:90px}.stories-container{max-width:95vw;height:300px}.units-title{font-size:2rem}.auth-overlay-content{width:95%;padding:25px}.auth-tabs{flex-direction:column;border-radius:20px}.footer-main,.footer-links-grid{display:block}.footer-bottom-content{flex-direction:column;text-align:center}.footer-logo-img{width:50px;height:50px}.ai-floating-btn{right:70px;padding:5px 8px}.ai-btn-text{display:none}.ai-btn-icon{font-size:1.5rem}}
+@media (max-width:480px){.auth-overlay-content{padding:20px}.close-btn{width:40px;height:40px;font-size:24px}.header-logo-image{height:35px}.header-blog-title{font-size:1.1rem}.nav-toggle{font-size:1.5rem}.footer-container{padding:0 20px}.footer-brand,.footer-contact-section,.footer-links-section{padding:20px}.footer-social{justify-content:center}}
+
 /* User Overlay Styles */
 /* Add to style.css */
 
@@ -51,37 +55,7 @@ header{background:linear-gradient(135deg,#0a0f2c,#081b61,#0047ff);position:fixed
     border-radius: 50%;
 }
 
-/* Mobile Menu Fixes */
-@media (max-width: 768px) {
-    .navbar {
-        position: fixed;
-        top: 70px;
-        left: -100%;
-        width: 80%;
-        height: calc(100vh - 70px);
-        background: linear-gradient(135deg,#0a0f2c,#081b61,#0047ff);
-        transition: left 0.3s ease;
-        z-index: 9998;
-        padding: 20px;
-    }
-    
-    .navbar.active {
-        left: 0;
-    }
-    
-    .nav-menu {
-        flex-direction: column;
-        gap: 15px;
-    }
-    
-    .nav-toggle {
-        display: block !important;
-    }
-    
-    .header-wrapper {
-        position: relative;
-    }
-}
+
 .user-overlay {
     position: fixed;
     top: 70px;

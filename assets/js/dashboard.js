@@ -1,4 +1,4 @@
-// assets/js/dashboard.js - MODIFIED VERSION
+
 document.addEventListener("DOMContentLoaded", async () => {
     
     // Wait for guard.js to set window.currentUser
@@ -40,7 +40,7 @@ async function loadHeader() {
         // ⚠️ IMPORTANT: Only call if NOT already initialized
         if (!window.headerInitialized && typeof initHeader === 'function') {
             initHeader();
-            console.log("✅ Header initialized");
+           
         } else if (window.headerInitialized) {
             console.log("⏩ Header already initialized, skipping...");
         } else {
@@ -50,7 +50,7 @@ async function loadHeader() {
         // Load user profile icon
         if (window.currentUser?.user_id && typeof loadUserProfileIcon === 'function') {
             await loadUserProfileIcon(window.currentUser.user_id);
-            console.log("✅ User icon loaded");
+           
         }
         
     } catch (error) {
