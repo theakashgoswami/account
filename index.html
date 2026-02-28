@@ -1,25 +1,56 @@
-<!-- index.html - REPLACE SCRIPT SECTION -->
+<!-- index.html - MOBILE OPTIMIZED FINAL VERSION -->
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Dashboard</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+    <!-- ⭐ CRITICAL: Mobile viewport meta with proper scaling -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="theme-color" content="#0047ff">
+    <meta name="description" content="AG TechScript Dashboard - Manage your earnings, points, and notifications">
     
-    <!-- Load scripts in correct order -->
-    <script src="../assets/js/config.js"></script>
-    <script src="../assets/js/api.js"></script>
-     <!-- guard.js will auto-run itself -->
-    <script src="../assets/js/guard.js"></script>
-    <script src="../assets/js/header.js"></script>
-     <script src="../assets/js/user-overlay.js"></script>
-   
+    <title>Dashboard - AG TechScript</title>
     
-    <!-- dashboard.js should load last -->
-    <script src="../assets/js/dashboard.js"></script>
+    <!-- Preconnect for faster API calls -->
+    <link rel="preconnect" href="https://api.agtechscript.in">
+    <link rel="preconnect" href="https://cdn.agtechscript.in">
+    
+    <!-- CSS with cache busting -->
+    <link rel="stylesheet" href="../assets/css/style.css?v=1.0.1">
+    
+    <!-- Load scripts in correct order with defer for performance -->
+    <script src="../assets/js/config.js?v=1.0.0" defer></script>
+    <script src="../assets/js/api.js?v=1.0.0" defer></script>
+    <script src="../assets/js/guard.js?v=1.0.0" defer></script>
+    <script src="../assets/js/header.js?v=1.0.1" defer></script>
+    <script src="../assets/js/user-overlay.js?v=1.0.0" defer></script>
+    <script src="../assets/js/dashboard.js?v=1.0.1" defer></script>
+    
+    <!-- Emergency fallback for mobile -->
+    <style>
+        /* Emergency mobile styles - will show if main CSS fails */
+        @media (max-width: 768px) {
+            body { 
+                font-family: Arial, sans-serif;
+                margin: 0;
+                padding: 0;
+                background: #f5f5f5;
+            }
+            #dashboardContent {
+                padding: 20px;
+            }
+            .welcome-text {
+                color: #0047ff;
+            }
+        }
+    </style>
 </head>
 <body>
-    <div id="header-container"></div>
+    <!-- Header container -->
+    <div id="header-container">
+        <!-- Fallback loading indicator -->
+        <div style="height: 70px; background: linear-gradient(135deg,#0a0f2c,#0047ff);"></div>
+    </div>
     
+    <!-- Main dashboard content -->
     <div id="dashboardContent" style="display:none;">
         <h2 class="welcome-text">Welcome <span id="username"></span> 👋</h2>
         
@@ -28,5 +59,35 @@
             <div class="note-card">Loading notifications...</div>
         </div>
     </div>
+    
+    <!-- Loading indicator for slow connections -->
+    <div id="loadingIndicator" style="display:none; text-align:center; padding:50px;">
+        <div style="border:3px solid #f3f3f3; border-top:3px solid #0047ff; border-radius:50%; width:50px; height:50px; animation:spin 1s linear infinite; margin:0 auto;"></div>
+        <p style="color:#0047ff; margin-top:20px;">Loading dashboard...</p>
+    </div>
+    
+    <style>
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+    
+    <!-- Critical script to show loading indicator -->
+    <script>
+        // Show loading indicator if dashboard takes too long
+        setTimeout(() => {
+            if (document.getElementById('dashboardContent').style.display === 'none') {
+                document.getElementById('loadingIndicator').style.display = 'block';
+            }
+        }, 2000);
+        
+        // Hide loading indicator when dashboard loads
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                document.getElementById('loadingIndicator').style.display = 'none';
+            }, 500);
+        });
+    </script>
 </body>
 </html>
