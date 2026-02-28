@@ -120,12 +120,12 @@
     </div>
     
     <div class="overlay-actions">
-        <button class="overlay-btn edit-btn" onclick="openEditProfile()">
+        <a href="/edit-profile.html" class="overlay-btn edit-btn">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
             </svg>
             Edit Profile
-        </button>
+        </a>
         
         <button class="overlay-btn logout-btn" onclick="logout()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -138,57 +138,6 @@
     </div>
 </div>
 
-<!-- Edit Profile Full Screen Overlay -->
-<div class="edit-profile-overlay" id="editProfileOverlay">
-    <div class="edit-profile-container">
-        <div class="edit-profile-header">
-            <h2>Edit Profile</h2>
-            <button class="close-edit" onclick="closeEditProfile()">&times;</button>
-        </div>
-        
-        <div class="edit-profile-body">
-            <div class="profile-image-upload">
-                <img id="editProfileImage" src="/assets/images/default-avatar.png" alt="Profile">
-                <button class="change-photo-btn" onclick="triggerFileUpload()">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-                        <circle cx="12" cy="13" r="4"></circle>
-                    </svg>
-                    Change Photo
-                </button>
-                <input type="file" id="profileImageInput" accept="image/*" style="display: none;">
-            </div>
-            
-            <form id="editProfileForm">
-                <div class="form-group">
-                    <label>Name</label>
-                    <input type="text" id="editName" placeholder="Enter your name">
-                </div>
-                
-                <div class="form-group">
-                    <label>Email</label>
-                    <input type="email" id="editEmail" placeholder="Enter your email" readonly>
-                    <small>Email cannot be changed</small>
-                </div>
-                
-                <div class="form-group">
-                    <label>Phone</label>
-                    <input type="tel" id="editPhone" placeholder="Enter phone number">
-                </div>
-                
-                <div class="form-group">
-                    <label>Address</label>
-                    <textarea id="editAddress" placeholder="Enter your address" rows="3"></textarea>
-                </div>
-                
-                <div class="form-actions">
-                    <button type="button" class="cancel-btn" onclick="closeEditProfile()">Cancel</button>
-                    <button type="submit" class="save-btn">Save Changes</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 
 <!-- Overlay Background -->
 <div class="overlay-backdrop" id="overlayBackdrop" onclick="closeAllOverlays()"></div>

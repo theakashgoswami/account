@@ -1,456 +1,331 @@
-let currentUser = null;
-let selectedImageFile = null;
-let imagePreviewUrl = null;
+// assets/js/edit-profile.js
 
-document.addEventListener("DOMContentLoaded", async () => {
-    // Check authentication
-    const userData = localStorage.getItem("ag_user");
-    if (!userData) {
-        window.location.href = "login.html";
-        return;
-    }
+let currentUserData = null;
+
+// Initialize page
+document.addEventListener("DOMContentLoaded", async function() {
+    console.log("📝 Edit profile page loaded");
     
-    try {
-        currentUser = JSON.parse(userData);
-    } catch (e) {
-        console.error("Invalid user data:", e);
-        localStorage.removeItem("ag_user");
-        window.location.href = "login.html";
-        return;
-    }
+    // Load header
+    await loadHeader();
     
-    // Load fresh profile data
-    await loadUserProfile();
+    // Wait for user authentication
+    await waitForUser();
     
-    // Initialize form with user data
-    populateForm();
+    // Load profile data
+    await loadProfileData();
     
-    // Setup image upload preview
-    setupImageUpload();
+    // Setup event listeners
+    setupEventListeners();
 });
 
-// Load latest profile from server
-async function loadUserProfile() {
+// Load header
+async function loadHeader() {
     try {
-        // ✅ CHECK: apiGetProfile exists?
-        if (typeof apiGetProfile !== 'function') {
-            console.error("❌ apiGetProfile function not found!");
-            showToast("⚠️ API Error: Reload page", "error");
-            return;
-        }
+        const response = await fetch("/partials/header.html");
+        const html = await response.text();
+        document.getElementById("header-container").innerHTML = html;
         
-        const res = await apiGetProfile(currentUser.id);
-        
-        if (res?.status === "success") {
-            // Merge new data with existing
-            currentUser = { 
-                ...currentUser, 
-                ...res,
-                // Preserve critical fields
-                id: res.id || currentUser.id,
-                points: res.points ?? currentUser.points ?? 0,
-                stamps: res.stamps ?? currentUser.stamps ?? 0
-            };
-            localStorage.setItem("ag_user", JSON.stringify(currentUser));
-        } else {
-            console.warn("Profile load failed:", res?.message);
-            showToast("⚠️ Using cached profile", "info");
+        if (typeof initHeader === 'function') {
+            initHeader();
         }
-    } catch (e) {
-        console.error("Error loading profile:", e);
-        showToast("⚠️ Could not load latest profile", "error");
+    } catch (error) {
+        console.error("Header load failed:", error);
     }
 }
 
-// Populate form with user data
-function populateForm() {
-    // Safety check
-    if (!currentUser) return;
+// Wait for user authentication
+async function waitForUser() {
+    let waitTime = 0;
+    const maxWait = 3000;
     
-    // Basic fields
-    setValue("fullName", currentUser.name);
-    setValue("email", currentUser.email);
-    setValue("mobile", currentUser.mobile);
-    setValue("address", currentUser.address);
-    
-    // ✅ FIXED: Date format for input type="date"
-    if (currentUser.dob) {
-        try {
-            let formattedDate = currentUser.dob;
-            
-            if (currentUser.dob.includes('T')) {
-                formattedDate = currentUser.dob.split('T')[0];
-            } else if (currentUser.dob.includes('/')) {
-                const parts = currentUser.dob.split('/');
-                if (parts.length === 3) {
-                    formattedDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-                }
-            }
-            
-            setValue("dob", formattedDate);
-        } catch (e) {
-            console.warn("Date format error:", e);
-            setValue("dob", "");
-        }
-    } else {
-        setValue("dob", "");
+    while (!window.currentUser && waitTime < maxWait) {
+        await new Promise(r => setTimeout(r, 100));
+        waitTime += 100;
     }
     
-    // ✅ FIXED: Profile image with better fallback
-    const profileImg = document.getElementById("profilePreview");
-    if (profileImg) {
-        if (currentUser.profile && currentUser.profile !== "null" && currentUser.profile !== "undefined") {
-            profileImg.src = currentUser.profile;
-        } else {
-            // Generate avatar from name
-            const name = encodeURIComponent(currentUser.name || "User");
-            profileImg.src = `https://ui-avatars.com/api/?name=${name}&background=00c6ff&color=fff&size=150&bold=true`;
-        }
-    }
-    
-    // Update stats
-    setHtml("memberId", `<i class="fas fa-id-card"></i> ${currentUser.id || 'AG1001'}`);
-    setHtml("memberSince", `<i class="fas fa-calendar-alt"></i> Member since ${new Date().getFullYear()}`);
-    setText("displayPoints", currentUser.points ?? 0);
-    setText("displayStamps", currentUser.stamps ?? 0);
-}
-
-// Helper functions for DOM manipulation
-function setValue(id, value) {
-    const el = document.getElementById(id);
-    if (el) el.value = value || "";
-}
-
-function setText(id, value) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = value ?? 0;
-}
-
-function setHtml(id, html) {
-    const el = document.getElementById(id);
-    if (el) el.innerHTML = html;
-}
-
-// Setup image upload preview
-function setupImageUpload() {
-    const uploadBtn = document.getElementById("uploadBtn");
-    const imageInput = document.getElementById("profileImage");
-    const preview = document.getElementById("profilePreview");
-    const removeBtn = document.getElementById("removeImageBtn");
-    
-    if (!uploadBtn || !imageInput || !preview) {
-        console.warn("Image upload elements not found");
+    if (!window.currentUser) {
+        console.error("❌ No user found - redirecting");
+        window.location.href = "https://agtechscript.in";
         return;
     }
     
-    // Trigger file input
-    uploadBtn.addEventListener("click", () => {
-        imageInput.click();
-    });
-    
-    // Handle file selection
-    imageInput.addEventListener("change", (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        
-        // Validate file type
-        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-        if (!validTypes.includes(file.type)) {
-            showToast("❌ Please select JPEG, PNG or GIF image", "error");
-            imageInput.value = "";
-            return;
-        }
-        
-        // Validate file size (max 2MB)
-        if (file.size > 2 * 1024 * 1024) {
-            showToast("❌ Image size should be less than 2MB", "error");
-            imageInput.value = "";
-            return;
-        }
-        
-        selectedImageFile = file;
-        
-        // Show preview
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            preview.src = e.target.result;
-            imagePreviewUrl = e.target.result;
-            if (removeBtn) removeBtn.style.display = "flex";
-        };
-        reader.readAsDataURL(file);
-        
-        showToast("✅ Image selected", "success");
-    });
-    
-    // Remove image
-    if (removeBtn) {
-        removeBtn.addEventListener("click", () => {
-            selectedImageFile = null;
-            imagePreviewUrl = null;
-            imageInput.value = "";
-            
-            // Reset to current profile or avatar
-            if (currentUser.profile && currentUser.profile !== "null") {
-                preview.src = currentUser.profile;
-            } else {
-                const name = encodeURIComponent(currentUser.name || "User");
-                preview.src = `https://ui-avatars.com/api/?name=${name}&background=00c6ff&color=fff&size=150`;
+    console.log("✅ User authenticated:", window.currentUser);
+}
+
+// Load profile data from API
+async function loadProfileData() {
+    try {
+        const response = await fetch(`${CONFIG.WORKER_URL}/api/user/profile?user_id=${window.currentUser.user_id}`, {
+            credentials: 'include',
+            headers: { 
+                'X-Client-Host': window.location.host,
+                'Content-Type': 'application/json'
             }
-            
-            removeBtn.style.display = "none";
-            showToast("🖼️ Image removed", "info");
         });
+        
+        const data = await response.json();
+        console.log("📦 Profile data:", data);
+        
+        if (data.success) {
+            currentUserData = data;
+            displayProfileData(data);
+        } else {
+            showNotification("Failed to load profile", "error");
+        }
+    } catch (error) {
+        console.error("❌ Error loading profile:", error);
+        showNotification("Error loading profile", "error");
     }
 }
 
-// Save profile changes
-async function saveProfile() {
-    const saveBtn = document.getElementById("saveProfileBtn");
-    if (!saveBtn) return;
+// Display profile data in form
+function displayProfileData(data) {
+    // Header stats
+    document.getElementById('headerPoints').textContent = data.points || 0;
+    document.getElementById('headerStamps').textContent = data.stamps || 0;
     
+    // Avatar
+    if (data.profile_image) {
+        document.getElementById('profileAvatar').src = data.profile_image;
+    }
+    
+    // User meta
+    document.getElementById('metaUserId').textContent = data.user_id || 'AG0001';
+    
+    if (data.created_at) {
+        const year = new Date(data.created_at).getFullYear();
+        document.getElementById('metaMemberSince').textContent = `Member since ${year}`;
+    }
+    
+    // Form fields
+    document.getElementById('fullName').value = data.name || '';
+    document.getElementById('email').value = data.email || '';
+    document.getElementById('phone').value = data.phone || '';
+    document.getElementById('address').value = data.address || '';
+}
+
+// Setup event listeners
+function setupEventListeners() {
+    // Avatar upload
+    const avatarInput = document.getElementById('avatarInput');
+    avatarInput.addEventListener('change', handleAvatarUpload);
+    
+    // Form submit
+    const form = document.getElementById('editProfileForm');
+    form.addEventListener('submit', saveProfile);
+    
+    // Password validation
+    document.getElementById('newPassword').addEventListener('input', validatePasswords);
+    document.getElementById('confirmPassword').addEventListener('input', validatePasswords);
+}
+
+// Trigger file upload
+function triggerFileUpload() {
+    document.getElementById('avatarInput').click();
+}
+
+// Handle avatar upload
+async function handleAvatarUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    // Validate file
+    if (!file.type.match('image.*')) {
+        showNotification('Please select an image file', 'error');
+        return;
+    }
+    
+    if (file.size > 2 * 1024 * 1024) {
+        showNotification('Image must be less than 2MB', 'error');
+        return;
+    }
+    
+    // Preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        document.getElementById('profileAvatar').src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+    
+    // Upload
+    await uploadAvatar(file);
+}
+
+// Upload avatar to server
+async function uploadAvatar(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+        showNotification('Uploading image...', 'info');
+        
+        const response = await fetch(`${CONFIG.WORKER_URL}/api/user/upload-image`, {
+            method: 'POST',
+            credentials: 'include',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            currentUserData.profile_image = data.url;
+            showNotification('Image uploaded successfully', 'success');
+        } else {
+            showNotification(data.error || 'Upload failed', 'error');
+        }
+    } catch (error) {
+        console.error('Upload error:', error);
+        showNotification('Upload failed', 'error');
+    }
+}
+
+// Validate passwords
+function validatePasswords() {
+    const newPass = document.getElementById('newPassword').value;
+    const confirmPass = document.getElementById('confirmPassword').value;
+    const errorDiv = document.getElementById('passwordError');
+    
+    if (newPass || confirmPass) {
+        if (newPass.length < 6 && newPass.length > 0) {
+            errorDiv.textContent = 'Password must be at least 6 characters';
+            errorDiv.style.display = 'block';
+            return false;
+        }
+        
+        if (newPass !== confirmPass) {
+            errorDiv.textContent = 'Passwords do not match';
+            errorDiv.style.display = 'block';
+            return false;
+        }
+    }
+    
+    errorDiv.style.display = 'none';
+    return true;
+}
+
+// Save profile
+async function saveProfile(e) {
+    e.preventDefault();
+    
+    // Validate passwords
+    if (!validatePasswords()) {
+        return;
+    }
+    
+    const saveBtn = document.getElementById('saveProfileBtn');
     const originalText = saveBtn.innerHTML;
     
-    // Get form values
-    const name = document.getElementById("fullName")?.value.trim() || "";
-    const email = document.getElementById("email")?.value.trim() || "";
-    const mobile = document.getElementById("mobile")?.value.trim() || "";
-    const address = document.getElementById("address")?.value.trim() || "";
-    const dob = document.getElementById("dob")?.value || "";
-    const password = document.getElementById("newPassword")?.value || "";
-    const confirmPass = document.getElementById("confirmPassword")?.value || "";
-    
-    // Validation
-    if (!name) {
-        showToast("❌ Name is required", "error");
-        return;
-    }
-    
-    if (email && !isValidEmail(email)) {
-        showToast("❌ Please enter a valid email", "error");
-        return;
-    }
-    
-    if (mobile && !isValidMobile(mobile)) {
-        showToast("❌ Please enter a valid 10-digit mobile number", "error");
-        return;
-    }
-    
-    if (password || confirmPass) {
-        if (password !== confirmPass) {
-            showToast("❌ Passwords do not match", "error");
-            return;
-        }
-        if (password.length < 6) {
-            showToast("❌ Password must be at least 6 characters", "error");
-            return;
-        }
-    }
-    
-    // Show loading state
-    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
     saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    
+    // Prepare update data
+    const updateData = {
+        user_id: window.currentUser.user_id,
+        name: document.getElementById('fullName').value,
+        phone: document.getElementById('phone').value,
+        address: document.getElementById('address').value
+    };
+    
+    // Add image if changed
+    if (currentUserData?.profile_image) {
+        updateData.profile_image = currentUserData.profile_image;
+    }
+    
+    // Add password if changing
+    const newPassword = document.getElementById('newPassword').value;
+    if (newPassword) {
+        updateData.newPassword = newPassword;
+    }
     
     try {
-        // ✅ CHECK: apiUpdateProfile exists?
-        if (typeof apiUpdateProfile !== 'function') {
-            throw new Error("API function not found");
-        }
+        const response = await fetch(`${CONFIG.WORKER_URL}/api/user/update`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-Client-Host': window.location.host
+            },
+            body: JSON.stringify(updateData)
+        });
         
-        // Prepare profile data - ONLY send changed fields
-        const profileData = {};
+        const data = await response.json();
         
-        if (name !== currentUser.name) profileData.name = name;
-        if (email !== currentUser.email) profileData.email = email;
-        if (mobile !== currentUser.mobile) profileData.mobile = mobile;
-        if (address !== currentUser.address) profileData.address = address;
-        if (dob !== currentUser.dob) profileData.dob = dob;
-        if (password) profileData.password = password;
-        
-        // Add profile image if changed
-        if (selectedImageFile) {
-            showToast("🖼️ Uploading image...", "info");
-            profileData.profile = await fileToBase64(selectedImageFile);
-        }
-        
-        // If nothing changed, show message and return
-        if (Object.keys(profileData).length === 0) {
-            showToast("ℹ️ No changes to save", "info");
-            saveBtn.innerHTML = originalText;
-            saveBtn.disabled = false;
-            return;
-        }
-        
-        console.log("Saving profile changes:", Object.keys(profileData));
-        
-        const res = await apiUpdateProfile(currentUser.id, profileData);
-        
-        if (res?.status === "success") {
-            showToast("✅ Profile updated successfully!", "success");
-            
-            // Update local storage
-            if (profileData.name) currentUser.name = name;
-            if (profileData.email) currentUser.email = email;
-            if (profileData.mobile) currentUser.mobile = mobile;
-            if (profileData.address) currentUser.address = address;
-            if (profileData.dob) currentUser.dob = dob;
-            if (res.profile) currentUser.profile = res.profile;
-            
-            localStorage.setItem("ag_user", JSON.stringify(currentUser));
-            
-            // Update UI
-            populateForm();
+        if (data.success) {
+            showNotification('Profile updated successfully!', 'success');
             
             // Clear password fields
-            setValue("newPassword", "");
-            setValue("confirmPassword", "");
+            document.getElementById('newPassword').value = '';
+            document.getElementById('confirmPassword').value = '';
             
-            // Reset image selection
-            selectedImageFile = null;
-            imagePreviewUrl = null;
-            setValue("profileImage", "");
-            if (document.getElementById("removeImageBtn")) {
-                document.getElementById("removeImageBtn").style.display = "none";
-            }
+            // Update current user
+            window.currentUser = { ...window.currentUser, ...updateData };
             
-            // Update navbar profile
-            updateNavbarProfile();
-            
+            // Reload profile data
+            await loadProfileData();
         } else {
-            showToast(`❌ ${res?.message || "Failed to update profile"}`, "error");
+            showNotification(data.error || 'Update failed', 'error');
         }
-        
-    } catch (e) {
-        console.error("Profile update error:", e);
-        showToast("⚠️ Network error. Please try again.", "error");
+    } catch (error) {
+        console.error('Update error:', error);
+        showNotification('Update failed', 'error');
     } finally {
-        // Reset button
-        saveBtn.innerHTML = originalText;
         saveBtn.disabled = false;
+        saveBtn.innerHTML = originalText;
     }
-}
-
-// Convert file to Base64
-function fileToBase64(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-    });
-}
-
-// Validation helpers
-function isValidEmail(email) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function isValidMobile(mobile) {
-    return /^[6-9]\d{9}$/.test(mobile);
 }
 
 // Cancel edit
 function cancelEdit() {
-    if (confirm("Discard all changes?")) {
-        populateForm();
-        selectedImageFile = null;
-        imagePreviewUrl = null;
-        setValue("profileImage", "");
-        setValue("newPassword", "");
-        setValue("confirmPassword", "");
-        
-        if (document.getElementById("removeImageBtn")) {
-            document.getElementById("removeImageBtn").style.display = "none";
-        }
-        
-        showToast("✖️ Changes discarded", "info");
+    if (confirm('Discard changes?')) {
+        window.location.href = 'index.html';
     }
 }
 
-// Update navbar profile
-function updateNavbarProfile() {
-    const navbarProfile = document.getElementById("navbarProfile");
-    if (navbarProfile && currentUser?.profile) {
-        navbarProfile.src = currentUser.profile;
-    }
-}
-
-// Toast notification
-function showToast(message, type = 'info') {
-    // Remove existing toasts if too many
-    const existingToasts = document.querySelectorAll('.toast-container .toast');
-    if (existingToasts.length > 3) {
-        existingToasts[0]?.remove();
-    }
+// Show notification
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.innerHTML = message;
     
-    // Create container if not exists
-    let toastContainer = document.querySelector('.toast-container');
-    if (!toastContainer) {
-        toastContainer = document.createElement('div');
-        toastContainer.className = 'toast-container';
-        toastContainer.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 9999;
-        `;
-        document.body.appendChild(toastContainer);
-    }
+    const colors = {
+        success: '#4CAF50',
+        error: '#f44336',
+        info: '#2196F3'
+    };
     
-    // Create toast
-    const toast = document.createElement('div');
-    toast.className = 'toast';
-    toast.style.cssText = `
-        background: ${type === 'success' ? 'rgba(0, 200, 100, 0.95)' : 
-                    type === 'error' ? 'rgba(255, 80, 80, 0.95)' : 
-                    'rgba(0, 200, 255, 0.95)'};
-        backdrop-filter: blur(10px);
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${colors[type]};
         color: white;
-        padding: 14px 24px;
-        border-radius: 50px;
-        margin-bottom: 10px;
-        border: 1px solid rgba(255,255,255,0.2);
-        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        padding: 12px 24px;
+        border-radius: 8px;
+        z-index: 9999;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         animation: slideIn 0.3s ease;
         font-weight: 500;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        font-size: 0.95rem;
-        max-width: 350px;
-        word-break: break-word;
     `;
     
-    const icon = type === 'success' ? 'fa-check-circle' : 
-                 type === 'error' ? 'fa-exclamation-circle' : 
-                 'fa-info-circle';
+    document.body.appendChild(notification);
     
-    toast.innerHTML = `<i class="fas ${icon}" style="font-size: 1.1rem;"></i> ${message}`;
-    toastContainer.appendChild(toast);
-    
-    // Auto remove
     setTimeout(() => {
-        toast.style.animation = 'slideOut 0.3s ease';
-        setTimeout(() => toast.remove(), 300);
-    }, 3500);
+        notification.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
 }
 
-// Add animation styles if not present
-if (!document.querySelector('#toast-styles')) {
-    const style = document.createElement('style');
-    style.id = 'toast-styles';
-    style.textContent = `
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        @keyframes slideOut {
-            from { transform: translateX(0); opacity: 1; }
-            to { transform: translateX(100%); opacity: 0; }
-        }
-    `;
-    document.head.appendChild(style);
-}
-
-// Make functions global
-window.saveProfile = saveProfile;
-window.cancelEdit = cancelEdit;
+// Add animation styles
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes slideOut {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(100%); opacity: 0; }
+    }
+`;
+document.head.appendChild(style);

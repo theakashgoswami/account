@@ -67,7 +67,6 @@ function toggleUserOverlay() {
 // Close all overlays
 function closeAllOverlays() {
     document.getElementById('userOverlay').classList.remove('active');
-    document.getElementById('editProfileOverlay').classList.remove('active');
     document.getElementById('overlayBackdrop').classList.remove('active');
 }
 
@@ -134,120 +133,7 @@ function updateOverlayUI() {
     }
 }
 
-// Open edit profile overlay
-function openEditProfile() {
-    closeAllOverlays();
-    
-    if (!currentUser) {
-        loadUserData().then(() => {
-            populateEditForm();
-            document.getElementById('editProfileOverlay').classList.add('active');
-            document.getElementById('overlayBackdrop').classList.add('active');
-        });
-    } else {
-        populateEditForm();
-        document.getElementById('editProfileOverlay').classList.add('active');
-        document.getElementById('overlayBackdrop').classList.add('active');
-    }
-}
 
-// Populate edit form with user data
-function populateEditForm() {
-    if (!currentUser) return;
-    
-    document.getElementById('editProfileImage').src = currentUser.profile_image || '/assets/images/default-avatar.png';
-    document.getElementById('editName').value = currentUser.name || '';
-    document.getElementById('editEmail').value = currentUser.email || '';
-    document.getElementById('editPhone').value = currentUser.phone || '';
-    document.getElementById('editAddress').value = currentUser.address || '';
-}
-
-// Close edit profile
-function closeEditProfile() {
-    document.getElementById('editProfileOverlay').classList.remove('active');
-    document.getElementById('overlayBackdrop').classList.remove('active');
-}
-
-// Trigger file upload
-function triggerFileUpload() {
-    document.getElementById('profileImageInput').click();
-}
-
-// Handle image upload
-document.addEventListener('DOMContentLoaded', function() {
-    const fileInput = document.getElementById('profileImageInput');
-    if (fileInput) {
-        fileInput.addEventListener('change', async function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            
-            const formData = new FormData();
-            formData.append('file', file);
-            
-            try {
-                const response = await fetch(`${CONFIG.WORKER_URL}/api/auth/upload-image`, {
-                    method: 'POST',
-                    credentials: 'include',
-                    body: formData
-                });
-                
-                const data = await response.json();
-                
-                if (data.url) {
-                    document.getElementById('editProfileImage').src = data.url;
-                    document.getElementById('overlayUserImage').src = data.url;
-                    displayUserProfileIcon(data.url); // Update header icon
-                    currentUser.profile_image = data.url;
-                }
-            } catch (error) {
-                console.error('Upload failed:', error);
-            }
-        });
-    }
-});
-
-// Handle edit profile form submit
-document.addEventListener('DOMContentLoaded', function() {
-    const editForm = document.getElementById('editProfileForm');
-    if (editForm) {
-        editForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            if (!currentUser?.user_id) return;
-            
-            const updates = {
-                name: document.getElementById('editName').value,
-                phone: document.getElementById('editPhone').value,
-                address: document.getElementById('editAddress').value,
-                profile_image: currentUser.profile_image
-            };
-            
-            try {
-                const response = await fetch(`${CONFIG.WORKER_URL}/api/user/update`, {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        user_id: currentUser.user_id,
-                        ...updates
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    alert('Profile updated successfully!');
-                    currentUser = { ...currentUser, ...updates };
-                    updateOverlayUI();
-                    closeEditProfile();
-                }
-            } catch (error) {
-                console.error('Update failed:', error);
-                alert('Failed to update profile');
-            }
-        });
-    }
-});
 
 // Logout function
 async function logout() {

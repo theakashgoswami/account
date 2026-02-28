@@ -37,16 +37,6 @@ async function loadHeader() {
         // Wait a tiny bit for DOM to update
         await new Promise(r => setTimeout(r, 50));
         
-        // ⚠️ IMPORTANT: Only call if NOT already initialized
-        if (!window.headerInitialized && typeof initHeader === 'function') {
-            initHeader();
-           
-        } else if (window.headerInitialized) {
-            console.log("⏩ Header already initialized, skipping...");
-        } else {
-            console.warn("⚠️ initHeader function not found");
-        }
-        
         // Load user profile icon
         if (window.currentUser?.user_id && typeof loadUserProfileIcon === 'function') {
             await loadUserProfileIcon(window.currentUser.user_id);
@@ -57,8 +47,6 @@ async function loadHeader() {
         console.error("❌ Header load failed:", error);
     }
 }
-
-// Rest of your code...
 
 async function loadNotifications() {
     const box = document.getElementById("notifications");
