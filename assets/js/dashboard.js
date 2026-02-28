@@ -1,7 +1,7 @@
-// assets/js/dashboard.js - FINAL FIXED VERSION
+// assets/js/dashboard.js - MODIFIED VERSION
 document.addEventListener("DOMContentLoaded", async () => {
     
-    // Wait for guard.js to set window.currentUser (max 3 seconds)
+    // Wait for guard.js to set window.currentUser
     let waitTime = 0;
     const maxWait = 3000;
     const interval = 100;
@@ -16,10 +16,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
     }
 
-    // 🔥 FIX: Load header FIRST
+    // Load header
     await loadHeader();
     
-    // Then show dashboard
+    // Show dashboard
     document.getElementById("dashboardContent").style.display = "block";
     document.getElementById("username").innerText = window.currentUser.user_id;
 
@@ -27,22 +27,22 @@ document.addEventListener("DOMContentLoaded", async () => {
     await loadNotifications();
 });
 
-// 🔥 NEW: Separate function for header loading
 async function loadHeader() {
     try {
         const response = await fetch("/partials/header.html");
         const html = await response.text();
         
-        // Insert header HTML
         document.getElementById("header-container").innerHTML = html;
         
         // Wait a tiny bit for DOM to update
         await new Promise(r => setTimeout(r, 50));
         
-        // Initialize header
-        if (typeof initHeader === 'function') {
+        // ⚠️ IMPORTANT: Only call if NOT already initialized
+        if (!window.headerInitialized && typeof initHeader === 'function') {
             initHeader();
             console.log("✅ Header initialized");
+        } else if (window.headerInitialized) {
+            console.log("⏩ Header already initialized, skipping...");
         } else {
             console.warn("⚠️ initHeader function not found");
         }
@@ -57,6 +57,8 @@ async function loadHeader() {
         console.error("❌ Header load failed:", error);
     }
 }
+
+// Rest of your code...
 
 async function loadNotifications() {
     const box = document.getElementById("notifications");
