@@ -19,6 +19,69 @@ header{background:linear-gradient(135deg,#0a0f2c,#081b61,#0047ff);position:fixed
 @media (min-width:769px){.nav-menu li a::after{content:'';position:absolute;bottom:5px;left:50%;transform:translateX(-50%);width:0;height:2px;background:#00e6ff;transition:width .3s}
 .nav-menu li a:hover::after{width:30px}}
 /* User Overlay Styles */
+/* Add to style.css */
+
+/* User Avatar Styles */
+.user-avatar-img {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #00d1ff;
+}
+
+.user-icon {
+    position: relative;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+}
+
+.user-status {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 10px;
+    height: 10px;
+    background: #4CAF50;
+    border: 2px solid white;
+    border-radius: 50%;
+}
+
+/* Mobile Menu Fixes */
+@media (max-width: 768px) {
+    .navbar {
+        position: fixed;
+        top: 70px;
+        left: -100%;
+        width: 80%;
+        height: calc(100vh - 70px);
+        background: linear-gradient(135deg,#0a0f2c,#081b61,#0047ff);
+        transition: left 0.3s ease;
+        z-index: 9998;
+        padding: 20px;
+    }
+    
+    .navbar.active {
+        left: 0;
+    }
+    
+    .nav-menu {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .nav-toggle {
+        display: block !important;
+    }
+    
+    .header-wrapper {
+        position: relative;
+    }
+}
 .user-overlay {
     position: fixed;
     top: 70px;
@@ -357,11 +420,6 @@ header{background:linear-gradient(135deg,#0a0f2c,#081b61,#0047ff);position:fixed
     background: #4CAF50;
     border: 2px solid white;
     border-radius: 50%;
-}
-
-.user-icon {
-    position: relative;
-    cursor: pointer;
 }
 
 .welcome-text {

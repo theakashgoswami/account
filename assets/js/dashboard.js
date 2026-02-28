@@ -16,14 +16,35 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
     }
 
-
+    // Load header
+    fetch("/partials/header.html")
+        .then(r => r.text())
+        .then(html => {
+            document.getElementById("header-container").innerHTML = html;
+            
+            // Initialize header after it's loaded
+            setTimeout(() => {
+                if (typeof initHeader === 'function') {
+                    initHeader();
+                }
+                
+                // Load user profile icon if logged in
+                if (window.currentUser?.user_id) {
+                    loadUserProfileIcon(window.currentUser.user_id);
+                }
+            }, 100);
+        })
+        .catch(error => {
+            console.error("Header load failed:", error);
+        });
+});
     // Show dashboard
     document.getElementById("dashboardContent").style.display = "block";
     document.getElementById("username").innerText = window.currentUser.user_id;
 
     // Load notifications
     await loadNotifications();
-});
+
 
 async function loadNotifications() {
     const box = document.getElementById("notifications");
