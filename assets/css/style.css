@@ -723,7 +723,7 @@ header {
 .site-footer::before{content:'';position:absolute;top:0;left:-100%;width:200%;height:100%;background:linear-gradient(90deg,transparent,#ffffff0d,#ffffff1a,#ffffff0d,transparent);animation:footerShine 8s linear infinite;pointer-events:none;z-index:1}
 @keyframes footerShine{0%{transform:translateX(-30%)}100%{transform:translateX(30%)}}
 .footer-container{max-width:1400px;margin:0 auto;padding:0 30px;position:relative;z-index:2}
-.footer-main{display:grid;grid-template-columns:1.2fr 1.5fr 1.3fr;gap:40px;margin-bottom:50px}
+.footer-main{display:grid;gap:40px;margin-bottom:50px}
 .footer-brand,.footer-contact-section,.footer-links-section{background:#ffffff0d;backdrop-filter:blur(10px);border-radius:20px;padding:25px;border:1px solid #ffffff1a;box-shadow:0 10px 30px #00000033}
 .footer-logo{display:flex;align-items:center;gap:15px;margin-bottom:20px}
 .footer-logo-img{width:60px;height:60px;border-radius:12px;object-fit:cover;border:2px solid #00e6ff;box-shadow:0 0 20px #00e6ff80;transition:.3s}
