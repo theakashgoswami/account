@@ -63,18 +63,29 @@ async function updateUserStats() {
         const data = await response.json();
         
         if (data.success) {
+            // Safer with null checks
             const pointsEl = document.getElementById('userPoints');
             const stampsEl = document.getElementById('userStamps');
             
             if (pointsEl) pointsEl.textContent = data.points;
             if (stampsEl) stampsEl.textContent = data.stamps;
             
+            // Also update any other elements with same IDs
+            const otherPoints = document.querySelectorAll('[data-points]');
+            otherPoints.forEach(el => el.textContent = data.points);
+            
+            const otherStamps = document.querySelectorAll('[data-stamps]');
+            otherStamps.forEach(el => el.textContent = data.stamps);
+            
             console.log(`✅ Stats updated: ${data.points} points, ${data.stamps} stamps`);
         }
     } catch (error) {
-        console.error('Error updating stats:', error);
+        console.error('❌ Error updating stats:', error);
     }
 }
+
+// Alias for backward compatibility
+const loadUserStats = updateUserStats;
 
 // ====================================================================
 // CLOSE NAV TOGGLE IF OPEN

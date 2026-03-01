@@ -27,23 +27,6 @@ async function waitForUser() {
     if (!window.currentUser) window.location.href = "https://agtechscript.in";
 }
 
-// Load user points and stamps
-async function loadUserStats() {
-    try {
-        const res = await fetch(`${CONFIG.WORKER_URL}/api/user/stats`, {
-            credentials: 'include',
-            headers: { 'X-Client-Host': window.location.host }
-        });
-        const data = await res.json();
-        if (data.success) {
-            document.getElementById('userPoints').textContent = data.points;
-            document.getElementById('userStamps').textContent = data.stamps;
-        }
-    } catch (err) {
-        console.error("Stats error:", err);
-    }
-}
-
 // Load rewards from getuse action
 async function loadRewards() {
     try {
