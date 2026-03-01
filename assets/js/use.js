@@ -153,12 +153,7 @@ async function confirmRedeem() {
         return;
     }
     
-    // Prevent double submission
-    if (isProcessing) {
-        console.log("⏳ Already processing...");
-        return;
-    }
-    
+  
     isProcessing = true;
     const confirmBtn = document.querySelector('.btn-confirm');
     if (confirmBtn) {
