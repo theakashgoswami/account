@@ -154,18 +154,12 @@ function closeModal() {
 async function confirmRedeem() {
     if (!currentReward) return;
     
-    const confirmBtn = document.querySelector('.btn-confirm');
-    if (confirmBtn) {
-        confirmBtn.disabled = true;
-        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-    }
-    
     try {
         const res = await fetch(`${CONFIG.WORKER_URL}/api/user/redeem`, {
             method: 'POST',
             credentials: 'include',
             headers: { 
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json',  // 🔥 IMPORTANT
                 'X-Client-Host': window.location.host
             },
             body: JSON.stringify({
