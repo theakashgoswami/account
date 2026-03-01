@@ -6,7 +6,6 @@ document.addEventListener("DOMContentLoaded", async function() {
     console.log("🎁 Use page loaded");
     await loadHeader();
     await Promise.all([
-        loadUserStats(),
         loadRewards(),
         loadUseHistory()
     ]);
@@ -21,23 +20,6 @@ async function loadHeader() {
         if (typeof initHeader === 'function') initHeader();
     } catch (err) {
         console.error("Header error:", err);
-    }
-}
-
-// Load user points and stamps
-async function loadUserStats() {
-    try {
-        const res = await fetch(`${CONFIG.WORKER_URL}/api/user/stats`, {
-            credentials: 'include',
-            headers: { 'X-Client-Host': window.location.host }
-        });
-        const data = await res.json();
-        if (data.success) {
-            document.getElementById('userPoints').textContent = data.points;
-            document.getElementById('userStamps').textContent = data.stamps;
-        }
-    } catch (err) {
-        console.error("Stats error:", err);
     }
 }
 

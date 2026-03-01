@@ -1,5 +1,3 @@
-// user-overlay.js - FIXED VERSION with profile icon handler
-
 // Global variables
 let currentUser = null;
 
