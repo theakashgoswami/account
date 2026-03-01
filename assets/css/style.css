@@ -155,11 +155,6 @@ header {
 @media (max-width:768px){.header-wrapper{flex-direction:column}.header-logo-title{width:100%;justify-content:space-between}.header-logo-image{height:40px}.header-blog-title{font-size:1.3rem}.nav-toggle{display:block}.navbar{width:100%;display:none;margin-top:15px;background:#0a0f2cf2;backdrop-filter:blur(10px);border-radius:15px;padding:10px 0}.navbar.active{display:block;animation:slideDown .3s}.nav-menu{flex-direction:column}.nav-menu li a{padding:14px 20px;border-radius:0}.brand-heading{font-size:20px;padding-top:90px}.stories-container{max-width:95vw;height:300px}.units-title{font-size:2rem}.auth-overlay-content{width:95%;padding:25px}.auth-tabs{flex-direction:column;border-radius:20px}.footer-main,.footer-links-grid{display:block}.footer-bottom-content{flex-direction:column;text-align:center}.footer-logo-img{width:50px;height:50px}.ai-floating-btn{right:70px;padding:5px 8px}.ai-btn-text{display:none}.ai-btn-icon{font-size:1.5rem}}
 @media (max-width:480px){.auth-overlay-content{padding:20px}.close-btn{width:40px;height:40px;font-size:24px}.header-logo-image{height:35px}.header-blog-title{font-size:1.1rem}.nav-toggle{font-size:1.5rem}.footer-container{padding:0 20px}.footer-brand,.footer-contact-section,.footer-links-section{padding:20px}.footer-social{justify-content:center}}
 
-/* User Overlay Styles - Keep as is */
-/* ... (aapke existing overlay styles same rahenge) ... */
-/* User Overlay Styles */
-/* Add to style.css */
-
 /* User Avatar Styles */
 .user-avatar-img {
     width: 32px;
@@ -691,7 +686,7 @@ header {
 }
 
 .welcome-text {
-    padding: 2rem;
+    padding: 80px;
     color: rgb(0, 0, 0);
 }
 
