@@ -12,28 +12,14 @@ document.addEventListener("DOMContentLoaded", async function() {
     ]);
 });
 
-async function loadHeader() {
-    const res = await fetch("/partials/header.html");
-    document.getElementById("header-container").innerHTML = await res.text();
-    if (typeof initHeader === 'function') initHeader();
-}
-
-async function waitForUser() {
-    let wait = 0;
-    while (!window.currentUser && wait < 3000) {
-        await new Promise(r => setTimeout(r, 100));
-        wait += 100;
-    }
-    if (!window.currentUser) window.location.href = "https://agtechscript.in";
-}
-
-// Load rewards from getuse action
+// Load rewards
 async function loadRewards() {
     try {
         const res = await fetch(`${CONFIG.WORKER_URL}/api/user/use`, {
             credentials: 'include',
             headers: { 'X-Client-Host': window.location.host }
         });
+        
         const data = await res.json();
         
         if (data.success) {
@@ -62,10 +48,10 @@ function displayRewards(rewards) {
                 <h3>${r.name || 'Reward'}</h3>
                 <p class="description">${r.description || ''}</p>
                 <div class="cost">
-                    ${r.cost_points > 0 ? `<span><i class="fas fa-star"></i> ${r.cost_points}</span>` : ''}
-                    ${r.cost_stamps > 0 ? `<span><i class="fas fa-ticket-alt"></i> ${r.cost_stamps}</span>` : ''}
+                    ${r.cost_points > 0 ? `<span><i class="fas fa-star"></i> ${r.cost_points} Points</span>` : ''}
+                    ${r.cost_stamps > 0 ? `<span><i class="fas fa-ticket-alt"></i> ${r.cost_stamps} Stamps</span>` : ''}
                 </div>
-                <button class="redeem-btn" onclick="openRedeemModal('${r.reward}', '${r.name}', ${r.cost_points}, ${r.cost_stamps})"
+                <button class="redeem-btn" onclick="openRedeemModal('${r.reward_id}', '${r.name}', ${r.cost_points}, ${r.cost_stamps})"
                     ${!r.canAfford ? 'disabled' : ''}>
                     Redeem
                 </button>
@@ -74,6 +60,59 @@ function displayRewards(rewards) {
     `).join('');
 }
 
+// Open redeem modal
+function openRedeemModal(rewardId, name, points, stamps) {
+    currentReward = { rewardId, name, points, stamps };
+    
+    let costText = '';
+    if (points > 0) costText += `${points} Points `;
+    if (stamps > 0) costText += `${stamps} Stamps`;
+    
+    document.getElementById('modalRewardDetails').innerHTML = `
+        <p><strong>${name}</strong></p>
+        <p>Cost: ${costText}</p>
+    `;
+    document.getElementById('confirmModal').style.display = 'flex';
+}
+
+// Confirm redemption
+async function confirmRedeem() {
+    if (!currentReward) return;
+    
+    try {
+        const res = await fetch(`${CONFIG.WORKER_URL}/api/user/redeem`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-Client-Host': window.location.host
+            },
+            body: JSON.stringify({
+                rewardId: currentReward.rewardId,
+                rewardName: currentReward.name,
+                pointsCost: currentReward.points,
+                stampsCost: currentReward.stamps
+            })
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+            alert('✅ Reward redeemed successfully!');
+            closeModal();
+            // Reload data
+            await Promise.all([
+                loadRewards(),
+                loadUserStats()
+            ]);
+        } else {
+            alert('❌ ' + (data.error || 'Redemption failed'));
+        }
+    } catch (err) {
+        console.error("Redeem error:", err);
+        alert('❌ Error processing redemption');
+    }
+}
 // Load use history
 async function loadUseHistory() {
     try {
