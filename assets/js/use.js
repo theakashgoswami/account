@@ -112,51 +112,92 @@ function displayUseHistory(history) {
 }
 
 // Open redeem modal
+
 function openRedeemModal(rewardId, rewardName, points, stamps) {
-    currentReward = { rewardId, rewardName, points, stamps };
+    console.log("📦 Opening modal with:", { rewardId, rewardName, points, stamps });
+    
+    // Validate data
+    if (!rewardId || !rewardName) {
+        console.error("❌ Invalid reward data");
+        alert("Invalid reward data");
+        return;
+    }
+    
+    currentReward = { 
+        rewardId: String(rewardId),  // Ensure string
+        rewardName: String(rewardName), 
+        points: Number(points) || 0,  // Ensure number
+        stamps: Number(stamps) || 0
+    };
     
     let costText = '';
-    if (points > 0) costText += `${points} Points `;
-    if (stamps > 0) costText += `${stamps} Stamps`;
+    if (currentReward.points > 0) costText += `${currentReward.points} Points `;
+    if (currentReward.stamps > 0) costText += `${currentReward.stamps} Stamps`;
     
     document.getElementById('modalRewardDetails').innerHTML = `
-        <p><strong>${rewardName}</strong></p>
+        <p><strong>${currentReward.rewardName}</strong></p>
         <p>Cost: ${costText}</p>
     `;
     document.getElementById('confirmModal').style.display = 'flex';
 }
-
 // Close modal
 function closeModal() {
     document.getElementById('confirmModal').style.display = 'none';
     currentReward = null;
 }
 
-// 🔥 CONFIRM REDEEM - matches worker's /api/user/redeem
+// Confirm redemption - FIXED VERSION
 async function confirmRedeem() {
-    if (!currentReward) return;
+    if (!currentReward) {
+        console.error("❌ No reward selected");
+        return;
+    }
+    
+    // Prevent double submission
+    if (isProcessing) {
+        console.log("⏳ Already processing...");
+        return;
+    }
+    
+    isProcessing = true;
+    const confirmBtn = document.querySelector('.btn-confirm');
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+    }
+    
+    console.log("🎁 Redeeming reward:", currentReward);
     
     try {
+        // 🔥 IMPORTANT: Create clean JSON object
+        const requestBody = {
+            rewardId: currentReward.rewardId,
+            rewardName: currentReward.rewardName,
+            pointsCost: Number(currentReward.points) || 0,
+            stampsCost: Number(currentReward.stamps) || 0
+        };
+        
+        console.log("📤 Sending data:", requestBody);
+        
         const res = await fetch(`${CONFIG.WORKER_URL}/api/user/redeem`, {
             method: 'POST',
             credentials: 'include',
             headers: { 
-                'Content-Type': 'application/json',  // 🔥 IMPORTANT
+                'Content-Type': 'application/json',  // 🔥 MUST be set
                 'X-Client-Host': window.location.host
             },
-            body: JSON.stringify({
-                rewardId: currentReward.rewardId,
-                rewardName: currentReward.rewardName,
-                pointsCost: currentReward.points,
-                stampsCost: currentReward.stamps
-            })
+            body: JSON.stringify(requestBody)  // 🔥 Properly stringified
         });
         
+        console.log("📥 Response status:", res.status);
+        
         const data = await res.json();
+        console.log("📥 Response data:", data);
         
         if (data.success) {
-            alert('✅ Reward redeemed successfully!');
+            alert('✅ ' + (data.message || 'Reward redeemed successfully!'));
             closeModal();
+            
             // Reload all data
             await Promise.all([
                 loadUserStats(),
@@ -167,16 +208,16 @@ async function confirmRedeem() {
             alert('❌ ' + (data.error || 'Redemption failed'));
         }
     } catch (err) {
-        console.error("Redeem error:", err);
-        alert('❌ Error processing redemption');
+        console.error("❌ Redeem error:", err);
+        alert('❌ Network error: ' + err.message);
     } finally {
+        isProcessing = false;
         if (confirmBtn) {
             confirmBtn.disabled = false;
             confirmBtn.innerHTML = 'Yes, Redeem';
         }
     }
 }
-
 // Close modal when clicking outside
 document.addEventListener('click', function(e) {
     const modal = document.getElementById('confirmModal');
