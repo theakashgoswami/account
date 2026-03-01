@@ -78,9 +78,7 @@ async function loadProfileData() {
 
 // Display profile data in form
 function displayProfileData(data) {
-    // Header stats
-    document.getElementById('headerPoints').textContent = data.points || 0;
-    document.getElementById('headerStamps').textContent = data.stamps || 0;
+   
     
     // Avatar
     if (data.profile_image) {
