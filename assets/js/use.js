@@ -1,11 +1,13 @@
 // assets/js/use.js
 
 let currentReward = null;
+let isProcessing = false;  // ✅ FIX: Add this variable
 
 document.addEventListener("DOMContentLoaded", async function() {
     console.log("🎁 Use page loaded");
     await loadHeader();
     await Promise.all([
+        loadUserStats(),    // ✅ FIX: Add this
         loadRewards(),
         loadUseHistory()
     ]);
@@ -23,7 +25,24 @@ async function loadHeader() {
     }
 }
 
-// 🔥 LOAD REWARDS - matches worker's /api/user/use
+// ✅ FIX: Add loadUserStats function
+async function loadUserStats() {
+    try {
+        const res = await fetch(`${CONFIG.WORKER_URL}/api/user/stats`, {
+            credentials: 'include',
+            headers: { 'X-Client-Host': window.location.host }
+        });
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('userPoints').textContent = data.points;
+            document.getElementById('userStamps').textContent = data.stamps;
+        }
+    } catch (err) {
+        console.error("Stats error:", err);
+    }
+}
+
+// LOAD REWARDS
 async function loadRewards() {
     try {
         const res = await fetch(`${CONFIG.WORKER_URL}/api/user/use`, {
@@ -46,7 +65,7 @@ async function loadRewards() {
     }
 }
 
-// 🔥 DISPLAY REWARDS - matches worker's response structure
+// DISPLAY REWARDS
 function displayRewards(rewards) {
     const grid = document.getElementById('rewardsGrid');
     
@@ -73,7 +92,7 @@ function displayRewards(rewards) {
     `).join('');
 }
 
-// 🔥 LOAD USE HISTORY - matches worker's /api/user/pointslog
+// LOAD USE HISTORY
 async function loadUseHistory() {
     try {
         const res = await fetch(`${CONFIG.WORKER_URL}/api/user/pointslog`, {
@@ -105,18 +124,16 @@ function displayUseHistory(history) {
     list.innerHTML = history.map(h => `
         <div class="history-item">
             <span class="date">${new Date(h.date || h.created_at).toLocaleDateString()}</span>
-            <span class="reason">${h.reason || 'Redeemed'}</span>
+            <span class="reason">${h.reason || h.description || 'Redeemed'}</span>
             <span class="points">-${h.points || 0} <i class="fas fa-star"></i></span>
         </div>
     `).join('');
 }
 
 // Open redeem modal
-
 function openRedeemModal(rewardId, rewardName, points, stamps) {
     console.log("📦 Opening modal with:", { rewardId, rewardName, points, stamps });
     
-    // Validate data
     if (!rewardId || !rewardName) {
         console.error("❌ Invalid reward data");
         alert("Invalid reward data");
@@ -124,9 +141,9 @@ function openRedeemModal(rewardId, rewardName, points, stamps) {
     }
     
     currentReward = { 
-        rewardId: String(rewardId),  // Ensure string
+        rewardId: String(rewardId),
         rewardName: String(rewardName), 
-        points: Number(points) || 0,  // Ensure number
+        points: Number(points) || 0,
         stamps: Number(stamps) || 0
     };
     
@@ -140,20 +157,25 @@ function openRedeemModal(rewardId, rewardName, points, stamps) {
     `;
     document.getElementById('confirmModal').style.display = 'flex';
 }
+
 // Close modal
 function closeModal() {
     document.getElementById('confirmModal').style.display = 'none';
     currentReward = null;
 }
 
-// Confirm redemption - FIXED VERSION
+// Confirm redemption
 async function confirmRedeem() {
     if (!currentReward) {
         console.error("❌ No reward selected");
         return;
     }
     
-  
+    if (isProcessing) {
+        console.log("⏳ Already processing...");
+        return;
+    }
+    
     isProcessing = true;
     const confirmBtn = document.querySelector('.btn-confirm');
     if (confirmBtn) {
@@ -164,7 +186,6 @@ async function confirmRedeem() {
     console.log("🎁 Redeeming reward:", currentReward);
     
     try {
-        // 🔥 IMPORTANT: Create clean JSON object
         const requestBody = {
             rewardId: currentReward.rewardId,
             rewardName: currentReward.rewardName,
@@ -178,13 +199,20 @@ async function confirmRedeem() {
             method: 'POST',
             credentials: 'include',
             headers: { 
-                'Content-Type': 'application/json',  // 🔥 MUST be set
+                'Content-Type': 'application/json',
                 'X-Client-Host': window.location.host
             },
-            body: JSON.stringify(requestBody)  // 🔥 Properly stringified
+            body: JSON.stringify(requestBody)
         });
         
         console.log("📥 Response status:", res.status);
+        
+        // Check if response is JSON
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            const text = await res.text();
+            throw new Error(`Invalid response: ${text}`);
+        }
         
         const data = await res.json();
         console.log("📥 Response data:", data);
@@ -204,7 +232,7 @@ async function confirmRedeem() {
         }
     } catch (err) {
         console.error("❌ Redeem error:", err);
-        alert('❌ Network error: ' + err.message);
+        alert('❌ Error: ' + err.message);
     } finally {
         isProcessing = false;
         if (confirmBtn) {
@@ -213,6 +241,7 @@ async function confirmRedeem() {
         }
     }
 }
+
 // Close modal when clicking outside
 document.addEventListener('click', function(e) {
     const modal = document.getElementById('confirmModal');
