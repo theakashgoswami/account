@@ -44,7 +44,7 @@ function displayRewards(rewards) {
     grid.innerHTML = rewards.map(r => `
         <div class="reward-card ${!r.canAfford ? 'cannot-afford' : ''}">
             <div class="reward-content">
-                <h3>${r.name || 'Reward'}</h3>
+                <h3>${r.reward_name || 'Reward'}</h3>
                 <p class="description">${r.description || ''}</p>
                 <div class="cost">
                     ${r.cost_points > 0 ? `<span><i class="fas fa-star"></i> ${r.cost_points} Points</span>` : ''}
@@ -60,15 +60,15 @@ function displayRewards(rewards) {
 }
 
 // Open redeem modal
-function openRedeemModal(rewardId, name, points, stamps) {
-    currentReward = { rewardId, name, points, stamps };
+function openRedeemModal(rewardId, reward_name, points, stamps) {
+    currentReward = { rewardId, reward_name, points, stamps };
     
     let costText = '';
     if (points > 0) costText += `${points} Points `;
     if (stamps > 0) costText += `${stamps} Stamps`;
     
     document.getElementById('modalRewardDetails').innerHTML = `
-        <p><strong>${name}</strong></p>
+        <p><strong>${reward_name}</strong></p>
         <p>Cost: ${costText}</p>
     `;
     document.getElementById('confirmModal').style.display = 'flex';
@@ -88,7 +88,7 @@ async function confirmRedeem() {
             },
             body: JSON.stringify({
                 rewardId: currentReward.rewardId,
-                rewardName: currentReward.name,
+                rewardName: currentReward.reward_name,
                 pointsCost: currentReward.points,
                 stampsCost: currentReward.stamps
             })
@@ -149,15 +149,15 @@ function displayUseHistory(history) {
 }
 
 // Modal functions
-function openRedeemModal(rewardId, name, points, stamps) {
-    currentReward = { rewardId, name, points, stamps };
+function openRedeemModal(rewardId, reward_name, points, stamps) {
+    currentReward = { rewardId, reward_name, points, stamps };
     
     let costText = '';
     if (points > 0) costText += `${points} Points `;
     if (stamps > 0) costText += `${stamps} Stamps`;
     
     document.getElementById('modalRewardDetails').innerHTML = `
-        <p><strong>${name}</strong></p>
+        <p><strong>${reward_name}</strong></p>
         <p>Cost: ${costText}</p>
     `;
     document.getElementById('confirmModal').style.display = 'flex';
