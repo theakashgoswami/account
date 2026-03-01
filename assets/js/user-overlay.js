@@ -89,9 +89,8 @@ function toggleUserOverlay() {
         // Load user data and stats
         loadUserData();
         updateUserStats();
-    }
+    }   
 }
-
 // ====================================================================
 // LOAD USER DATA
 // ====================================================================
@@ -110,22 +109,8 @@ async function loadUserData() {
             credentials: 'include',
             headers: { 'X-Client-Host': window.location.host }
         });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            currentUser = data;
-            updateOverlayUI();
-        }
-        
-        // Update stats
-        await updateUserStats();
-        
-    } catch (error) {
-        console.error('Error loading user data:', error);
     }
 }
-
 // ====================================================================
 // UPDATE OVERLAY UI
 // ====================================================================
