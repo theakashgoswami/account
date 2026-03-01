@@ -32,48 +32,6 @@ async function loadRewards() {
     }
 }
 
-// Display rewards
-function displayRewards(rewards) {
-    const grid = document.getElementById('rewardsGrid');
-    
-    if (!rewards?.length) {
-        grid.innerHTML = '<div class="empty">No rewards available</div>';
-        return;
-    }
-
-    grid.innerHTML = rewards.map(r => `
-        <div class="reward-card ${!r.canAfford ? 'cannot-afford' : ''}">
-            <div class="reward-content">
-                <h3>${r.reward_name || 'Reward'}</h3>
-                <p class="description">${r.description || ''}</p>
-                <div class="cost">
-                    ${r.cost_points > 0 ? `<span><i class="fas fa-star"></i> ${r.cost_points} Points</span>` : ''}
-                    ${r.cost_stamps > 0 ? `<span><i class="fas fa-ticket-alt"></i> ${r.cost_stamps} Stamps</span>` : ''}
-                </div>
-                <button class="redeem-btn" onclick="openRedeemModal('${r.reward_id}', '${r.name}', ${r.cost_points}, ${r.cost_stamps})"
-                    ${!r.canAfford ? 'disabled' : ''}>
-                    Redeem
-                </button>
-            </div>
-        </div>
-    `).join('');
-}
-
-// Open redeem modal
-function openRedeemModal(rewardId, reward_name, points, stamps) {
-    currentReward = { rewardId, reward_name, points, stamps };
-    
-    let costText = '';
-    if (points > 0) costText += `${points} Points `;
-    if (stamps > 0) costText += `${stamps} Stamps`;
-    
-    document.getElementById('modalRewardDetails').innerHTML = `
-        <p><strong>${reward_name}</strong></p>
-        <p>Cost: ${costText}</p>
-    `;
-    document.getElementById('confirmModal').style.display = 'flex';
-}
-
 // Confirm redemption
 async function confirmRedeem() {
     if (!currentReward) return;
