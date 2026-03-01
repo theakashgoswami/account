@@ -181,7 +181,7 @@ async function confirmRedeem() {
             },
             body: JSON.stringify({
                 rewardId: currentReward.rewardId,
-                rewardName: currentReward.name,
+                rewardName: currentReward.reward_name,
                 pointsCost: currentReward.points,
                 stampsCost: currentReward.stamps
             })
