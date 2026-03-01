@@ -50,27 +50,78 @@ async function loadUserProfileIcon(userId) {
     }
 }
 
-// Toggle user overlay
+// ====================================================================
+// UPDATE USER STATS (Points & Stamps)
+// ====================================================================
+async function updateUserStats() {
+    try {
+        const response = await fetch(`${CONFIG.WORKER_URL}/api/user/stats`, {
+            credentials: 'include',
+            headers: { 'X-Client-Host': window.location.host }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            const pointsEl = document.getElementById('userPoints');
+            const stampsEl = document.getElementById('userStamps');
+            
+            if (pointsEl) pointsEl.textContent = data.points;
+            if (stampsEl) stampsEl.textContent = data.stamps;
+            
+            console.log(`✅ Stats updated: ${data.points} points, ${data.stamps} stamps`);
+        }
+    } catch (error) {
+        console.error('Error updating stats:', error);
+    }
+}
+
+// ====================================================================
+// CLOSE NAV TOGGLE IF OPEN
+// ====================================================================
+function closeNavToggleIfOpen() {
+    const mainNav = document.getElementById('mainNav');
+    const navToggle = document.getElementById('navToggle');
+    
+    if (mainNav && mainNav.classList.contains('active')) {
+        mainNav.classList.remove('active');
+        if (navToggle) {
+            navToggle.innerHTML = '☰'; // Reset to hamburger
+        }
+        console.log("✅ Nav toggle closed");
+    }
+}
+
+// ====================================================================
+// TOGGLE USER OVERLAY (WITH NAV CLOSE)
+// ====================================================================
 function toggleUserOverlay() {
     const overlay = document.getElementById('userOverlay');
     const backdrop = document.getElementById('overlayBackdrop');
     
+    if (!overlay) return;
+    
     if (overlay.classList.contains('active')) {
-        closeAllOverlays();
+        // Close overlay
+        overlay.classList.remove('active');
+        if (backdrop) backdrop.classList.remove('active');
     } else {
-        loadUserData();
+        // 🔥 CLOSE NAV TOGGLE FIRST
+        closeNavToggleIfOpen();
+        
+        // Then open overlay
         overlay.classList.add('active');
-        backdrop.classList.add('active');
+        if (backdrop) backdrop.classList.add('active');
+        
+        // Load user data and stats
+        loadUserData();
+        updateUserStats();
     }
 }
 
-// Close all overlays
-function closeAllOverlays() {
-    document.getElementById('userOverlay').classList.remove('active');
-    document.getElementById('overlayBackdrop').classList.remove('active');
-}
-
-// Load user data from D1 via API
+// ====================================================================
+// LOAD USER DATA
+// ====================================================================
 async function loadUserData() {
     if (!window.currentUser?.user_id) {
         console.log("No user logged in");
@@ -78,10 +129,10 @@ async function loadUserData() {
     }
     
     try {
-        // First load profile icon
+        // Load profile icon
         await loadUserProfileIcon(window.currentUser.user_id);
         
-        // Fetch user profile with points and stamps
+        // Fetch user profile
         const response = await fetch(`${CONFIG.WORKER_URL}/api/user/profile?user_id=${window.currentUser.user_id}`, {
             credentials: 'include',
             headers: { 'X-Client-Host': window.location.host }
@@ -94,78 +145,119 @@ async function loadUserData() {
             updateOverlayUI();
         }
         
-        // Fetch points and stamps separately
-        const pointsResponse = await fetch(`${CONFIG.WORKER_URL}/api/user/points-log`, {
-            credentials: 'include',
-            headers: { 'X-Client-Host': window.location.host }
-        });
-        
-        const pointsData = await pointsResponse.json();
-        
-        if (pointsData.success) {
-            const totalPoints = pointsData.points_log?.reduce((sum, log) => {
-                return log.type === 'earn' ? sum + log.points : sum - log.points;
-            }, 0) || 0;
-            
-            const totalStamps = pointsData.points_log?.filter(log => log.type === 'stamp').length || 0;
-            
-            document.getElementById('userPoints').textContent = totalPoints;
-            document.getElementById('userStamps').textContent = totalStamps;
-        }
+        // Update stats
+        await updateUserStats();
         
     } catch (error) {
         console.error('Error loading user data:', error);
     }
 }
 
-// Update overlay UI
+// ====================================================================
+// UPDATE OVERLAY UI
+// ====================================================================
 function updateOverlayUI() {
     if (!currentUser) return;
     
-    document.getElementById('overlayUserImage').src = currentUser.profile_image || '/assets/images/default-avatar.png';
-    document.getElementById('overlayUserName').textContent = currentUser.name || 'User';
-    document.getElementById('overlayUserId').textContent = `@${currentUser.user_id}`;
+    const userImage = document.getElementById('overlayUserImage');
+    const userName = document.getElementById('overlayUserName');
+    const userId = document.getElementById('overlayUserId');
     
-    // Update user status
+    if (userImage) {
+        userImage.src = currentUser.profile_image || '/assets/images/default-avatar.png';
+    }
+    
+    if (userName) {
+        userName.textContent = currentUser.name || 'User';
+    }
+    
+    if (userId) {
+        userId.textContent = `@${currentUser.user_id}`;
+    }
+    
+    // Update status dot
     const statusDot = document.querySelector('.user-status');
     if (statusDot) {
         statusDot.style.background = '#4CAF50';
     }
 }
 
+// ====================================================================
+// CLOSE ALL OVERLAYS
+// ====================================================================
+function closeAllOverlays() {
+    const overlay = document.getElementById('userOverlay');
+    const backdrop = document.getElementById('overlayBackdrop');
+    
+    if (overlay) overlay.classList.remove('active');
+    if (backdrop) backdrop.classList.remove('active');
+}
 
-
-// Logout function
+// ====================================================================
+// LOGOUT FUNCTION
+// ====================================================================
 async function logout() {
     try {
-        await fetch(`${CONFIG.WORKER_URL}/api/auth/logout`, {
+        const response = await fetch(`${CONFIG.WORKER_URL}/api/auth/logout`, {
             method: 'POST',
             credentials: 'include'
         });
         
-        window.location.href = 'https://agtechscript.in';
+        if (response.ok) {
+            // Clear user data
+            window.currentUser = null;
+            currentUser = null;
+            
+            // Close overlay
+            closeAllOverlays();
+            
+            // Show default icon
+            displayDefaultUserIcon();
+            
+            // Redirect
+            window.location.href = 'https://agtechscript.in';
+        }
     } catch (error) {
         console.error('Logout failed:', error);
     }
 }
 
-// Close overlay when clicking outside
+// ====================================================================
+// CLICK OUTSIDE TO CLOSE
+// ====================================================================
 document.addEventListener('click', function(e) {
     const overlay = document.getElementById('userOverlay');
     const userIcon = document.getElementById('userIcon');
-    const editOverlay = document.getElementById('editProfileOverlay');
     
-    if (overlay && userIcon && !overlay.contains(e.target) && 
-        !userIcon.contains(e.target) && 
-        !editOverlay?.contains(e.target) &&
+    if (overlay && userIcon && 
+        !overlay.contains(e.target) && 
+        !userIcon.contains(e.target) &&
         overlay.classList.contains('active')) {
         closeAllOverlays();
     }
 });
 
-// Load user data on page load
-document.addEventListener('DOMContentLoaded', function() {
-    if (window.currentUser) {
-        loadUserData();
+// ====================================================================
+// INITIALIZE ON PAGE LOAD
+// ====================================================================
+document.addEventListener('DOMContentLoaded', async function() {
+    // Wait for currentUser
+    let waitTime = 0;
+    while (!window.currentUser && waitTime < 3000) {
+        await new Promise(r => setTimeout(r, 100));
+        waitTime += 100;
     }
+    
+    if (window.currentUser) {
+        await loadUserData();
+    } else {
+        displayDefaultUserIcon();
+    }
+    
+    // Expose functions globally
+    window.toggleUserOverlay = toggleUserOverlay;
+    window.logout = logout;
+    window.closeAllOverlays = closeAllOverlays;
+    
+    console.log("✅ User overlay initialized");
 });
