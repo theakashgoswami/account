@@ -4,7 +4,6 @@ let currentReward = null;
 
 document.addEventListener("DOMContentLoaded", async function() {
     await loadHeader();
-    await waitForUser();
     await Promise.all([
         loadUserStats(),
         loadRewards(),
