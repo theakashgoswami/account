@@ -194,6 +194,7 @@ function selectAnswer(qid, option) {
     console.log(`✅ Selected ${option} for ${qid}`);
 }
 
+
 // 🔥 Submit quiz - FIXED VERSION
 async function submitQuiz() {
     const submitBtn = document.getElementById('submitAllBtn');
@@ -245,7 +246,13 @@ async function submitQuiz() {
             })
         });
         
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Server error: ${response.status} - ${errorText}`);
+        }
+        
         const data = await response.json();
+        console.log("📥 Response:", data);
         
         if (data.success) {
             progressMsg.innerHTML = '✅ Submitted successfully!';
