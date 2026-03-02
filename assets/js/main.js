@@ -5,119 +5,119 @@ let currentUserData = null;
 let currentUser = null;
 
 // ====================================================================
-// HEADER INITIALIZATION (header.js - FINAL FIXED VERSION)
+// DEFINE INITHEADER FIRST (before it's used)
 // ====================================================================
-(function() {
-    // Guard to prevent multiple initializations
-    if (window.headerInitialized) {
+function initHeader() {
+    const navToggle = document.getElementById("navToggle");
+    const mainNav = document.getElementById("mainNav");
+    const customHeader = document.getElementById("header");
+
+    if (!navToggle || !mainNav || !customHeader) {
+        setTimeout(initHeader, 300);
         return;
     }
+
+    let lastScrollY = window.scrollY;
+    let ticking = false;
+    let touchStartY = 0;
+    let touchEndY = 0;
+    const swipeThreshold = 50;
+
+    // Remove existing listeners by cloning and replacing
+    const newNavToggle = navToggle.cloneNode(true);
+    navToggle.parentNode.replaceChild(newNavToggle, navToggle);
     
-    function initHeader() {
-        const navToggle = document.getElementById("navToggle");
-        const mainNav = document.getElementById("mainNav");
-        const customHeader = document.getElementById("header");
+    // Use the new reference
+    const finalNavToggle = document.getElementById("navToggle");
 
-        if (!navToggle || !mainNav || !customHeader) {
-            setTimeout(initHeader, 300);
-            return;
-        }
-
-        let lastScrollY = window.scrollY;
-        let ticking = false;
-        let touchStartY = 0;
-        let touchEndY = 0;
-        const swipeThreshold = 50;
-
-        // Remove existing listeners by cloning and replacing
-        const newNavToggle = navToggle.cloneNode(true);
-        navToggle.parentNode.replaceChild(newNavToggle, navToggle);
+    // Mobile Toggle with single listener
+    finalNavToggle.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         
-        // Use the new reference
-        const finalNavToggle = document.getElementById("navToggle");
+        mainNav.classList.toggle("active");
+        
+        if (mainNav.classList.contains("active")) {
+            finalNavToggle.innerHTML = "✕";
+            finalNavToggle.style.fontSize = "1.8rem";
+        } else {
+            finalNavToggle.innerHTML = "☰";
+        }
+    });
 
-        // Mobile Toggle with single listener
-        finalNavToggle.addEventListener("click", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            mainNav.classList.toggle("active");
-            
-            if (mainNav.classList.contains("active")) {
-                finalNavToggle.innerHTML = "✕";
-                finalNavToggle.style.fontSize = "1.8rem";
-            } else {
-                finalNavToggle.innerHTML = "☰";
-            }
-        });
+    // SCROLL HIDE/SHOW
+    function updateHeader() {
+        const sy = window.scrollY;
 
-        // SCROLL HIDE/SHOW
-        function updateHeader() {
-            const sy = window.scrollY;
-
-            if (sy > lastScrollY && sy > 100) {
-                customHeader.style.transform = "translateY(-100%)";
-            } else {
-                customHeader.style.transform = "translateY(0)";
-            }
-
-            lastScrollY = sy;
-            ticking = false;
+        if (sy > lastScrollY && sy > 100) {
+            customHeader.style.transform = "translateY(-100%)";
+        } else {
+            customHeader.style.transform = "translateY(0)";
         }
 
-        window.addEventListener(
-            "scroll",
-            () => {
-                if (!ticking) {
-                    requestAnimationFrame(updateHeader);
-                    ticking = true;
-                }
-            },
-            { passive: true }
-        );
+        lastScrollY = sy;
+        ticking = false;
+    }
 
-        // SWIPE GESTURE
-        document.addEventListener("touchstart", (e) => {
-            touchStartY = e.changedTouches[0].screenY;
-        });
+    window.addEventListener(
+        "scroll",
+        () => {
+            if (!ticking) {
+                requestAnimationFrame(updateHeader);
+                ticking = true;
+            }
+        },
+        { passive: true }
+    );
 
-        document.addEventListener("touchend", (e) => {
-            touchEndY = e.changedTouches[0].screenY;
-            const diff = touchEndY - touchStartY;
+    // SWIPE GESTURE
+    document.addEventListener("touchstart", (e) => {
+        touchStartY = e.changedTouches[0].screenY;
+    });
 
-            if (diff > swipeThreshold)
-                customHeader.style.transform = "translateY(0)";
-            if (diff < -swipeThreshold)
-                customHeader.style.transform = "translateY(-100%)";
-        });
+    document.addEventListener("touchend", (e) => {
+        touchEndY = e.changedTouches[0].screenY;
+        const diff = touchEndY - touchStartY;
 
-        // CLOSE ON OUTSIDE CLICK
-        document.addEventListener("click", (e) => {
-            if (!e.target.closest(".header-wrapper")) {
+        if (diff > swipeThreshold)
+            customHeader.style.transform = "translateY(0)";
+        if (diff < -swipeThreshold)
+            customHeader.style.transform = "translateY(-100%)";
+    });
+
+    // CLOSE ON OUTSIDE CLICK
+    document.addEventListener("click", (e) => {
+        if (!e.target.closest(".header-wrapper")) {
+            mainNav.classList.remove("active");
+            finalNavToggle.innerHTML = "☰";
+        }
+    });
+
+    // CLOSE MENU ON NAV LINK CLICK (MOBILE)
+    document.querySelectorAll(".nav-menu a").forEach((link) => {
+        link.addEventListener("click", () => {
+            if (window.innerWidth <= 768) {
                 mainNav.classList.remove("active");
                 finalNavToggle.innerHTML = "☰";
             }
         });
+    });
+}
 
-        // CLOSE MENU ON NAV LINK CLICK (MOBILE)
-        document.querySelectorAll(".nav-menu a").forEach((link) => {
-            link.addEventListener("click", () => {
-                if (window.innerWidth <= 768) {
-                    mainNav.classList.remove("active");
-                    finalNavToggle.innerHTML = "☰";
-                }
-            });
-        });
-
-        // Mark as initialized
-        window.headerInitialized = true;
-    }
-
-    // Initialize when DOM is ready
+// ====================================================================
+// AUTO-INITIALIZE HEADER (IIFE - runs immediately)
+// ====================================================================
+(function() {
+    if (window.headerInitialized) return;
+    
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initHeader);
+        document.addEventListener('DOMContentLoaded', () => {
+            initHeader();
+            window.headerInitialized = true;
+        });
     } else {
         initHeader();
+        window.headerInitialized = true;
     }
 })();
 
@@ -135,9 +135,7 @@ async function loadHeader() {
         await new Promise(r => setTimeout(r, 50));
         
         // Initialize header after loading
-        if (typeof initHeader === 'function') {
-            initHeader();
-        }
+        initHeader();
         
         // Load user profile icon
         if (window.currentUser?.user_id && typeof loadUserProfileIcon === 'function') {
@@ -148,7 +146,6 @@ async function loadHeader() {
         console.error("Header load failed:", error);
     }
 }
-
 // ====================================================================
 // FOOTER LOADER
 // ====================================================================
