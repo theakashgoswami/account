@@ -88,7 +88,7 @@ function toggleUserOverlay() {
         
         // Load user data and stats
         loadUserData();
-        updateUserStats();
+        loadUserStats();
     }   
 }
 // ====================================================================
