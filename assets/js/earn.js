@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", loadQuiz);
-
+  await loadHeader();
 async function loadQuiz() {
     const container = document.getElementById("quizContainer");
 
