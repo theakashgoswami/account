@@ -180,30 +180,21 @@ async function submitAnswer(qid) {
     const correctOption = card.dataset.correct;
     const week = card.dataset.week || "Week 1";
     
-    const submitBtn = event?.currentTarget;
-    if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
-    }
-    
     try {
-        console.log("📤 Submitting answer:", { qid, selected, correctOption, week });
-        
         const response = await fetch(`${CONFIG.WORKER_URL}/api/user/submit-quiz`, {
             method: 'POST',
             credentials: 'include',
             headers: { 
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json',  // ✅ This is correct
                 'X-Client-Host': window.location.host
             },
-            body: JSON.stringify({
+            body: JSON.stringify({  // ✅ This creates proper JSON
                 qid: qid,
                 selectedOption: selected,
                 correctOption: correctOption,
                 week: week
             })
         });
-        
         console.log("📥 Response status:", response.status);
         
         // Check if response is OK
