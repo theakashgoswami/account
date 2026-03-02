@@ -1,206 +1,271 @@
-// ==========================================
-// REWARDS & REDEMPTION LOGIC (use.js logic)
-// ==========================================
+// assets/js/use.js
 
-const RewardsManager = {
-    currentReward: null,
-    isProcessing: false,
+let currentReward = null;
+let isProcessing = false;  // ✅ FIX: Add this variable
 
-    async init() {
-        console.log("🎁 Rewards Logic Initialized");
-        await Promise.all([
-            this.loadRewards(),
-            this.loadUseHistory()
-        ]);
-        this.setupEventListeners();
-    },
-
-    setupEventListeners() {
-        // Event delegation for Redeem Buttons
-        document.addEventListener('click', (e) => {
-            const btn = e.target.closest('.redeem-btn');
-            if (btn) {
-                this.openRedeemModal({
-                    id: btn.dataset.id,
-                    name: btn.dataset.name,
-                    points: btn.dataset.points,
-                    stamps: btn.dataset.stamps
-                });
-            }
-
-            // Close modal on backdrop click
-            if (e.target.id === 'confirmModal') this.closeModal();
-        });
-
-        // Confirm button click
-        const confirmBtn = document.querySelector('.btn-confirm');
-        if (confirmBtn) {
-            confirmBtn.onclick = () => this.confirmRedeem();
-        }
-    },
-
-    async loadRewards() {
-        try {
-            const res = await fetch(`${CONFIG.WORKER_URL}/api/user/use`, {
-                credentials: 'include',
-                headers: { 'X-Client-Host': window.location.host }
-            });
-            const data = await res.json();
-
-            if (data.success) {
-                this.renderRewardsGrid(data.rewards);
-                // Update global stats using UI utility from main code
-                if (typeof UI.updateUserStats === 'function') {
-                    UI.updateUserStats(data.userPoints, data.userStamps);
-                }
-            } else {
-                this.showGridError('Failed to load rewards');
-            }
-        } catch (err) {
-            this.showGridError('Server connection error');
-        }
-    },
-
-    renderRewardsGrid(rewards) {
-        const grid = document.getElementById('rewardsGrid');
-        if (!grid) return;
-
-        if (!rewards?.length) {
-            grid.innerHTML = '<div class="empty">No rewards available at the moment.</div>';
-            return;
-        }
-
-        grid.innerHTML = rewards.map(r => `
-            <div class="reward-card ${!r.canAfford ? 'cannot-afford' : ''}">
-                <div class="reward-content">
-                    <div class="reward-icon"><i class="fas fa-gift"></i></div>
-                    <h3>${r.reward_name}</h3>
-                    <p>${r.description || ''}</p>
-                    <div class="cost-tags">
-                        ${r.cost_points > 0 ? `<span><i class="fas fa-star"></i> ${r.cost_points}</span>` : ''}
-                        ${r.cost_stamps > 0 ? `<span><i class="fas fa-ticket-alt"></i> ${r.cost_stamps}</span>` : ''}
-                    </div>
-                    <button class="redeem-btn" 
-                        data-id="${r.reward_id}" 
-                        data-name="${r.reward_name}" 
-                        data-points="${r.cost_points}" 
-                        data-stamps="${r.cost_stamps}"
-                        ${!r.canAfford ? 'disabled' : ''}>
-                        ${r.canAfford ? 'Redeem Now' : 'Not Enough Points'}
-                    </button>
-                </div>
-            </div>
-        `).join('');
-    },
-
-    async loadUseHistory() {
-        const list = document.getElementById('historyList');
-        if (!list) return;
-
-        try {
-            const res = await fetch(`${CONFIG.WORKER_URL}/api/user/pointslog`, {
-                credentials: 'include',
-                headers: { 'X-Client-Host': window.location.host }
-            });
-            const data = await res.json();
-            
-            if (data.success && data.use) {
-                list.innerHTML = data.use.map(h => `
-                    <div class="history-item">
-                        <div class="h-info">
-                            <span class="h-name">${h.description || 'Redeemed'}</span>
-                            <span class="h-date">${new Date(h.created_at).toLocaleDateString()}</span>
-                        </div>
-                        <span class="h-amount">-${Math.abs(h.points || 0)} pts</span>
-                    </div>
-                `).join('');
-            } else {
-                list.innerHTML = '<div class="empty">No history found</div>';
-            }
-        } catch (err) {
-            list.innerHTML = '<div class="error">Error loading history</div>';
-        }
-    },
-
-    openRedeemModal(data) {
-        this.currentReward = data;
-        const detailsEl = document.getElementById('modalRewardDetails');
-        if (detailsEl) {
-            detailsEl.innerHTML = `
-                <h4>Confirm Redemption</h4>
-                <p>Are you sure you want to redeem <strong>${data.name}</strong>?</p>
-                <p class="modal-cost">Cost: ${data.points > 0 ? data.points + ' Points' : ''} ${data.stamps > 0 ? data.stamps + ' Stamps' : ''}</p>
-            `;
-        }
-        const modal = document.getElementById('confirmModal');
-        if (modal) modal.style.display = 'flex';
-    },
-
-    closeModal() {
-        const modal = document.getElementById('confirmModal');
-        if (modal) modal.style.display = 'none';
-        this.currentReward = null;
-    },
-
-    async confirmRedeem() {
-        if (!this.currentReward || this.isProcessing) return;
-
-        const confirmBtn = document.querySelector('.btn-confirm');
-        const originalText = confirmBtn.innerHTML;
-
-        try {
-            this.isProcessing = true;
-            confirmBtn.disabled = true;
-            confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-
-            const res = await fetch(`${CONFIG.WORKER_URL}/api/user/redeem`, {
-                method: 'POST',
-                credentials: 'include',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'X-Client-Host': window.location.host
-                },
-                body: JSON.stringify({
-                    rewardId: this.currentReward.id,
-                    rewardName: this.currentReward.name,
-                    pointsCost: Number(this.currentReward.points),
-                    stampsCost: Number(this.currentReward.stamps)
-                })
-            });
-
-            const data = await res.json();
-
-            if (data.success) {
-                UI.showNotification(data.message || 'Reward redeemed!', 'success');
-                this.closeModal();
-                // Refresh everything
-                this.loadRewards();
-                this.loadUseHistory();
-                if (typeof loadUserData === 'function') loadUserData(); // Refresh overlay stats
-            } else {
-                UI.showNotification(data.error || 'Redemption failed', 'error');
-            }
-        } catch (err) {
-            UI.showNotification('Server error occurred', 'error');
-        } finally {
-            this.isProcessing = false;
-            confirmBtn.disabled = false;
-            confirmBtn.innerHTML = originalText;
-        }
-    },
-
-    showGridError(msg) {
-        const grid = document.getElementById('rewardsGrid');
-        if (grid) grid.innerHTML = `<div class="error">${msg}</div>`;
-    }
-};
-
-// ==========================================
-// UPDATE DOMCONTENTLOADED TO INCLUDE REWARDS
-// ==========================================
-document.addEventListener('DOMContentLoaded', () => {
-    // ... baki functions ...
-    if (window.location.pathname.includes('use')) {
-        RewardsManager.init();
-    }
+document.addEventListener("DOMContentLoaded", async function() {
+    console.log("🎁 Use page loaded");
+    await loadHeader();
+    await Promise.all([
+        loadRewards(),
+        loadUseHistory()
+    ]);
 });
+
+// Load header
+async function loadHeader() {
+    try {
+        const res = await fetch("/partials/header.html");
+        const html = await res.text();
+        document.getElementById("header-container").innerHTML = html;
+        if (typeof initHeader === 'function') initHeader();
+    } catch (err) {
+        console.error("Header error:", err);
+    }
+}
+
+// ✅ FIX: Add loadUserStats function
+async function loadUserStats() {
+    try {
+        const res = await fetch(`${CONFIG.WORKER_URL}/api/user/stats`, {
+            credentials: 'include',
+            headers: { 'X-Client-Host': window.location.host }
+        });
+        const data = await res.json();
+        if (data.success) {
+           updateAllStats(data.points, data.stamps);
+        }
+    } catch (err) {
+        console.error("Stats error:", err);
+    }
+}
+
+// LOAD REWARDS
+async function loadRewards() {
+    try {
+        const res = await fetch(`${CONFIG.WORKER_URL}/api/user/use`, {
+            credentials: 'include',
+            headers: { 'X-Client-Host': window.location.host }
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+            displayRewards(data.rewards);
+          updateAllStats(data.userPoints, data.userStamps);
+        } else {
+            document.getElementById('rewardsGrid').innerHTML = '<div class="error">Failed to load rewards</div>';
+        }
+    } catch (err) {
+        console.error("Rewards error:", err);
+        document.getElementById('rewardsGrid').innerHTML = '<div class="error">Failed to load rewards</div>';
+    }
+}
+
+// DISPLAY REWARDS
+function displayRewards(rewards) {
+    const grid = document.getElementById('rewardsGrid');
+    
+    if (!rewards?.length) {
+        grid.innerHTML = '<div class="empty">No rewards available</div>';
+        return;
+    }
+
+    grid.innerHTML = rewards.map(r => `
+        <div class="reward-card ${!r.canAfford ? 'cannot-afford' : ''}">
+            <div class="reward-content">
+                <h3>${r.reward_name || 'Reward'}</h3>
+                <p class="description">${r.description || ''}</p>
+                <div class="cost">
+                    ${r.cost_points > 0 ? `<span><i class="fas fa-star"></i> ${r.cost_points} Points</span>` : ''}
+                    ${r.cost_stamps > 0 ? `<span><i class="fas fa-ticket-alt"></i> ${r.cost_stamps} Stamps</span>` : ''}
+                </div>
+              <button class="redeem-btn"
+    data-id="${r.reward_id}"
+    data-name="${r.reward_name}"
+    data-points="${r.cost_points}"
+    data-stamps="${r.cost_stamps}"
+    ${!r.canAfford ? 'disabled' : ''}>
+    Redeem
+</button>
+            </div>
+        </div>
+    `).join('');
+}
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.redeem-btn');
+    if (!btn) return;
+
+    openRedeemModal(
+        btn.dataset.id,
+        btn.dataset.name,
+        btn.dataset.points,
+        btn.dataset.stamps
+    );
+});
+// LOAD USE HISTORY
+async function loadUseHistory() {
+    try {
+        const res = await fetch(`${CONFIG.WORKER_URL}/api/user/pointslog`, {
+            credentials: 'include',
+            headers: { 'X-Client-Host': window.location.host }
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            displayUseHistory(data.use);
+        } else {
+            document.getElementById('historyList').innerHTML = '<div class="error">Failed to load history</div>';
+        }
+    } catch (err) {
+        console.error("History error:", err);
+        document.getElementById('historyList').innerHTML = '<div class="error">Failed to load history</div>';
+    }
+}
+
+function displayUseHistory(history) {
+    const list = document.getElementById('historyList');
+
+    if (!history?.length) {
+        list.innerHTML = '<div class="empty">No redemption history</div>';
+        return;
+    }
+
+    list.innerHTML = history.map(h => {
+        const dateValue = h.created_at;
+        const formattedDate = dateValue
+            ? new Date(dateValue).toLocaleDateString()
+            : '-';
+
+        return `
+            <div class="history-item">
+                <span class="date">${formattedDate}</span>
+                <span class="reason">${h.description || 'Redeemed'}</span>
+                <span class="points">-${Math.abs(h.points || 0)}</span>
+            </div>
+        `;
+    }).join('');
+}
+
+// Open redeem modal
+function openRedeemModal(rewardId, rewardName, points, stamps) {
+    console.log("📦 Opening modal with:", { rewardId, rewardName, points, stamps });
+    
+    if (!rewardId || !rewardName) {
+        console.error("❌ Invalid reward data");
+        alert("Invalid reward data");
+        return;
+    }
+    
+    currentReward = { 
+        rewardId: String(rewardId),
+        rewardName: String(rewardName), 
+        points: Number(points) || 0,
+        stamps: Number(stamps) || 0
+    };
+    
+    let costText = '';
+    if (currentReward.points > 0) costText += `${currentReward.points} Points `;
+    if (currentReward.stamps > 0) costText += `${currentReward.stamps} Stamps`;
+    
+    document.getElementById('modalRewardDetails').innerHTML = `
+        <p><strong>${currentReward.rewardName}</strong></p>
+        <p>Cost: ${costText}</p>
+    `;
+    document.getElementById('confirmModal').style.display = 'flex';
+}
+
+// Close modal
+function closeModal() {
+    document.getElementById('confirmModal').style.display = 'none';
+    currentReward = null;
+}
+
+// Confirm redemption
+async function confirmRedeem() {
+    if (!currentReward) {
+        console.error("❌ No reward selected");
+        return;
+    }
+    
+    if (isProcessing) {
+        console.log("⏳ Already processing...");
+        return;
+    }
+    
+    isProcessing = true;
+    const confirmBtn = document.querySelector('.btn-confirm');
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+    }
+    
+    console.log("🎁 Redeeming reward:", currentReward);
+    
+    try {
+        const requestBody = {
+            rewardId: currentReward.rewardId,
+            rewardName: currentReward.rewardName,
+            pointsCost: Number(currentReward.points) || 0,
+            stampsCost: Number(currentReward.stamps) || 0
+        };
+        
+        console.log("📤 Sending data:", requestBody);
+        
+        const res = await fetch(`${CONFIG.WORKER_URL}/api/user/redeem`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-Client-Host': window.location.host
+            },
+            body: JSON.stringify(requestBody)
+        });
+        
+        console.log("📥 Response status:", res.status);
+        
+        // Check if response is JSON
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            const text = await res.text();
+            throw new Error(`Invalid response: ${text}`);
+        }
+        
+        const data = await res.json();
+        console.log("📥 Response data:", data);
+        
+        if (data.success) {
+            alert('✅ ' + (data.message || 'Reward redeemed successfully!'));
+            closeModal();
+            
+            // Reload all data
+            await Promise.all([
+                loadUserStats(),
+                loadRewards(),
+                loadUseHistory()
+            ]);
+        } else {
+            alert('❌ ' + (data.error || 'Redemption failed'));
+        }
+    } catch (err) {
+        console.error("❌ Redeem error:", err);
+        alert('❌ Error: ' + err.message);
+    } finally {
+        isProcessing = false;
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = 'Yes, Redeem';
+        }
+    }
+}
+
+// Close modal when clicking outside
+document.addEventListener('click', function(e) {
+    const modal = document.getElementById('confirmModal');
+    if (e.target === modal) closeModal();
+});
+
+// Make functions globally available
+window.openRedeemModal = openRedeemModal;
+window.closeModal = closeModal;
+window.confirmRedeem = confirmRedeem;
