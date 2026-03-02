@@ -82,13 +82,11 @@ function displayRewards(rewards) {
                     ${r.cost_points > 0 ? `<span><i class="fas fa-star"></i> ${r.cost_points} Points</span>` : ''}
                     ${r.cost_stamps > 0 ? `<span><i class="fas fa-ticket-alt"></i> ${r.cost_stamps} Stamps</span>` : ''}
                 </div>
-               <button class="redeem-btn"
-    onclick="openRedeemModal(
-        ${JSON.stringify(r.reward_id)},
-        ${JSON.stringify(r.reward_name)},
-        ${Number(r.cost_points) || 0},
-        ${Number(r.cost_stamps) || 0}
-    )"
+              <button class="redeem-btn"
+    data-id="${r.reward_id}"
+    data-name="${r.reward_name}"
+    data-points="${r.cost_points}"
+    data-stamps="${r.cost_stamps}"
     ${!r.canAfford ? 'disabled' : ''}>
     Redeem
 </button>
@@ -96,7 +94,17 @@ function displayRewards(rewards) {
         </div>
     `).join('');
 }
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.redeem-btn');
+    if (!btn) return;
 
+    openRedeemModal(
+        btn.dataset.id,
+        btn.dataset.name,
+        btn.dataset.points,
+        btn.dataset.stamps
+    );
+});
 // LOAD USE HISTORY
 async function loadUseHistory() {
     try {
