@@ -138,3 +138,19 @@ async function loadHeader() {
         console.error("❌ Header load failed:", error);
     }
 }
+function updateAllStats(points, stamps) {
+
+    // Overlay update
+    const overlayPoints = document.getElementById('overlayPoints');
+    const overlayStamps = document.getElementById('overlayStamps');
+
+    if (overlayPoints) overlayPoints.textContent = points;
+    if (overlayStamps) overlayStamps.textContent = stamps;
+
+    // Use page update
+    const usePoints = document.getElementById('usePagePoints');
+    const useStamps = document.getElementById('usePageStamps');
+
+    if (usePoints) usePoints.textContent = points;
+    if (useStamps) useStamps.textContent = stamps;
+}
