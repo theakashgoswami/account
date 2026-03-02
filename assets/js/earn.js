@@ -165,7 +165,7 @@ function selectAnswer(qid, option) {
     selectedAnswers[qid] = option;
 }
 
-// Submit answer (sirf score sheet mein jayega)
+// Submit answer
 async function submitAnswer(qid) {
     const selected = selectedAnswers[qid];
     
@@ -187,6 +187,8 @@ async function submitAnswer(qid) {
     }
     
     try {
+        console.log("📤 Submitting answer:", { qid, selected, correctOption, week });
+        
         const response = await fetch(`${CONFIG.WORKER_URL}/api/user/submit-quiz`, {
             method: 'POST',
             credentials: 'include',
@@ -202,7 +204,16 @@ async function submitAnswer(qid) {
             })
         });
         
+        console.log("📥 Response status:", response.status);
+        
+        // Check if response is OK
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Server error (${response.status}): ${errorText}`);
+        }
+        
         const data = await response.json();
+        console.log("📥 Response data:", data);
         
         if (data.success) {
             const earnedScore = data.score || 0;
@@ -225,24 +236,19 @@ async function submitAnswer(qid) {
             }
             
             submitBtn?.remove();
-            
-            // Update score display
             await loadUserScore();
-            
-            // Show result modal
             showResultModal(data.is_correct, earnedScore);
         }
         
     } catch (error) {
-        console.error("Submit error:", error);
-        alert("Failed to submit answer. Please try again.");
+        console.error("❌ Submit error:", error);
+        alert(`Failed to submit: ${error.message}`);
         if (submitBtn) {
             submitBtn.disabled = false;
             submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Answer';
         }
     }
 }
-
 // Show result modal (sirf score)
 function showResultModal(isCorrect, score) {
     const modal = document.getElementById('resultModal');
