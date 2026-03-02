@@ -10,7 +10,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     await loadHeader();
     await loadUserScore();
     await loadQuiz();
-    await checkIfAlreadySubmitted(); // ✅ Sirf ek baar call
+    await checkIfAlreadySubmitted();
 });
 
 // Load header
@@ -56,7 +56,7 @@ async function loadUserScore() {
     }
 }
 
-// 🔥 Check if already submitted this week (SIRF EK BAAR)
+// Check if already submitted
 async function checkIfAlreadySubmitted() {
     try {
         const response = await fetch(`${CONFIG.WORKER_URL}/api/user/check-quiz-submission?week=${currentWeek}`, {
@@ -67,7 +67,6 @@ async function checkIfAlreadySubmitted() {
         const data = await response.json();
         
         if (data.success && data.submitted) {
-            // Disable all inputs
             document.querySelectorAll('.option-radio').forEach(radio => {
                 radio.disabled = true;
             });
@@ -77,15 +76,6 @@ async function checkIfAlreadySubmitted() {
                 submitBtn.disabled = true;
                 submitBtn.innerHTML = '✅ Already Submitted';
             }
-            
-            // Show message with score
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'info-message';
-            messageDiv.innerHTML = `
-                <i class="fas fa-info-circle"></i>
-                You have already submitted for ${currentWeek}. Your score: ${data.score}
-            `;
-            document.querySelector('.quiz-container')?.prepend(messageDiv);
         }
     } catch (error) {
         console.error("Check submission error:", error);
@@ -110,12 +100,7 @@ async function loadQuiz() {
         const data = await res.json();
 
         if (!data.success || !data.earn || !data.earn.length) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-hourglass"></i>
-                    <p>No questions available right now. Check back later!</p>
-                </div>
-            `;
+            container.innerHTML = `<div class="empty-state">No questions available</div>`;
             return;
         }
 
@@ -125,16 +110,11 @@ async function loadQuiz() {
 
     } catch (err) {
         console.error("Quiz error:", err);
-        container.innerHTML = `
-            <div class="error-state">
-                <i class="fas fa-exclamation-triangle"></i>
-                <p>Failed to load quiz. Please try again.</p>
-            </div>
-        `;
+        container.innerHTML = `<div class="error-state">Failed to load quiz</div>`;
     }
 }
 
-// Display quiz questions
+// Display quiz
 function displayQuiz(questions, container) {
     if (!container) return;
     
@@ -144,34 +124,17 @@ function displayQuiz(questions, container) {
         return `
             <div class="quiz-card" data-qid="${qid}" data-correct="${q.correct}">
                 <div class="question-header">
-                    <span class="question-number">Question ${index + 1}/${questions.length}</span>
-                    <span class="reward-badge">
-                        <i class="fas fa-star"></i> 10 Score
-                    </span>
+                    <span class="question-number">Q${index + 1}/${questions.length}</span>
+                    <span class="reward-badge"><i class="fas fa-star"></i> 10</span>
                 </div>
-                
-                <h3>${q.question || 'Question'}</h3>
-                
+                <h3>${q.question}</h3>
                 <div class="options-grid">
-                    <label class="option-label">
-                        <input type="radio" name="q_${qid}" value="A" class="option-radio" onchange="selectAnswer('${qid}', 'A')">
-                        <span class="option-text">A. ${q.optionA || 'Option A'}</span>
-                    </label>
-                    
-                    <label class="option-label">
-                        <input type="radio" name="q_${qid}" value="B" class="option-radio" onchange="selectAnswer('${qid}', 'B')">
-                        <span class="option-text">B. ${q.optionB || 'Option B'}</span>
-                    </label>
-                    
-                    <label class="option-label">
-                        <input type="radio" name="q_${qid}" value="C" class="option-radio" onchange="selectAnswer('${qid}', 'C')">
-                        <span class="option-text">C. ${q.optionC || 'Option C'}</span>
-                    </label>
-                    
-                    <label class="option-label">
-                        <input type="radio" name="q_${qid}" value="D" class="option-radio" onchange="selectAnswer('${qid}', 'D')">
-                        <span class="option-text">D. ${q.optionD || 'Option D'}</span>
-                    </label>
+                    ${['A', 'B', 'C', 'D'].map(opt => `
+                        <label class="option-label">
+                            <input type="radio" name="q_${qid}" value="${opt}" class="option-radio" onchange="selectAnswer('${qid}', '${opt}')">
+                            <span class="option-text">${opt}. ${q[`option${opt}`]}</span>
+                        </label>
+                    `).join('')}
                 </div>
             </div>
         `;
@@ -191,11 +154,9 @@ function displayQuiz(questions, container) {
 // Select answer
 function selectAnswer(qid, option) {
     selectedAnswers[qid] = option;
-    console.log(`✅ Selected ${option} for ${qid}`);
 }
 
-
-// 🔥 Submit quiz - FIXED VERSION
+// Submit quiz
 async function submitQuiz() {
     const submitBtn = document.getElementById('submitAllBtn');
     const progressMsg = document.getElementById('progressMessage');
@@ -204,35 +165,27 @@ async function submitQuiz() {
     const answeredCount = Object.keys(selectedAnswers).length;
     
     if (answeredCount < totalQuestions) {
-        alert(`Please answer all ${totalQuestions} questions!`);
+        alert(`Answer all ${totalQuestions} questions!`);
         return;
     }
     
-    if (!confirm(`Submit your quiz for ${currentWeek}?`)) {
-        return;
-    }
+    if (!confirm(`Submit quiz for ${currentWeek}?`)) return;
     
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
-    progressMsg.innerHTML = 'Calculating your score...';
+    progressMsg.innerHTML = 'Calculating score...';
     
     try {
-        // Calculate total score
+        // Calculate score
         let totalScore = 0;
-        
         currentQuizData.forEach(q => {
             const qid = q.qid || q.id;
-            const selected = selectedAnswers[qid];
-            const correct = q.correct;
-            
-            if (selected === correct) {
-                totalScore += 10;
-            }
+            if (selectedAnswers[qid] === q.correct) totalScore += 10;
         });
         
         console.log("📤 Submitting:", { week: currentWeek, score: totalScore });
         
-        // Submit to worker
+        // ✅ USER ID AUTOMATICALLY WORKER SE LEGA
         const response = await fetch(`${CONFIG.WORKER_URL}/api/user/submit-quiz`, {
             method: 'POST',
             credentials: 'include',
@@ -246,30 +199,20 @@ async function submitQuiz() {
             })
         });
         
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Server error: ${response.status} - ${errorText}`);
-        }
-        
         const data = await response.json();
-        console.log("📥 Response:", data);
         
         if (data.success) {
-            progressMsg.innerHTML = '✅ Submitted successfully!';
-            alert(`🎉 Quiz submitted! Your score: ${totalScore}`);
+            progressMsg.innerHTML = '✅ Submitted!';
+            alert(`🎉 Score: ${totalScore}`);
             
-            // Disable all inputs
-            document.querySelectorAll('.option-radio').forEach(radio => {
-                radio.disabled = true;
-            });
-            
+            document.querySelectorAll('.option-radio').forEach(r => r.disabled = true);
             submitBtn.innerHTML = '✅ Submitted';
         } else {
-            throw new Error(data.error || 'Submission failed');
+            throw new Error(data.error);
         }
         
     } catch (error) {
-        console.error("❌ Submit error:", error);
+        console.error("❌ Error:", error);
         alert('Failed: ' + error.message);
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Quiz';
@@ -277,6 +220,6 @@ async function submitQuiz() {
     }
 }
 
-// Expose functions globally
+// Expose functions
 window.selectAnswer = selectAnswer;
 window.submitQuiz = submitQuiz;
