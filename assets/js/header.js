@@ -1,23 +1,21 @@
- // header.js - FINAL FIXED VERSION
+// ====================================================================
+// HEADER INITIALIZATION
+// ====================================================================
 (function() {
     // Guard to prevent multiple initializations
     if (window.headerInitialized) {
-       
         return;
     }
     
-    function initHeader() {
+    window.initHeader = function() {
         const navToggle = document.getElementById("navToggle");
         const mainNav = document.getElementById("mainNav");
         const customHeader = document.getElementById("header");
 
         if (!navToggle || !mainNav || !customHeader) {
-          
-            setTimeout(initHeader, 300);
+            setTimeout(window.initHeader, 300);
             return;
         }
-
-        
 
         let lastScrollY = window.scrollY;
         let ticking = false;
@@ -42,10 +40,8 @@
             if (mainNav.classList.contains("active")) {
                 finalNavToggle.innerHTML = "✕";
                 finalNavToggle.style.fontSize = "1.8rem";
-                
             } else {
                 finalNavToggle.innerHTML = "☰";
-               
             }
         });
 
@@ -109,37 +105,54 @@
 
         // Mark as initialized
         window.headerInitialized = true;
-    }
+    };
 
     // Initialize when DOM is ready
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initHeader);
+        document.addEventListener('DOMContentLoaded', window.initHeader);
     } else {
-        initHeader();
+        window.initHeader();
     }
 })();
-async function loadHeader() {
+
+// ====================================================================
+// HEADER LOADER FUNCTION (SINGLE VERSION)
+// ====================================================================
+window.loadHeader = async function() {
     try {
         const response = await fetch("/partials/header.html");
         const html = await response.text();
         
-        document.getElementById("header-container").innerHTML = html;
+        const headerContainer = document.getElementById("header-container");
+        if (!headerContainer) {
+            console.error("Header container not found");
+            return;
+        }
+        
+        headerContainer.innerHTML = html;
         
         // Wait a tiny bit for DOM to update
-        await new Promise(r => setTimeout(r, 50));
+        await new Promise(r => setTimeout(r, 100));
+        
+        // Initialize header
+        if (typeof window.initHeader === 'function') {
+            window.initHeader();
+        }
         
         // Load user profile icon
-        if (window.currentUser?.user_id && typeof loadUserProfileIcon === 'function') {
-            await loadUserProfileIcon(window.currentUser.user_id);
-           
+        if (window.currentUser?.user_id && typeof window.loadUserProfileIcon === 'function') {
+            await window.loadUserProfileIcon(window.currentUser.user_id);
         }
         
     } catch (error) {
-        console.error("❌ Header load failed:", error);
+        console.error("Header load failed:", error);
     }
-}
-function updateAllStats(points, stamps) {
+};
 
+// ====================================================================
+// UPDATE ALL STATS FUNCTION
+// ====================================================================
+window.updateAllStats = function(points, stamps) {
     // Overlay update
     const overlayPoints = document.getElementById('overlayPoints');
     const overlayStamps = document.getElementById('overlayStamps');
@@ -153,54 +166,4 @@ function updateAllStats(points, stamps) {
 
     if (usePoints) usePoints.textContent = points;
     if (useStamps) useStamps.textContent = stamps;
-}
-// assets/js/edit-profile.js
-
-let currentUserData = null;
-
-// Initialize page
-document.addEventListener("DOMContentLoaded", async function() {
-        
-    // Load header
-    await loadHeader();
-    
-    // Wait for user authentication
-    await waitForUser();
-    
-    // Load profile data
-    await loadProfileData();
-    
-    // Setup event listeners
-    setupEventListeners();
-});
-
-// Load header
-async function loadHeader() {
-    try {
-        const response = await fetch("/partials/header.html");
-        const html = await response.text();
-        document.getElementById("header-container").innerHTML = html;
-        
-        if (typeof initHeader === 'function') {
-            initHeader();
-        }
-    } catch (error) {
-        console.error("Header load failed:", error);
-    }
-}
-// Wait for user authentication
-async function waitForUser() {
-    let waitTime = 0;
-    const maxWait = 3000;
-    
-    while (!window.currentUser && waitTime < maxWait) {
-        await new Promise(r => setTimeout(r, 100));
-        waitTime += 100;
-    }
-    
-    if (!window.currentUser) {
-        console.error("❌ No user found - redirecting");
-        window.location.href = "https://agtechscript.in";
-        return;
-    }
-}
+};

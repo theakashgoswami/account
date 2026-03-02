@@ -4,9 +4,14 @@ let currentUserData = null;
 
 // Initialize page
 document.addEventListener("DOMContentLoaded", async function() {
-        
-    // Load header
-    await loadHeader();
+    console.log("📝 Edit profile page loaded");
+    
+    // Load header (use global function)
+    if (typeof window.loadHeader === 'function') {
+        await window.loadHeader();
+    } else {
+        console.error("loadHeader function not found");
+    }
     
     // Wait for user authentication
     await waitForUser();
@@ -17,21 +22,6 @@ document.addEventListener("DOMContentLoaded", async function() {
     // Setup event listeners
     setupEventListeners();
 });
-
-// Load header
-async function loadHeader() {
-    try {
-        const response = await fetch("/partials/header.html");
-        const html = await response.text();
-        document.getElementById("header-container").innerHTML = html;
-        
-        if (typeof initHeader === 'function') {
-            initHeader();
-        }
-    } catch (error) {
-        console.error("Header load failed:", error);
-    }
-}
 
 // Wait for user authentication
 async function waitForUser() {
@@ -46,12 +36,19 @@ async function waitForUser() {
     if (!window.currentUser) {
         console.error("❌ No user found - redirecting");
         window.location.href = "https://agtechscript.in";
-        return;
+        return false;
     }
+    
+    return true;
 }
 
 // Load profile data from API
 async function loadProfileData() {
+    if (!window.currentUser?.user_id) {
+        showNotification("User not logged in", "error");
+        return;
+    }
+    
     try {
         const response = await fetch(`${CONFIG.WORKER_URL}/api/user/profile?user_id=${window.currentUser.user_id}`, {
             credentials: 'include',
@@ -62,7 +59,6 @@ async function loadProfileData() {
         });
         
         const data = await response.json();
-       
         
         if (data.success) {
             currentUserData = data;
@@ -78,46 +74,66 @@ async function loadProfileData() {
 
 // Display profile data in form
 function displayProfileData(data) {
-   
-    
-    // Avatar
-    if (data.profile_image) {
-        document.getElementById('profileAvatar').src = data.profile_image;
+    // Check if all elements exist before updating
+    const profileAvatar = document.getElementById('profileAvatar');
+    if (profileAvatar && data.profile_image) {
+        profileAvatar.src = data.profile_image;
     }
     
-    // User meta
-    document.getElementById('metaUserId').textContent = data.user_id || 'AG0001';
+    const metaUserId = document.getElementById('metaUserId');
+    if (metaUserId) {
+        metaUserId.textContent = data.user_id || 'AG0001';
+    }
     
-    if (data.created_at) {
+    const metaMemberSince = document.getElementById('metaMemberSince');
+    if (metaMemberSince && data.created_at) {
         const year = new Date(data.created_at).getFullYear();
-        document.getElementById('metaMemberSince').textContent = `Member since ${year}`;
+        metaMemberSince.textContent = `Member since ${year}`;
     }
     
-    // Form fields
-    document.getElementById('fullName').value = data.name || '';
-    document.getElementById('email').value = data.email || '';
-    document.getElementById('phone').value = data.phone || '';
-    document.getElementById('address').value = data.address || '';
+    const fullName = document.getElementById('fullName');
+    if (fullName) fullName.value = data.name || '';
+    
+    const email = document.getElementById('email');
+    if (email) email.value = data.email || '';
+    
+    const phone = document.getElementById('phone');
+    if (phone) phone.value = data.phone || '';
+    
+    const address = document.getElementById('address');
+    if (address) address.value = data.address || '';
 }
 
 // Setup event listeners
 function setupEventListeners() {
     // Avatar upload
     const avatarInput = document.getElementById('avatarInput');
-    avatarInput.addEventListener('change', handleAvatarUpload);
+    if (avatarInput) {
+        avatarInput.addEventListener('change', handleAvatarUpload);
+    }
     
     // Form submit
     const form = document.getElementById('editProfileForm');
-    form.addEventListener('submit', saveProfile);
+    if (form) {
+        form.addEventListener('submit', saveProfile);
+    }
     
     // Password validation
-    document.getElementById('newPassword').addEventListener('input', validatePasswords);
-    document.getElementById('confirmPassword').addEventListener('input', validatePasswords);
+    const newPass = document.getElementById('newPassword');
+    const confirmPass = document.getElementById('confirmPassword');
+    
+    if (newPass) {
+        newPass.addEventListener('input', validatePasswords);
+    }
+    if (confirmPass) {
+        confirmPass.addEventListener('input', validatePasswords);
+    }
 }
 
 // Trigger file upload
 function triggerFileUpload() {
-    document.getElementById('avatarInput').click();
+    const avatarInput = document.getElementById('avatarInput');
+    if (avatarInput) avatarInput.click();
 }
 
 // Handle avatar upload
@@ -139,7 +155,10 @@ async function handleAvatarUpload(e) {
     // Preview
     const reader = new FileReader();
     reader.onload = (e) => {
-        document.getElementById('profileAvatar').src = e.target.result;
+        const profileAvatar = document.getElementById('profileAvatar');
+        if (profileAvatar) {
+            profileAvatar.src = e.target.result;
+        }
     };
     reader.readAsDataURL(file);
     
@@ -164,8 +183,15 @@ async function uploadAvatar(file) {
         const data = await response.json();
         
         if (data.success) {
-            currentUserData.profile_image = data.url;
+            if (currentUserData) {
+                currentUserData.profile_image = data.url;
+            }
             showNotification('Image uploaded successfully', 'success');
+            
+            // Update header icon
+            if (typeof window.loadUserProfileIcon === 'function' && window.currentUser?.user_id) {
+                await window.loadUserProfileIcon(window.currentUser.user_id);
+            }
         } else {
             showNotification(data.error || 'Upload failed', 'error');
         }
@@ -177,18 +203,23 @@ async function uploadAvatar(file) {
 
 // Validate passwords
 function validatePasswords() {
-    const newPass = document.getElementById('newPassword').value;
-    const confirmPass = document.getElementById('confirmPassword').value;
+    const newPass = document.getElementById('newPassword');
+    const confirmPass = document.getElementById('confirmPassword');
     const errorDiv = document.getElementById('passwordError');
     
-    if (newPass || confirmPass) {
-        if (newPass.length < 6 && newPass.length > 0) {
+    if (!newPass || !confirmPass || !errorDiv) return true;
+    
+    const newVal = newPass.value;
+    const confirmVal = confirmPass.value;
+    
+    if (newVal || confirmVal) {
+        if (newVal.length < 6 && newVal.length > 0) {
             errorDiv.textContent = 'Password must be at least 6 characters';
             errorDiv.style.display = 'block';
             return false;
         }
         
-        if (newPass !== confirmPass) {
+        if (newVal !== confirmVal) {
             errorDiv.textContent = 'Passwords do not match';
             errorDiv.style.display = 'block';
             return false;
@@ -203,12 +234,13 @@ function validatePasswords() {
 async function saveProfile(e) {
     e.preventDefault();
     
-    // Validate passwords
     if (!validatePasswords()) {
         return;
     }
     
     const saveBtn = document.getElementById('saveProfileBtn');
+    if (!saveBtn) return;
+    
     const originalText = saveBtn.innerHTML;
     
     saveBtn.disabled = true;
@@ -216,10 +248,10 @@ async function saveProfile(e) {
     
     // Prepare update data
     const updateData = {
-        user_id: window.currentUser.user_id,
-        name: document.getElementById('fullName').value,
-        phone: document.getElementById('phone').value,
-        address: document.getElementById('address').value
+        user_id: window.currentUser?.user_id,
+        name: document.getElementById('fullName')?.value || '',
+        phone: document.getElementById('phone')?.value || '',
+        address: document.getElementById('address')?.value || ''
     };
     
     // Add image if changed
@@ -228,7 +260,7 @@ async function saveProfile(e) {
     }
     
     // Add password if changing
-    const newPassword = document.getElementById('newPassword').value;
+    const newPassword = document.getElementById('newPassword')?.value;
     if (newPassword) {
         updateData.newPassword = newPassword;
     }
@@ -250,14 +282,21 @@ async function saveProfile(e) {
             showNotification('Profile updated successfully!', 'success');
             
             // Clear password fields
-            document.getElementById('newPassword').value = '';
-            document.getElementById('confirmPassword').value = '';
+            const newPass = document.getElementById('newPassword');
+            const confirmPass = document.getElementById('confirmPassword');
+            if (newPass) newPass.value = '';
+            if (confirmPass) confirmPass.value = '';
             
             // Update current user
             window.currentUser = { ...window.currentUser, ...updateData };
             
             // Reload profile data
             await loadProfileData();
+            
+            // Update header icon
+            if (typeof window.loadUserProfileIcon === 'function' && window.currentUser?.user_id) {
+                await window.loadUserProfileIcon(window.currentUser.user_id);
+            }
         } else {
             showNotification(data.error || 'Update failed', 'error');
         }
@@ -279,6 +318,10 @@ function cancelEdit() {
 
 // Show notification
 function showNotification(message, type = 'info') {
+    // Remove existing notification if any
+    const existing = document.querySelector('.notification');
+    if (existing) existing.remove();
+    
     const notification = document.createElement('div');
     notification.className = `notification notification-${type}`;
     notification.innerHTML = message;
@@ -311,16 +354,26 @@ function showNotification(message, type = 'info') {
     }, 3000);
 }
 
-// Add animation styles
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideIn {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
+// Add animation styles if not exist
+(function() {
+    if (!document.getElementById('notification-styles')) {
+        const style = document.createElement('style');
+        style.id = 'notification-styles';
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
     }
-    @keyframes slideOut {
-        from { transform: translateX(0); opacity: 1; }
-        to { transform: translateX(100%); opacity: 0; }
-    }
-`;
-document.head.appendChild(style);
+})();
+
+// Expose functions globally
+window.triggerFileUpload = triggerFileUpload;
+window.cancelEdit = cancelEdit;
+window.saveProfile = saveProfile;

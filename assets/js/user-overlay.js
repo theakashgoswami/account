@@ -1,4 +1,3 @@
-
 // Global variables
 let currentUser = null;
 
@@ -62,7 +61,6 @@ function closeNavToggleIfOpen() {
         if (navToggle) {
             navToggle.innerHTML = '☰'; // Reset to hamburger
         }
-        console.log("✅ Nav toggle closed");
     }
 }
 
@@ -92,6 +90,7 @@ function toggleUserOverlay() {
         loadUserStats();
     }   
 }
+
 // ====================================================================
 // LOAD USER DATA
 // ====================================================================
@@ -121,6 +120,7 @@ async function loadUserData() {
         console.error("Profile load failed:", error);
     }
 }
+
 // ====================================================================
 // UPDATE OVERLAY UI
 // ====================================================================
@@ -204,3 +204,27 @@ document.addEventListener('click', function(e) {
         closeAllOverlays();
     }
 });
+
+// ====================================================================
+// LOAD USER STATS (add this function if missing)
+// ====================================================================
+async function loadUserStats() {
+    try {
+        const response = await fetch(`${CONFIG.WORKER_URL}/api/user/stats`, {
+            credentials: 'include',
+            headers: { 'X-Client-Host': window.location.host }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            const pointsEl = document.getElementById('userPoints');
+            const stampsEl = document.getElementById('userStamps');
+            
+            if (pointsEl) pointsEl.textContent = data.points;
+            if (stampsEl) stampsEl.textContent = data.stamps;
+        }
+    } catch (error) {
+        console.error('Error loading stats:', error);
+    }
+}
