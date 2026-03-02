@@ -5,10 +5,13 @@ let currentUserData = null;
 let currentUser = null;
 
 // ====================================================================
-// HEADER INITIALIZATION
+// HEADER INITIALIZATION (header.js - FINAL FIXED VERSION)
 // ====================================================================
 (function() {
-    if (window.headerInitialized) return;
+    // Guard to prevent multiple initializations
+    if (window.headerInitialized) {
+        return;
+    }
     
     function initHeader() {
         const navToggle = document.getElementById("navToggle");
@@ -26,35 +29,54 @@ let currentUser = null;
         let touchEndY = 0;
         const swipeThreshold = 50;
 
+        // Remove existing listeners by cloning and replacing
         const newNavToggle = navToggle.cloneNode(true);
         navToggle.parentNode.replaceChild(newNavToggle, navToggle);
+        
+        // Use the new reference
         const finalNavToggle = document.getElementById("navToggle");
 
+        // Mobile Toggle with single listener
         finalNavToggle.addEventListener("click", (e) => {
             e.preventDefault();
             e.stopPropagation();
+            
             mainNav.classList.toggle("active");
-            finalNavToggle.innerHTML = mainNav.classList.contains("active") ? "✕" : "☰";
+            
+            if (mainNav.classList.contains("active")) {
+                finalNavToggle.innerHTML = "✕";
+                finalNavToggle.style.fontSize = "1.8rem";
+            } else {
+                finalNavToggle.innerHTML = "☰";
+            }
         });
 
+        // SCROLL HIDE/SHOW
         function updateHeader() {
             const sy = window.scrollY;
+
             if (sy > lastScrollY && sy > 100) {
                 customHeader.style.transform = "translateY(-100%)";
             } else {
                 customHeader.style.transform = "translateY(0)";
             }
+
             lastScrollY = sy;
             ticking = false;
         }
 
-        window.addEventListener("scroll", () => {
-            if (!ticking) {
-                requestAnimationFrame(updateHeader);
-                ticking = true;
-            }
-        }, { passive: true });
+        window.addEventListener(
+            "scroll",
+            () => {
+                if (!ticking) {
+                    requestAnimationFrame(updateHeader);
+                    ticking = true;
+                }
+            },
+            { passive: true }
+        );
 
+        // SWIPE GESTURE
         document.addEventListener("touchstart", (e) => {
             touchStartY = e.changedTouches[0].screenY;
         });
@@ -62,10 +84,14 @@ let currentUser = null;
         document.addEventListener("touchend", (e) => {
             touchEndY = e.changedTouches[0].screenY;
             const diff = touchEndY - touchStartY;
-            if (diff > swipeThreshold) customHeader.style.transform = "translateY(0)";
-            if (diff < -swipeThreshold) customHeader.style.transform = "translateY(-100%)";
+
+            if (diff > swipeThreshold)
+                customHeader.style.transform = "translateY(0)";
+            if (diff < -swipeThreshold)
+                customHeader.style.transform = "translateY(-100%)";
         });
 
+        // CLOSE ON OUTSIDE CLICK
         document.addEventListener("click", (e) => {
             if (!e.target.closest(".header-wrapper")) {
                 mainNav.classList.remove("active");
@@ -73,6 +99,7 @@ let currentUser = null;
             }
         });
 
+        // CLOSE MENU ON NAV LINK CLICK (MOBILE)
         document.querySelectorAll(".nav-menu a").forEach((link) => {
             link.addEventListener("click", () => {
                 if (window.innerWidth <= 768) {
@@ -82,9 +109,11 @@ let currentUser = null;
             });
         });
 
+        // Mark as initialized
         window.headerInitialized = true;
     }
 
+    // Initialize when DOM is ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initHeader);
     } else {
@@ -93,18 +122,28 @@ let currentUser = null;
 })();
 
 // ====================================================================
-// HEADER LOADER
+// HEADER LOADER FUNCTION
 // ====================================================================
 async function loadHeader() {
     try {
         const response = await fetch("/partials/header.html");
         const html = await response.text();
+        
         document.getElementById("header-container").innerHTML = html;
+        
+        // Wait a tiny bit for DOM to update
         await new Promise(r => setTimeout(r, 50));
         
+        // Initialize header after loading
+        if (typeof initHeader === 'function') {
+            initHeader();
+        }
+        
+        // Load user profile icon
         if (window.currentUser?.user_id && typeof loadUserProfileIcon === 'function') {
             await loadUserProfileIcon(window.currentUser.user_id);
         }
+        
     } catch (error) {
         console.error("Header load failed:", error);
     }
@@ -123,6 +162,25 @@ async function loadFooter() {
     } catch (error) {
         console.error("Footer load failed:", error);
     }
+}
+
+// ====================================================================
+// UPDATE ALL STATS FUNCTION
+// ====================================================================
+function updateAllStats(points, stamps) {
+    // Overlay update
+    const overlayPoints = document.getElementById('overlayPoints');
+    const overlayStamps = document.getElementById('overlayStamps');
+
+    if (overlayPoints) overlayPoints.textContent = points;
+    if (overlayStamps) overlayStamps.textContent = stamps;
+
+    // Use page update
+    const usePoints = document.getElementById('usePagePoints');
+    const useStamps = document.getElementById('usePageStamps');
+
+    if (usePoints) usePoints.textContent = points;
+    if (useStamps) useStamps.textContent = stamps;
 }
 
 // ====================================================================
@@ -167,12 +225,13 @@ async function loadUserProfileIcon(userId) {
             displayDefaultUserIcon();
         }
     } catch (error) {
+        console.error("Profile icon load failed:", error);
         displayDefaultUserIcon();
     }
 }
 
 // ====================================================================
-// NAV TOGGLE CLOSE
+// CLOSE NAV TOGGLE IF OPEN
 // ====================================================================
 function closeNavToggleIfOpen() {
     const mainNav = document.getElementById('mainNav');
@@ -187,7 +246,7 @@ function closeNavToggleIfOpen() {
 }
 
 // ====================================================================
-// USER OVERLAY TOGGLE
+// TOGGLE USER OVERLAY (WITH NAV CLOSE)
 // ====================================================================
 function toggleUserOverlay() {
     const overlay = document.getElementById('userOverlay');
@@ -276,7 +335,7 @@ function closeAllOverlays() {
 }
 
 // ====================================================================
-// LOGOUT
+// LOGOUT FUNCTION
 // ====================================================================
 async function logout() {
     try {
@@ -298,21 +357,6 @@ async function logout() {
 }
 
 // ====================================================================
-// CLICK OUTSIDE TO CLOSE
-// ====================================================================
-document.addEventListener('click', function(e) {
-    const overlay = document.getElementById('userOverlay');
-    const userIcon = document.getElementById('userIcon');
-    
-    if (overlay && userIcon && 
-        !overlay.contains(e.target) && 
-        !userIcon.contains(e.target) &&
-        overlay.classList.contains('active')) {
-        closeAllOverlays();
-    }
-});
-
-// ====================================================================
 // LOAD USER STATS
 // ====================================================================
 async function loadUserStats() {
@@ -330,6 +374,8 @@ async function loadUserStats() {
             
             if (pointsEl) pointsEl.textContent = data.points;
             if (stampsEl) stampsEl.textContent = data.stamps;
+            
+            updateAllStats(data.points, data.stamps);
         }
     } catch (error) {
         console.error('Error updating stats:', error);
@@ -337,29 +383,42 @@ async function loadUserStats() {
 }
 
 // ====================================================================
-// INITIALIZE ON PAGE LOAD
+// CLICK OUTSIDE TO CLOSE
 // ====================================================================
-document.addEventListener('DOMContentLoaded', async function() {
+document.addEventListener('click', function(e) {
+    const overlay = document.getElementById('userOverlay');
+    const userIcon = document.getElementById('userIcon');
+    
+    if (overlay && userIcon && 
+        !overlay.contains(e.target) && 
+        !userIcon.contains(e.target) &&
+        overlay.classList.contains('active')) {
+        closeAllOverlays();
+    }
+});
+
+// ====================================================================
+// WAIT FOR USER FUNCTION
+// ====================================================================
+async function waitForUser() {
     let waitTime = 0;
-    while (!window.currentUser && waitTime < 3000) {
+    const maxWait = 3000;
+    
+    while (!window.currentUser && waitTime < maxWait) {
         await new Promise(r => setTimeout(r, 100));
         waitTime += 100;
     }
     
-    if (window.currentUser) {
-        await loadUserData();
-        await loadUserStats();
-    } else {
-        displayDefaultUserIcon();
+    if (!window.currentUser) {
+        console.error("No user found - redirecting");
+        window.location.href = "https://agtechscript.in";
+        return false;
     }
-    
-    window.toggleUserOverlay = toggleUserOverlay;
-    window.logout = logout;
-    window.closeAllOverlays = closeAllOverlays;
-});
+    return true;
+}
 
 // ====================================================================
-// EDIT PROFILE FUNCTIONS
+// LOAD PROFILE DATA
 // ====================================================================
 async function loadProfileData() {
     try {
@@ -380,28 +439,48 @@ async function loadProfileData() {
             showNotification("Failed to load profile", "error");
         }
     } catch (error) {
+        console.error("Error loading profile:", error);
         showNotification("Error loading profile", "error");
     }
 }
 
+// ====================================================================
+// DISPLAY PROFILE DATA
+// ====================================================================
 function displayProfileData(data) {
-    if (data.profile_image) {
-        document.getElementById('profileAvatar').src = data.profile_image;
+    // Avatar
+    const profileAvatar = document.getElementById('profileAvatar');
+    if (profileAvatar && data.profile_image) {
+        profileAvatar.src = data.profile_image;
     }
     
-    document.getElementById('metaUserId').textContent = data.user_id || 'AG0001';
+    const metaUserId = document.getElementById('metaUserId');
+    if (metaUserId) {
+        metaUserId.textContent = data.user_id || 'AG0001';
+    }
     
-    if (data.created_at) {
+    const metaMemberSince = document.getElementById('metaMemberSince');
+    if (metaMemberSince && data.created_at) {
         const year = new Date(data.created_at).getFullYear();
-        document.getElementById('metaMemberSince').textContent = `Member since ${year}`;
+        metaMemberSince.textContent = `Member since ${year}`;
     }
     
-    document.getElementById('fullName').value = data.name || '';
-    document.getElementById('email').value = data.email || '';
-    document.getElementById('phone').value = data.phone || '';
-    document.getElementById('address').value = data.address || '';
+    const fullName = document.getElementById('fullName');
+    if (fullName) fullName.value = data.name || '';
+    
+    const email = document.getElementById('email');
+    if (email) email.value = data.email || '';
+    
+    const phone = document.getElementById('phone');
+    if (phone) phone.value = data.phone || '';
+    
+    const address = document.getElementById('address');
+    if (address) address.value = data.address || '';
 }
 
+// ====================================================================
+// SETUP EVENT LISTENERS
+// ====================================================================
 function setupEventListeners() {
     const avatarInput = document.getElementById('avatarInput');
     if (avatarInput) {
@@ -424,10 +503,17 @@ function setupEventListeners() {
     }
 }
 
+// ====================================================================
+// TRIGGER FILE UPLOAD
+// ====================================================================
 function triggerFileUpload() {
-    document.getElementById('avatarInput').click();
+    const avatarInput = document.getElementById('avatarInput');
+    if (avatarInput) avatarInput.click();
 }
 
+// ====================================================================
+// HANDLE AVATAR UPLOAD
+// ====================================================================
 async function handleAvatarUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -444,13 +530,17 @@ async function handleAvatarUpload(e) {
     
     const reader = new FileReader();
     reader.onload = (e) => {
-        document.getElementById('profileAvatar').src = e.target.result;
+        const profileAvatar = document.getElementById('profileAvatar');
+        if (profileAvatar) profileAvatar.src = e.target.result;
     };
     reader.readAsDataURL(file);
     
     await uploadAvatar(file);
 }
 
+// ====================================================================
+// UPLOAD AVATAR TO SERVER
+// ====================================================================
 async function uploadAvatar(file) {
     const formData = new FormData();
     formData.append('file', file);
@@ -467,31 +557,38 @@ async function uploadAvatar(file) {
         const data = await response.json();
         
         if (data.success) {
-            currentUserData.profile_image = data.url;
+            if (currentUserData) currentUserData.profile_image = data.url;
             showNotification('Image uploaded successfully', 'success');
         } else {
             showNotification(data.error || 'Upload failed', 'error');
         }
     } catch (error) {
+        console.error('Upload error:', error);
         showNotification('Upload failed', 'error');
     }
 }
 
+// ====================================================================
+// VALIDATE PASSWORDS
+// ====================================================================
 function validatePasswords() {
-    const newPass = document.getElementById('newPassword').value;
-    const confirmPass = document.getElementById('confirmPassword').value;
+    const newPass = document.getElementById('newPassword');
+    const confirmPass = document.getElementById('confirmPassword');
     const errorDiv = document.getElementById('passwordError');
     
-    if (!errorDiv) return true;
+    if (!newPass || !confirmPass || !errorDiv) return true;
     
-    if (newPass || confirmPass) {
-        if (newPass.length < 6 && newPass.length > 0) {
+    const newVal = newPass.value;
+    const confirmVal = confirmPass.value;
+    
+    if (newVal || confirmVal) {
+        if (newVal.length < 6 && newVal.length > 0) {
             errorDiv.textContent = 'Password must be at least 6 characters';
             errorDiv.style.display = 'block';
             return false;
         }
         
-        if (newPass !== confirmPass) {
+        if (newVal !== confirmVal) {
             errorDiv.textContent = 'Passwords do not match';
             errorDiv.style.display = 'block';
             return false;
@@ -502,6 +599,9 @@ function validatePasswords() {
     return true;
 }
 
+// ====================================================================
+// SAVE PROFILE
+// ====================================================================
 async function saveProfile(e) {
     e.preventDefault();
     
@@ -510,23 +610,25 @@ async function saveProfile(e) {
     }
     
     const saveBtn = document.getElementById('saveProfileBtn');
+    if (!saveBtn) return;
+    
     const originalText = saveBtn.innerHTML;
     
     saveBtn.disabled = true;
     saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
     
     const updateData = {
-        user_id: window.currentUser.user_id,
-        name: document.getElementById('fullName').value,
-        phone: document.getElementById('phone').value,
-        address: document.getElementById('address').value
+        user_id: window.currentUser?.user_id,
+        name: document.getElementById('fullName')?.value || '',
+        phone: document.getElementById('phone')?.value || '',
+        address: document.getElementById('address')?.value || ''
     };
     
     if (currentUserData?.profile_image) {
         updateData.profile_image = currentUserData.profile_image;
     }
     
-    const newPassword = document.getElementById('newPassword').value;
+    const newPassword = document.getElementById('newPassword')?.value;
     if (newPassword) {
         updateData.newPassword = newPassword;
     }
@@ -547,15 +649,19 @@ async function saveProfile(e) {
         if (data.success) {
             showNotification('Profile updated successfully!', 'success');
             
-            document.getElementById('newPassword').value = '';
-            document.getElementById('confirmPassword').value = '';
+            const newPass = document.getElementById('newPassword');
+            const confirmPass = document.getElementById('confirmPassword');
+            if (newPass) newPass.value = '';
+            if (confirmPass) confirmPass.value = '';
             
             window.currentUser = { ...window.currentUser, ...updateData };
             await loadProfileData();
+            await loadUserProfileIcon(window.currentUser?.user_id);
         } else {
             showNotification(data.error || 'Update failed', 'error');
         }
     } catch (error) {
+        console.error('Update error:', error);
         showNotification('Update failed', 'error');
     } finally {
         saveBtn.disabled = false;
@@ -563,12 +669,18 @@ async function saveProfile(e) {
     }
 }
 
+// ====================================================================
+// CANCEL EDIT
+// ====================================================================
 function cancelEdit() {
     if (confirm('Discard changes?')) {
         window.location.href = 'index.html';
     }
 }
 
+// ====================================================================
+// SHOW NOTIFICATION
+// ====================================================================
 function showNotification(message, type = 'info') {
     const notification = document.createElement('div');
     notification.className = `notification notification-${type}`;
@@ -602,28 +714,70 @@ function showNotification(message, type = 'info') {
     }, 3000);
 }
 
-// Add animation styles
+// ====================================================================
+// ADD ANIMATION STYLES
+// ====================================================================
 (function() {
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        @keyframes slideOut {
-            from { transform: translateX(0); opacity: 1; }
-            to { transform: translateX(100%); opacity: 0; }
-        }
-    `;
-    document.head.appendChild(style);
+    if (!document.getElementById('notification-styles')) {
+        const style = document.createElement('style');
+        style.id = 'notification-styles';
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
 })();
 
-// Make functions globally available
+// ====================================================================
+// INITIALIZE ON PAGE LOAD
+// ====================================================================
+document.addEventListener('DOMContentLoaded', async function() {
+    // Wait for currentUser
+    let waitTime = 0;
+    while (!window.currentUser && waitTime < 3000) {
+        await new Promise(r => setTimeout(r, 100));
+        waitTime += 100;
+    }
+    
+    if (window.currentUser) {
+        await loadUserData();
+        await loadUserStats();
+    } else {
+        displayDefaultUserIcon();
+    }
+    
+    // Check if we're on edit profile page
+    if (window.location.pathname.includes('edit-profile')) {
+        const userExists = await waitForUser();
+        if (userExists) {
+            await loadProfileData();
+            setupEventListeners();
+        }
+    }
+});
+
+// ====================================================================
+// EXPOSE FUNCTIONS GLOBALLY
+// ====================================================================
 window.loadHeader = loadHeader;
 window.loadFooter = loadFooter;
+window.initHeader = initHeader;
+window.displayUserProfileIcon = displayUserProfileIcon;
+window.displayDefaultUserIcon = displayDefaultUserIcon;
+window.loadUserProfileIcon = loadUserProfileIcon;
 window.toggleUserOverlay = toggleUserOverlay;
 window.logout = logout;
 window.closeAllOverlays = closeAllOverlays;
 window.triggerFileUpload = triggerFileUpload;
 window.cancelEdit = cancelEdit;
 window.saveProfile = saveProfile;
+window.showNotification = showNotification;
+window.updateAllStats = updateAllStats;
+window.loadUserStats = loadUserStats;
