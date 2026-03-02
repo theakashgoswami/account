@@ -194,7 +194,7 @@ function selectAnswer(qid, option) {
     console.log(`✅ Selected ${option} for ${qid}`);
 }
 
-// 🔥 Submit quiz - sirf sheet mein jayega
+// 🔥 Submit quiz - FIXED VERSION
 async function submitQuiz() {
     const submitBtn = document.getElementById('submitAllBtn');
     const progressMsg = document.getElementById('progressMessage');
@@ -228,6 +228,8 @@ async function submitQuiz() {
                 totalScore += 10;
             }
         });
+        
+        console.log("📤 Submitting:", { week: currentWeek, score: totalScore });
         
         // Submit to worker
         const response = await fetch(`${CONFIG.WORKER_URL}/api/user/submit-quiz`, {
