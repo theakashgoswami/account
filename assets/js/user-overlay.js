@@ -1,3 +1,4 @@
+
 // Global variables
 let currentUser = null;
 
@@ -202,29 +203,4 @@ document.addEventListener('click', function(e) {
         overlay.classList.contains('active')) {
         closeAllOverlays();
     }
-});
-
-// ====================================================================
-// INITIALIZE ON PAGE LOAD
-// ====================================================================
-document.addEventListener('DOMContentLoaded', async function() {
-    // Wait for currentUser
-    let waitTime = 0;
-    while (!window.currentUser && waitTime < 3000) {
-        await new Promise(r => setTimeout(r, 100));
-        waitTime += 100;
-    }
-    
-    if (window.currentUser) {
-        await loadUserData();
-    } else {
-        displayDefaultUserIcon();
-    }
-    
-    // Expose functions globally
-    window.toggleUserOverlay = toggleUserOverlay;
-    window.logout = logout;
-    window.closeAllOverlays = closeAllOverlays;
-    
-    console.log("✅ User overlay initialized");
 });

@@ -1,4 +1,4 @@
-// header.js - FINAL FIXED VERSION
+ // header.js - FINAL FIXED VERSION
 (function() {
     // Guard to prevent multiple initializations
     if (window.headerInitialized) {
@@ -153,4 +153,54 @@ function updateAllStats(points, stamps) {
 
     if (usePoints) usePoints.textContent = points;
     if (useStamps) useStamps.textContent = stamps;
+}
+// assets/js/edit-profile.js
+
+let currentUserData = null;
+
+// Initialize page
+document.addEventListener("DOMContentLoaded", async function() {
+        
+    // Load header
+    await loadHeader();
+    
+    // Wait for user authentication
+    await waitForUser();
+    
+    // Load profile data
+    await loadProfileData();
+    
+    // Setup event listeners
+    setupEventListeners();
+});
+
+// Load header
+async function loadHeader() {
+    try {
+        const response = await fetch("/partials/header.html");
+        const html = await response.text();
+        document.getElementById("header-container").innerHTML = html;
+        
+        if (typeof initHeader === 'function') {
+            initHeader();
+        }
+    } catch (error) {
+        console.error("Header load failed:", error);
+    }
+}
+// Wait for user authentication
+async function waitForUser() {
+    let waitTime = 0;
+    const maxWait = 3000;
+    
+    while (!window.currentUser && waitTime < maxWait) {
+        await new Promise(r => setTimeout(r, 100));
+        waitTime += 100;
+    }
+    
+    if (!window.currentUser) {
+        console.error("❌ No user found - redirecting");
+        window.location.href = "https://agtechscript.in";
+        return;
+    }
 }
