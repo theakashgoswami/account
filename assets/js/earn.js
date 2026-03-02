@@ -2,6 +2,7 @@
 
 let currentQuizData = [];
 let selectedAnswers = {};
+let currentWeek = "Week 1";
 
 document.addEventListener("DOMContentLoaded", async function() {
     console.log("🎯 Quiz page loaded");
@@ -9,6 +10,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     await loadHeader();
     await loadUserScore();
     await loadQuiz();
+    await checkIfAlreadySubmitted(); // ✅ Sirf ek baar call
 });
 
 // Load header
@@ -54,6 +56,42 @@ async function loadUserScore() {
     }
 }
 
+// 🔥 Check if already submitted this week (SIRF EK BAAR)
+async function checkIfAlreadySubmitted() {
+    try {
+        const response = await fetch(`${CONFIG.WORKER_URL}/api/user/check-quiz-submission?week=${currentWeek}`, {
+            credentials: 'include',
+            headers: { 'X-Client-Host': window.location.host }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.submitted) {
+            // Disable all inputs
+            document.querySelectorAll('.option-radio').forEach(radio => {
+                radio.disabled = true;
+            });
+            
+            const submitBtn = document.getElementById('submitAllBtn');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '✅ Already Submitted';
+            }
+            
+            // Show message with score
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'info-message';
+            messageDiv.innerHTML = `
+                <i class="fas fa-info-circle"></i>
+                You have already submitted for ${currentWeek}. Your score: ${data.score}
+            `;
+            document.querySelector('.quiz-container')?.prepend(messageDiv);
+        }
+    } catch (error) {
+        console.error("Check submission error:", error);
+    }
+}
+
 // Load quiz questions
 async function loadQuiz() {
     const container = document.getElementById("quizContainer");
@@ -82,18 +120,17 @@ async function loadQuiz() {
         }
 
         currentQuizData = data.earn;
+        currentWeek = data.earn[0]?.week || "Week 1";
         displayQuiz(data.earn, container);
 
     } catch (err) {
         console.error("Quiz error:", err);
-        if (container) {
-            container.innerHTML = `
-                <div class="error-state">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <p>Failed to load quiz. Please try again.</p>
-                </div>
-            `;
-        }
+        container.innerHTML = `
+            <div class="error-state">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>Failed to load quiz. Please try again.</p>
+            </div>
+        `;
     }
 }
 
@@ -101,12 +138,11 @@ async function loadQuiz() {
 function displayQuiz(questions, container) {
     if (!container) return;
     
-    container.innerHTML = questions.map((q, index) => {
+    const questionsHTML = questions.map((q, index) => {
         const qid = q.qid || q.id || `q${index}`;
-        const selected = selectedAnswers[qid];
         
         return `
-            <div class="quiz-card" data-qid="${qid}" data-correct="${q.correct}" data-week="${q.week || 'Week 1'}">
+            <div class="quiz-card" data-qid="${qid}" data-correct="${q.correct}">
                 <div class="question-header">
                     <span class="question-number">Question ${index + 1}/${questions.length}</span>
                     <span class="reward-badge">
@@ -117,80 +153,83 @@ function displayQuiz(questions, container) {
                 <h3>${q.question || 'Question'}</h3>
                 
                 <div class="options-grid">
-                    <button class="option-btn ${selected === 'A' ? 'selected' : ''}" 
-                            onclick="selectAnswer('${qid}', 'A')" 
-                            ${selected ? 'disabled' : ''}>
-                        <span class="option-prefix">A</span>
-                        ${q.optionA || 'Option A'}
-                    </button>
+                    <label class="option-label">
+                        <input type="radio" name="q_${qid}" value="A" class="option-radio" onchange="selectAnswer('${qid}', 'A')">
+                        <span class="option-text">A. ${q.optionA || 'Option A'}</span>
+                    </label>
                     
-                    <button class="option-btn ${selected === 'B' ? 'selected' : ''}" 
-                            onclick="selectAnswer('${qid}', 'B')"
-                            ${selected ? 'disabled' : ''}>
-                        <span class="option-prefix">B</span>
-                        ${q.optionB || 'Option B'}
-                    </button>
+                    <label class="option-label">
+                        <input type="radio" name="q_${qid}" value="B" class="option-radio" onchange="selectAnswer('${qid}', 'B')">
+                        <span class="option-text">B. ${q.optionB || 'Option B'}</span>
+                    </label>
                     
-                    <button class="option-btn ${selected === 'C' ? 'selected' : ''}" 
-                            onclick="selectAnswer('${qid}', 'C')"
-                            ${selected ? 'disabled' : ''}>
-                        <span class="option-prefix">C</span>
-                        ${q.optionC || 'Option C'}
-                    </button>
+                    <label class="option-label">
+                        <input type="radio" name="q_${qid}" value="C" class="option-radio" onchange="selectAnswer('${qid}', 'C')">
+                        <span class="option-text">C. ${q.optionC || 'Option C'}</span>
+                    </label>
                     
-                    <button class="option-btn ${selected === 'D' ? 'selected' : ''}" 
-                            onclick="selectAnswer('${qid}', 'D')"
-                            ${selected ? 'disabled' : ''}>
-                        <span class="option-prefix">D</span>
-                        ${q.optionD || 'Option D'}
-                    </button>
+                    <label class="option-label">
+                        <input type="radio" name="q_${qid}" value="D" class="option-radio" onchange="selectAnswer('${qid}', 'D')">
+                        <span class="option-text">D. ${q.optionD || 'Option D'}</span>
+                    </label>
                 </div>
-                
-                ${!selected ? `
-                    <button class="submit-btn" onclick="submitAnswer('${qid}')">
-                        <i class="fas fa-paper-plane"></i> Submit Answer
-                    </button>
-                ` : ''}
             </div>
         `;
     }).join('');
+    
+    container.innerHTML = `
+        ${questionsHTML}
+        <div class="submit-section">
+            <button id="submitAllBtn" class="submit-all-btn" onclick="submitQuiz()">
+                <i class="fas fa-paper-plane"></i> Submit Quiz
+            </button>
+            <div id="progressMessage" class="progress-message"></div>
+        </div>
+    `;
 }
 
 // Select answer
 function selectAnswer(qid, option) {
-    const buttons = document.querySelectorAll(`[data-qid="${qid}"] .option-btn`);
-    buttons.forEach(btn => btn.classList.remove('selected'));
-    
-    event.currentTarget.classList.add('selected');
     selectedAnswers[qid] = option;
+    console.log(`✅ Selected ${option} for ${qid}`);
 }
 
-// Submit answer
-async function submitAnswer(qid) {
-    const selected = selectedAnswers[qid];
+// 🔥 Submit quiz - sirf sheet mein jayega
+async function submitQuiz() {
+    const submitBtn = document.getElementById('submitAllBtn');
+    const progressMsg = document.getElementById('progressMessage');
     
-    if (!selected) {
-        alert("Please select an answer first!");
+    const totalQuestions = currentQuizData.length;
+    const answeredCount = Object.keys(selectedAnswers).length;
+    
+    if (answeredCount < totalQuestions) {
+        alert(`Please answer all ${totalQuestions} questions!`);
         return;
     }
     
-    const card = document.querySelector(`[data-qid="${qid}"]`);
-    if (!card) return;
-    
-    const correctOption = card.dataset.correct;
-    const week = card.dataset.week || "Week 1";
-    
-    // 🔥 FIX: Get submitBtn reference
-    const submitBtn = event?.currentTarget;
-    
-    if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+    if (!confirm(`Submit your quiz for ${currentWeek}?`)) {
+        return;
     }
     
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+    progressMsg.innerHTML = 'Calculating your score...';
+    
     try {
-        console.log("📤 Submitting answer:", { qid, selected, correctOption, week });
+        // Calculate total score
+        let totalScore = 0;
         
+        currentQuizData.forEach(q => {
+            const qid = q.qid || q.id;
+            const selected = selectedAnswers[qid];
+            const correct = q.correct;
+            
+            if (selected === correct) {
+                totalScore += 10;
+            }
+        });
+        
+        // Submit to worker
         const response = await fetch(`${CONFIG.WORKER_URL}/api/user/submit-quiz`, {
             method: 'POST',
             credentials: 'include',
@@ -199,93 +238,36 @@ async function submitAnswer(qid) {
                 'X-Client-Host': window.location.host
             },
             body: JSON.stringify({
-                qid: qid,
-                selectedOption: selected,
-                correctOption: correctOption,
-                week: week
+                week: currentWeek,
+                score: totalScore
             })
         });
         
-        console.log("📥 Response status:", response.status);
-        
         const data = await response.json();
-        console.log("📥 Response data:", data);
         
         if (data.success) {
-            const earnedScore = data.score || 0;
+            progressMsg.innerHTML = '✅ Submitted successfully!';
+            alert(`🎉 Quiz submitted! Your score: ${totalScore}`);
             
-            if (data.is_correct) {
-                card.querySelector('.options-grid').innerHTML = `
-                    <div class="correct-answer-box">
-                        <i class="fas fa-check-circle"></i>
-                        <p>Correct! You earned <strong>${earnedScore} Score</strong></p>
-                    </div>
-                `;
-            } else {
-                card.querySelector('.options-grid').innerHTML = `
-                    <div class="wrong-answer-box">
-                        <i class="fas fa-times-circle"></i>
-                        <p>Wrong answer! +0 Score</p>
-                        <small>Correct answer was ${correctOption}</small>
-                    </div>
-                `;
-            }
+            // Disable all inputs
+            document.querySelectorAll('.option-radio').forEach(radio => {
+                radio.disabled = true;
+            });
             
-            // 🔥 FIX: Remove submit button
-            if (submitBtn) {
-                submitBtn.remove();
-            }
-            
-            await loadUserScore();
-            showResultModal(data.is_correct, earnedScore);
+            submitBtn.innerHTML = '✅ Submitted';
+        } else {
+            throw new Error(data.error || 'Submission failed');
         }
         
     } catch (error) {
         console.error("❌ Submit error:", error);
-        alert("Failed to submit. Please try again.");
-        
-        // 🔥 FIX: Re-enable button
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Answer';
-        }
+        alert('Failed: ' + error.message);
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Quiz';
+        progressMsg.innerHTML = '';
     }
-}
-
-// Show result modal
-function showResultModal(isCorrect, score) {
-    const modal = document.getElementById('resultModal');
-    const backdrop = document.getElementById('overlayBackdrop');
-    
-    if (!modal) return;
-    
-    document.getElementById('resultTitle').textContent = isCorrect ? '🎉 Correct!' : '😔 Wrong Answer';
-    document.getElementById('resultMessage').textContent = isCorrect 
-        ? `You earned ${score} Score!` 
-        : 'Better luck next time!';
-    
-    document.getElementById('earnedScore').textContent = score;
-    
-    modal.classList.add('active');
-    if (backdrop) backdrop.classList.add('active');
-}
-
-// Close result modal
-function closeResultModal() {
-    const modal = document.getElementById('resultModal');
-    const backdrop = document.getElementById('overlayBackdrop');
-    
-    if (modal) modal.classList.remove('active');
-    if (backdrop) backdrop.classList.remove('active');
-}
-
-// Close all modals
-function closeAllModals() {
-    closeResultModal();
 }
 
 // Expose functions globally
 window.selectAnswer = selectAnswer;
-window.submitAnswer = submitAnswer;
-window.closeResultModal = closeResultModal;
-window.closeAllModals = closeAllModals;
+window.submitQuiz = submitQuiz;
