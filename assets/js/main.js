@@ -1,780 +1,312 @@
-// ====================================================================
-// GLOBAL VARIABLES
-// ====================================================================
-let currentUserData = null;
-let currentUser = null;
+// State Management
+const AppState = {
+    user: null,
+    isHeaderLoaded: false
+};
 
-// ====================================================================
-// DEFINE INITHEADER FIRST (before it's used)
-// ====================================================================
-function initHeader() {
+// ==========================================
+// UTILITY FUNCTIONS
+// ==========================================
+const UI = {
+    showNotification(message, type = 'info') {
+        const colors = { success: '#4CAF50', error: '#f44336', info: '#2196F3' };
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.innerHTML = message;
+        notification.style.cssText = `
+            position: fixed; top: 20px; right: 20px; background: ${colors[type]};
+            color: white; padding: 12px 24px; border-radius: 8px; z-index: 10000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-weight: 500;
+            transition: all 0.3s ease; transform: translateX(120%);
+        `;
+        document.body.appendChild(notification);
+        
+        // Animate In
+        setTimeout(() => notification.style.transform = 'translateX(0)', 10);
+        
+        // Remove
+        setTimeout(() => {
+            notification.style.transform = 'translateX(120%)';
+            setTimeout(() => notification.remove(), 300);
+        }, 3000);
+    },
+
+    updateUserStats(points, stamps) {
+        ['overlayPoints', 'usePagePoints'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = points;
+        });
+        ['overlayStamps', 'usePageStamps'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = stamps;
+        });
+    }
+};
+
+// ==========================================
+// HEADER & NAVIGATION LOGIC
+// ==========================================
+function initHeaderLogic() {
     const navToggle = document.getElementById("navToggle");
     const mainNav = document.getElementById("mainNav");
-    const customHeader = document.getElementById("header");
+    const header = document.getElementById("header");
 
-    if (!navToggle || !mainNav || !customHeader) {
-        setTimeout(initHeader, 300);
-        return;
-    }
+    if (!navToggle || !mainNav) return;
 
-    let lastScrollY = window.scrollY;
-    let ticking = false;
-    let touchStartY = 0;
-    let touchEndY = 0;
-    const swipeThreshold = 50;
-
-    // Remove existing listeners by cloning and replacing
-    const newNavToggle = navToggle.cloneNode(true);
-    navToggle.parentNode.replaceChild(newNavToggle, navToggle);
-    
-    // Use the new reference
-    const finalNavToggle = document.getElementById("navToggle");
-
-    // Mobile Toggle with single listener
-    finalNavToggle.addEventListener("click", (e) => {
+    // Mobile Menu Toggle
+    navToggle.onclick = (e) => {
         e.preventDefault();
-        e.stopPropagation();
-        
         mainNav.classList.toggle("active");
-        
-        if (mainNav.classList.contains("active")) {
-            finalNavToggle.innerHTML = "✕";
-            finalNavToggle.style.fontSize = "1.8rem";
+        navToggle.innerHTML = mainNav.classList.contains("active") ? "✕" : "☰";
+    };
+
+    // Scroll Effect (Hide/Show Header)
+    let lastScrollY = window.scrollY;
+    window.addEventListener("scroll", () => {
+        const currentScrollY = window.scrollY;
+        if (currentScrollY > lastScrollY && currentScrollY > 100) {
+            header.style.transform = "translateY(-100%)";
         } else {
-            finalNavToggle.innerHTML = "☰";
+            header.style.transform = "translateY(0)";
         }
-    });
+        lastScrollY = currentScrollY;
+    }, { passive: true });
 
-    // SCROLL HIDE/SHOW
-    function updateHeader() {
-        const sy = window.scrollY;
-
-        if (sy > lastScrollY && sy > 100) {
-            customHeader.style.transform = "translateY(-100%)";
-        } else {
-            customHeader.style.transform = "translateY(0)";
-        }
-
-        lastScrollY = sy;
-        ticking = false;
-    }
-
-    window.addEventListener(
-        "scroll",
-        () => {
-            if (!ticking) {
-                requestAnimationFrame(updateHeader);
-                ticking = true;
-            }
-        },
-        { passive: true }
-    );
-
-    // SWIPE GESTURE
-    document.addEventListener("touchstart", (e) => {
-        touchStartY = e.changedTouches[0].screenY;
-    });
-
-    document.addEventListener("touchend", (e) => {
-        touchEndY = e.changedTouches[0].screenY;
-        const diff = touchEndY - touchStartY;
-
-        if (diff > swipeThreshold)
-            customHeader.style.transform = "translateY(0)";
-        if (diff < -swipeThreshold)
-            customHeader.style.transform = "translateY(-100%)";
-    });
-
-    // CLOSE ON OUTSIDE CLICK
-    document.addEventListener("click", (e) => {
-        if (!e.target.closest(".header-wrapper")) {
+    // Close menu on link click
+    document.querySelectorAll(".nav-menu a").forEach(link => {
+        link.onclick = () => {
             mainNav.classList.remove("active");
-            finalNavToggle.innerHTML = "☰";
-        }
-    });
-
-    // CLOSE MENU ON NAV LINK CLICK (MOBILE)
-    document.querySelectorAll(".nav-menu a").forEach((link) => {
-        link.addEventListener("click", () => {
-            if (window.innerWidth <= 768) {
-                mainNav.classList.remove("active");
-                finalNavToggle.innerHTML = "☰";
-            }
-        });
+            navToggle.innerHTML = "☰";
+        };
     });
 }
 
-// ====================================================================
-// AUTO-INITIALIZE HEADER (IIFE - runs immediately)
-// ====================================================================
-(function() {
-    if (window.headerInitialized) return;
-    
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-            initHeader();
-            window.headerInitialized = true;
+// ==========================================
+// USER & PROFILE LOGIC
+// ==========================================
+async function fetchUserProfile() {
+    try {
+        const res = await fetch(`${CONFIG.WORKER_URL}/api/user/profile`, {
+            credentials: "include",
+            headers: { 'X-Client-Host': window.location.host }
         });
-    } else {
-        initHeader();
-        window.headerInitialized = true;
-    }
-})();
-
-// ====================================================================
-// HEADER LOADER FUNCTION
-// ====================================================================
-async function loadHeader() {
-    try {
-        const response = await fetch("/partials/header.html");
-        const html = await response.text();
-        
-        document.getElementById("header-container").innerHTML = html;
-        
-        // Wait a tiny bit for DOM to update
-        await new Promise(r => setTimeout(r, 50));
-        
-        // Initialize header after loading
-        initHeader();
-        
-        // Load user profile icon
-        if (window.currentUser?.user_id && typeof loadUserProfileIcon === 'function') {
-            await loadUserProfileIcon(window.currentUser.user_id);
+        const data = await res.json();
+        if (data.success) {
+            AppState.user = data;
+            window.currentUser = data; // Backward compatibility
+            updateUIWithUserData(data);
+            return data;
         }
-        
-    } catch (error) {
-        console.error("Header load failed:", error);
+    } catch (err) {
+        console.error("Profile Fetch Error:", err);
     }
-}
-// ====================================================================
-// FOOTER LOADER
-// ====================================================================
-async function loadFooter() {
-    try {
-        const response = await fetch("/partials/footer.html");
-        const html = await response.text();
-        document.getElementById("footer-container").innerHTML = html;
-        const yearEl = document.getElementById("year");
-        if (yearEl) yearEl.textContent = new Date().getFullYear();
-    } catch (error) {
-        console.error("Footer load failed:", error);
-    }
+    displayDefaultUserIcon();
+    return null;
 }
 
-// ====================================================================
-// UPDATE ALL STATS FUNCTION
-// ====================================================================
-function updateAllStats(points, stamps) {
-    // Overlay update
-    const overlayPoints = document.getElementById('overlayPoints');
-    const overlayStamps = document.getElementById('overlayStamps');
-
-    if (overlayPoints) overlayPoints.textContent = points;
-    if (overlayStamps) overlayStamps.textContent = stamps;
-
-    // Use page update
-    const usePoints = document.getElementById('usePagePoints');
-    const useStamps = document.getElementById('usePageStamps');
-
-    if (usePoints) usePoints.textContent = points;
-    if (useStamps) useStamps.textContent = stamps;
-}
-
-// ====================================================================
-// PROFILE ICON HANDLER
-// ====================================================================
-function displayUserProfileIcon(url) {
+function updateUIWithUserData(user) {
+    // Update Icon
     const iconDiv = document.getElementById("userIcon");
-    if (!iconDiv) return;
+    if (iconDiv) {
+        const imgUrl = user.profile_image || '/assets/images/default-avatar.png';
+        iconDiv.innerHTML = `
+            <img src="${imgUrl}" class="user-avatar-img" alt="user" onerror="this.src='/assets/images/default-avatar.png'"/>
+            <span class="user-status online" style="background:#4CAF50"></span>
+        `;
+    }
 
-    iconDiv.innerHTML = `
-        <img src="${url}" class="user-avatar-img" alt="user" 
-             onerror="this.onerror=null; this.src='/assets/images/default-avatar.png';" />
-        <span class="user-status online"></span>
-    `;
+    // Update Overlay if exists
+    const oImg = document.getElementById('overlayUserImage');
+    const oName = document.getElementById('overlayUserName');
+    const oId = document.getElementById('overlayUserId');
+    
+    if (oImg) oImg.src = user.profile_image || '/assets/images/default-avatar.png';
+    if (oName) oName.textContent = user.name || 'User';
+    if (oId) oId.textContent = `@${user.user_id}`;
+// Trigger file input
+window.triggerFileUpload = () => document.getElementById('avatarInput')?.click();
+
+// Handle Avatar selection and upload
+async function handleAvatarUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const img = document.getElementById('profileAvatar');
+        if(img) img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+
+    // Upload logic
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+        UI.showNotification('Uploading image...', 'info');
+        const res = await fetch(`${CONFIG.WORKER_URL}/api/user/upload-image`, {
+            method: 'POST',
+            credentials: 'include',
+            body: formData
+        });
+        const data = await res.json();
+        if (data.success) {
+            window.currentUser.profile_image = data.url; // Update local state
+            UI.showNotification('Image uploaded!', 'success');
+        }
+    } catch (err) {
+        UI.showNotification('Upload failed', 'error');
+    }
+}
+
+// In setupEventListeners, add this:
+document.getElementById('avatarInput')?.addEventListener('change', handleAvatarUpload);
+    // Update Profile Page Form (if on edit-profile page)
+    const fullNameInput = document.getElementById('fullName');
+    if (fullNameInput) {
+        fullNameInput.value = user.name || '';
+        if(document.getElementById('email')) document.getElementById('email').value = user.email || '';
+        if(document.getElementById('phone')) document.getElementById('phone').value = user.phone || '';
+        if(document.getElementById('address')) document.getElementById('address').value = user.address || '';
+        if(document.getElementById('profileAvatar')) document.getElementById('profileAvatar').src = user.profile_image || '/assets/images/default-avatar.png';
+        if(document.getElementById('metaUserId')) document.getElementById('metaUserId').textContent = user.user_id;
+    }
 }
 
 function displayDefaultUserIcon() {
     const iconDiv = document.getElementById("userIcon");
     if (!iconDiv) return;
-
-    iconDiv.innerHTML = `
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-            <circle cx="12" cy="7" r="4"></circle>
-        </svg>
-        <span class="user-status" id="userStatus"></span>
-    `;
+    iconDiv.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`;
 }
 
-async function loadUserProfileIcon(userId) {
+// ==========================================
+// ACTIONS & OVERLAYS
+// ==========================================
+window.toggleUserOverlay = function() {
+    const overlay = document.getElementById('userOverlay');
+    const backdrop = document.getElementById('overlayBackdrop');
+    if (!overlay) return;
+
+    if (!overlay.classList.contains('active')) {
+        // Close nav first
+        const mainNav = document.getElementById('mainNav');
+        if (mainNav) mainNav.classList.remove('active');
+        
+        overlay.classList.add('active');
+        if (backdrop) backdrop.classList.add('active');
+        fetchUserProfile(); // Refresh data when opening
+    } else {
+        overlay.classList.remove('active');
+        if (backdrop) backdrop.classList.remove('active');
+    }
+};
+
+window.logout = async function() {
     try {
-        const res = await fetch(`${CONFIG.WORKER_URL}/api/user/profile?user_id=${userId}`, {
-            credentials: "include",
-            headers: { 'X-Client-Host': window.location.host }
+        const res = await fetch(`${CONFIG.WORKER_URL}/api/auth/logout`, { method: 'POST', credentials: 'include' });
+        if (res.ok) window.location.href = 'https://agtechscript.in';
+    } catch (err) {
+        UI.showNotification("Logout failed", "error");
+    }
+};
+
+// ==========================================
+// FORM SUBMISSION (EDIT PROFILE)
+// ==========================================
+async function handleProfileUpdate(e) {
+    e.preventDefault();
+    const saveBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = saveBtn.innerHTML;
+
+    // Password validation
+    const newPass = document.getElementById('newPassword')?.value;
+    const confirmPass = document.getElementById('confirmPassword')?.value;
+    if (newPass && newPass !== confirmPass) {
+        UI.showNotification("Passwords do not match", "error");
+        return;
+    }
+
+    try {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = "Saving...";
+
+        const formData = {
+            user_id: window.currentUser?.user_id,
+            name: document.getElementById('fullName').value,
+            phone: document.getElementById('phone').value,
+            address: document.getElementById('address').value,
+            newPassword: newPass || undefined
+        };
+
+        const res = await fetch(`${CONFIG.WORKER_URL}/api/user/update`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
         });
 
         const data = await res.json();
-
-        if (data.success && data.profile_image) {
-            displayUserProfileIcon(data.profile_image);
+        if (data.success) {
+            UI.showNotification("Profile updated!", "success");
+            fetchUserProfile();
         } else {
-            displayDefaultUserIcon();
+            UI.showNotification(data.error || "Update failed", "error");
         }
-    } catch (error) {
-        console.error("Profile icon load failed:", error);
-        displayDefaultUserIcon();
-    }
-}
-
-// ====================================================================
-// CLOSE NAV TOGGLE IF OPEN
-// ====================================================================
-function closeNavToggleIfOpen() {
-    const mainNav = document.getElementById('mainNav');
-    const navToggle = document.getElementById('navToggle');
-    
-    if (mainNav && mainNav.classList.contains('active')) {
-        mainNav.classList.remove('active');
-        if (navToggle) {
-            navToggle.innerHTML = '☰';
-        }
-    }
-}
-
-// ====================================================================
-// TOGGLE USER OVERLAY (WITH NAV CLOSE)
-// ====================================================================
-function toggleUserOverlay() {
-    const overlay = document.getElementById('userOverlay');
-    const backdrop = document.getElementById('overlayBackdrop');
-    
-    if (!overlay) return;
-    
-    if (overlay.classList.contains('active')) {
-        overlay.classList.remove('active');
-        if (backdrop) backdrop.classList.remove('active');
-    } else {
-        closeNavToggleIfOpen();
-        overlay.classList.add('active');
-        if (backdrop) backdrop.classList.add('active');
-        loadUserData();
-        loadUserStats();
-    }   
-}
-
-// ====================================================================
-// LOAD USER DATA
-// ====================================================================
-async function loadUserData() {
-    if (!window.currentUser?.user_id) return;
-
-    try {
-        const response = await fetch(
-            `${CONFIG.WORKER_URL}/api/user/profile?user_id=${window.currentUser.user_id}`,
-            {
-                credentials: 'include',
-                headers: { 'X-Client-Host': window.location.host }
-            }
-        );
-
-        const data = await response.json();
-
-        if (data.success) {
-            currentUser = data;
-            window.currentUser = data;
-            updateOverlayUI();
-        }
-        
-        await loadUserProfileIcon(window.currentUser.user_id);
-    } catch (error) {
-        console.error("Profile load failed:", error);
-    }
-}
-
-// ====================================================================
-// UPDATE OVERLAY UI
-// ====================================================================
-function updateOverlayUI() {
-    if (!currentUser) return;
-    
-    const userImage = document.getElementById('overlayUserImage');
-    const userName = document.getElementById('overlayUserName');
-    const userId = document.getElementById('overlayUserId');
-    
-    if (userImage) {
-        userImage.src = currentUser.profile_image || '/assets/images/default-avatar.png';
-    }
-    
-    if (userName) {
-        userName.textContent = currentUser.name || 'User';
-    }
-    
-    if (userId) {
-        userId.textContent = `@${currentUser.user_id}`;
-    }
-    
-    const statusDot = document.querySelector('.user-status');
-    if (statusDot) {
-        statusDot.style.background = '#4CAF50';
-    }
-}
-
-// ====================================================================
-// CLOSE ALL OVERLAYS
-// ====================================================================
-function closeAllOverlays() {
-    const overlay = document.getElementById('userOverlay');
-    const backdrop = document.getElementById('overlayBackdrop');
-    
-    if (overlay) overlay.classList.remove('active');
-    if (backdrop) backdrop.classList.remove('active');
-}
-
-// ====================================================================
-// LOGOUT FUNCTION
-// ====================================================================
-async function logout() {
-    try {
-        const response = await fetch(`${CONFIG.WORKER_URL}/api/auth/logout`, {
-            method: 'POST',
-            credentials: 'include'
-        });
-        
-        if (response.ok) {
-            window.currentUser = null;
-            currentUser = null;
-            closeAllOverlays();
-            displayDefaultUserIcon();
-            window.location.href = 'https://agtechscript.in';
-        }
-    } catch (error) {
-        console.error('Logout failed:', error);
-    }
-}
-
-// ====================================================================
-// LOAD USER STATS
-// ====================================================================
-async function loadUserStats() {
-    try {
-        const response = await fetch(`${CONFIG.WORKER_URL}/api/user/stats`, {
-            credentials: 'include',
-            headers: { 'X-Client-Host': window.location.host }
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            const pointsEl = document.getElementById('userPoints');
-            const stampsEl = document.getElementById('userStamps');
-            
-            if (pointsEl) pointsEl.textContent = data.points;
-            if (stampsEl) stampsEl.textContent = data.stamps;
-            
-            updateAllStats(data.points, data.stamps);
-        }
-    } catch (error) {
-        console.error('Error updating stats:', error);
-    }
-}
-
-// ====================================================================
-// CLICK OUTSIDE TO CLOSE
-// ====================================================================
-document.addEventListener('click', function(e) {
-    const overlay = document.getElementById('userOverlay');
-    const userIcon = document.getElementById('userIcon');
-    
-    if (overlay && userIcon && 
-        !overlay.contains(e.target) && 
-        !userIcon.contains(e.target) &&
-        overlay.classList.contains('active')) {
-        closeAllOverlays();
-    }
-});
-
-// ====================================================================
-// WAIT FOR USER FUNCTION
-// ====================================================================
-async function waitForUser() {
-    let waitTime = 0;
-    const maxWait = 3000;
-    
-    while (!window.currentUser && waitTime < maxWait) {
-        await new Promise(r => setTimeout(r, 100));
-        waitTime += 100;
-    }
-    
-    if (!window.currentUser) {
-        console.error("No user found - redirecting");
-        window.location.href = "https://agtechscript.in";
-        return false;
-    }
-    return true;
-}
-
-// ====================================================================
-// LOAD PROFILE DATA
-// ====================================================================
-async function loadProfileData() {
-    try {
-        const response = await fetch(`${CONFIG.WORKER_URL}/api/user/profile?user_id=${window.currentUser.user_id}`, {
-            credentials: 'include',
-            headers: { 
-                'X-Client-Host': window.location.host,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            currentUserData = data;
-            displayProfileData(data);
-        } else {
-            showNotification("Failed to load profile", "error");
-        }
-    } catch (error) {
-        console.error("Error loading profile:", error);
-        showNotification("Error loading profile", "error");
-    }
-}
-
-// ====================================================================
-// DISPLAY PROFILE DATA
-// ====================================================================
-function displayProfileData(data) {
-    // Avatar
-    const profileAvatar = document.getElementById('profileAvatar');
-    if (profileAvatar && data.profile_image) {
-        profileAvatar.src = data.profile_image;
-    }
-    
-    const metaUserId = document.getElementById('metaUserId');
-    if (metaUserId) {
-        metaUserId.textContent = data.user_id || 'AG0001';
-    }
-    
-    const metaMemberSince = document.getElementById('metaMemberSince');
-    if (metaMemberSince && data.created_at) {
-        const year = new Date(data.created_at).getFullYear();
-        metaMemberSince.textContent = `Member since ${year}`;
-    }
-    
-    const fullName = document.getElementById('fullName');
-    if (fullName) fullName.value = data.name || '';
-    
-    const email = document.getElementById('email');
-    if (email) email.value = data.email || '';
-    
-    const phone = document.getElementById('phone');
-    if (phone) phone.value = data.phone || '';
-    
-    const address = document.getElementById('address');
-    if (address) address.value = data.address || '';
-}
-
-// ====================================================================
-// SETUP EVENT LISTENERS
-// ====================================================================
-function setupEventListeners() {
-    const avatarInput = document.getElementById('avatarInput');
-    if (avatarInput) {
-        avatarInput.addEventListener('change', handleAvatarUpload);
-    }
-    
-    const form = document.getElementById('editProfileForm');
-    if (form) {
-        form.addEventListener('submit', saveProfile);
-    }
-    
-    const newPass = document.getElementById('newPassword');
-    const confirmPass = document.getElementById('confirmPassword');
-    
-    if (newPass) {
-        newPass.addEventListener('input', validatePasswords);
-    }
-    if (confirmPass) {
-        confirmPass.addEventListener('input', validatePasswords);
-    }
-}
-
-// ====================================================================
-// TRIGGER FILE UPLOAD
-// ====================================================================
-function triggerFileUpload() {
-    const avatarInput = document.getElementById('avatarInput');
-    if (avatarInput) avatarInput.click();
-}
-
-// ====================================================================
-// HANDLE AVATAR UPLOAD
-// ====================================================================
-async function handleAvatarUpload(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    if (!file.type.match('image.*')) {
-        showNotification('Please select an image file', 'error');
-        return;
-    }
-    
-    if (file.size > 2 * 1024 * 1024) {
-        showNotification('Image must be less than 2MB', 'error');
-        return;
-    }
-    
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const profileAvatar = document.getElementById('profileAvatar');
-        if (profileAvatar) profileAvatar.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-    
-    await uploadAvatar(file);
-}
-
-// ====================================================================
-// UPLOAD AVATAR TO SERVER
-// ====================================================================
-async function uploadAvatar(file) {
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    try {
-        showNotification('Uploading image...', 'info');
-        
-        const response = await fetch(`${CONFIG.WORKER_URL}/api/user/upload-image`, {
-            method: 'POST',
-            credentials: 'include',
-            body: formData
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            if (currentUserData) currentUserData.profile_image = data.url;
-            showNotification('Image uploaded successfully', 'success');
-        } else {
-            showNotification(data.error || 'Upload failed', 'error');
-        }
-    } catch (error) {
-        console.error('Upload error:', error);
-        showNotification('Upload failed', 'error');
-    }
-}
-
-// ====================================================================
-// VALIDATE PASSWORDS
-// ====================================================================
-function validatePasswords() {
-    const newPass = document.getElementById('newPassword');
-    const confirmPass = document.getElementById('confirmPassword');
-    const errorDiv = document.getElementById('passwordError');
-    
-    if (!newPass || !confirmPass || !errorDiv) return true;
-    
-    const newVal = newPass.value;
-    const confirmVal = confirmPass.value;
-    
-    if (newVal || confirmVal) {
-        if (newVal.length < 6 && newVal.length > 0) {
-            errorDiv.textContent = 'Password must be at least 6 characters';
-            errorDiv.style.display = 'block';
-            return false;
-        }
-        
-        if (newVal !== confirmVal) {
-            errorDiv.textContent = 'Passwords do not match';
-            errorDiv.style.display = 'block';
-            return false;
-        }
-    }
-    
-    errorDiv.style.display = 'none';
-    return true;
-}
-
-// ====================================================================
-// SAVE PROFILE
-// ====================================================================
-async function saveProfile(e) {
-    e.preventDefault();
-    
-    if (!validatePasswords()) {
-        return;
-    }
-    
-    const saveBtn = document.getElementById('saveProfileBtn');
-    if (!saveBtn) return;
-    
-    const originalText = saveBtn.innerHTML;
-    
-    saveBtn.disabled = true;
-    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-    
-    const updateData = {
-        user_id: window.currentUser?.user_id,
-        name: document.getElementById('fullName')?.value || '',
-        phone: document.getElementById('phone')?.value || '',
-        address: document.getElementById('address')?.value || ''
-    };
-    
-    if (currentUserData?.profile_image) {
-        updateData.profile_image = currentUserData.profile_image;
-    }
-    
-    const newPassword = document.getElementById('newPassword')?.value;
-    if (newPassword) {
-        updateData.newPassword = newPassword;
-    }
-    
-    try {
-        const response = await fetch(`${CONFIG.WORKER_URL}/api/user/update`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 
-                'Content-Type': 'application/json',
-                'X-Client-Host': window.location.host
-            },
-            body: JSON.stringify(updateData)
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            showNotification('Profile updated successfully!', 'success');
-            
-            const newPass = document.getElementById('newPassword');
-            const confirmPass = document.getElementById('confirmPassword');
-            if (newPass) newPass.value = '';
-            if (confirmPass) confirmPass.value = '';
-            
-            window.currentUser = { ...window.currentUser, ...updateData };
-            await loadProfileData();
-            await loadUserProfileIcon(window.currentUser?.user_id);
-        } else {
-            showNotification(data.error || 'Update failed', 'error');
-        }
-    } catch (error) {
-        console.error('Update error:', error);
-        showNotification('Update failed', 'error');
+    } catch (err) {
+        UI.showNotification("Server error", "error");
     } finally {
         saveBtn.disabled = false;
         saveBtn.innerHTML = originalText;
     }
 }
 
-// ====================================================================
-// CANCEL EDIT
-// ====================================================================
-function cancelEdit() {
-    if (confirm('Discard changes?')) {
-        window.location.href = 'index.html';
-    }
-}
-
-// ====================================================================
-// SHOW NOTIFICATION
-// ====================================================================
-function showNotification(message, type = 'info') {
-    const notification = document.createElement('div');
-    notification.className = `notification notification-${type}`;
-    notification.innerHTML = message;
+// ==========================================
+// INITIALIZATION ON LOAD
+// ==========================================
+document.addEventListener("DOMContentLoaded", async () => {
     
-    const colors = {
-        success: '#4CAF50',
-        error: '#f44336',
-        info: '#2196F3'
-    };
-    
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: ${colors[type]};
-        color: white;
-        padding: 12px 24px;
-        border-radius: 8px;
-        z-index: 9999;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        animation: slideIn 0.3s ease;
-        font-weight: 500;
-    `;
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.style.animation = 'slideOut 0.3s ease';
-        setTimeout(() => notification.remove(), 300);
-    }, 3000);
-}
-
-// ====================================================================
-// ADD ANIMATION STYLES
-// ====================================================================
-(function() {
-    if (!document.getElementById('notification-styles')) {
-        const style = document.createElement('style');
-        style.id = 'notification-styles';
-        style.textContent = `
-            @keyframes slideIn {
-                from { transform: translateX(100%); opacity: 0; }
-                to { transform: translateX(0); opacity: 1; }
-            }
-            @keyframes slideOut {
-                from { transform: translateX(0); opacity: 1; }
-                to { transform: translateX(100%); opacity: 0; }
-            }
-        `;
-        document.head.appendChild(style);
-    }
-})();
-
-// ====================================================================
-// INITIALIZE ON PAGE LOAD
-// ====================================================================
-document.addEventListener('DOMContentLoaded', async function() {
-    // Wait for currentUser
-    let waitTime = 0;
-    while (!window.currentUser && waitTime < 3000) {
-        await new Promise(r => setTimeout(r, 100));
-        waitTime += 100;
-    }
-    
-    if (window.currentUser) {
-        await loadUserData();
-        await loadUserStats();
-    } else {
-        displayDefaultUserIcon();
-    }
-    
-    // Check if we're on edit profile page
-    if (window.location.pathname.includes('edit-profile')) {
-        const userExists = await waitForUser();
-        if (userExists) {
-            await loadProfileData();
-            setupEventListeners();
+    // 1. Load Header Partial
+    const headerContainer = document.getElementById("header-container");
+    if (headerContainer) {
+        try {
+            const res = await fetch("/partials/header.html");
+            headerContainer.innerHTML = await res.text();
+            initHeaderLogic();
+            AppState.isHeaderLoaded = true;
+        } catch (err) {
+            console.error("Header failed to load");
         }
     }
-});
 
-// ====================================================================
-// EXPOSE FUNCTIONS GLOBALLY
-// ====================================================================
-window.loadHeader = loadHeader;
-window.loadFooter = loadFooter;
-window.initHeader = initHeader;
-window.displayUserProfileIcon = displayUserProfileIcon;
-window.displayDefaultUserIcon = displayDefaultUserIcon;
-window.loadUserProfileIcon = loadUserProfileIcon;
-window.toggleUserOverlay = toggleUserOverlay;
-window.logout = logout;
-window.closeAllOverlays = closeAllOverlays;
-window.triggerFileUpload = triggerFileUpload;
-window.cancelEdit = cancelEdit;
-window.saveProfile = saveProfile;
-window.showNotification = showNotification;
-window.updateAllStats = updateAllStats;
-window.loadUserStats = loadUserStats;
+    // 2. Load Footer Partial
+    const footerContainer = document.getElementById("footer-container");
+    if (footerContainer) {
+        fetch("/partials/footer.html")
+            .then(r => r.text())
+            .then(html => {
+                footerContainer.innerHTML = html;
+                const y = document.getElementById("year");
+                if (y) y.textContent = new Date().getFullYear();
+            });
+    }
+
+    // 3. Fetch User Data
+    await fetchUserProfile();
+
+    // 4. Setup Page Specific Listeners
+    const profileForm = document.getElementById('editProfileForm');
+    if (profileForm) {
+        profileForm.addEventListener('submit', handleProfileUpdate);
+    }
+
+    // 5. Global click to close overlays
+    document.addEventListener('click', (e) => {
+        const overlay = document.getElementById('userOverlay');
+        const userIcon = document.getElementById('userIcon');
+        if (overlay?.classList.contains('active') && !overlay.contains(e.target) && !userIcon.contains(e.target)) {
+            overlay.classList.remove('active');
+            document.getElementById('overlayBackdrop')?.classList.remove('active');
+        }
+    });
+});
