@@ -20,41 +20,45 @@
     <div id="header-container"></div>
 
     <div class="use-container">
-<div class="user-stats-bar">
-    <div class="stat-box">
-        <i class="fas fa-star"></i>
-        <span id="usePagePoints">0</span> Points
-    </div>
-    <div class="stat-box">
-        <i class="fas fa-ticket-alt"></i>
-        <span id="usePageStamps">0</span> Stamps
-    </div>
-</div>
-        <!-- Rewards Grid -->
-        <div class="rewards-grid" id="rewardsGrid">
+        <h1>Redeem Rewards</h1>
+        
+        <!-- Points Display -->
+        <div class="stats-container">
+            <div class="stat-card">
+                <span>Your Points:</span>
+                <strong id="userPoints">0</strong>
+            </div>
+            <div class="stat-card">
+                <span>Your Stamps:</span>
+                <strong id="userStamps">0</strong>
+            </div>
+        </div>
+
+        <!-- 🔥 REWARDS GRID - YEH ADD KARO -->
+        <h2>Available Rewards</h2>
+        <div id="rewardsGrid" class="rewards-grid">
             <div class="loading">Loading rewards...</div>
         </div>
 
-        <!-- Redemption History -->
-        <h2><i class="fas fa-history"></i> Your Redemptions</h2>
-        <div class="history-list" id="historyList">
+        <!-- 🔥 HISTORY LIST - YEH ADD KARO -->
+        <h2>Redemption History</h2>
+        <div id="historyList" class="history-list">
             <div class="loading">Loading history...</div>
         </div>
     </div>
 
-    <!-- Confirm Modal -->
+    <!-- 🔥 CONFIRM MODAL - YEH ADD KARO -->
     <div id="confirmModal" class="modal">
         <div class="modal-content">
             <h3>Confirm Redemption</h3>
             <div id="modalRewardDetails"></div>
             <div class="modal-actions">
                 <button onclick="closeModal()" class="btn-secondary">Cancel</button>
-                <button onclick="confirmRedeem()" class="btn-primary">Confirm</button>
+                <button onclick="confirmRedeem()" class="btn-confirm">Yes, Redeem</button>
             </div>
         </div>
     </div>
-<!-- Footer -->
-    <div id="footer-container"></div>
 
+    <div id="footer-container"></div>
 </body>
 </html>
