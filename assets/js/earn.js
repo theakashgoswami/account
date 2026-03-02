@@ -35,7 +35,7 @@ async function loadHeader() {
     }
 }
 
-// Load user score (sirf score)
+// Load user score
 async function loadUserScore() {
     try {
         const response = await fetch(`${CONFIG.WORKER_URL}/api/user/stats`, {
@@ -47,7 +47,7 @@ async function loadUserScore() {
         
         if (data.success) {
             const scoreEl = document.getElementById('userScore');
-            if (scoreEl) scoreEl.textContent = data.points; // points = score
+            if (scoreEl) scoreEl.textContent = data.points;
         }
     } catch (error) {
         console.error("Score error:", error);
@@ -180,28 +180,33 @@ async function submitAnswer(qid) {
     const correctOption = card.dataset.correct;
     const week = card.dataset.week || "Week 1";
     
+    // 🔥 FIX: Get submitBtn reference
+    const submitBtn = event?.currentTarget;
+    
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+    }
+    
     try {
+        console.log("📤 Submitting answer:", { qid, selected, correctOption, week });
+        
         const response = await fetch(`${CONFIG.WORKER_URL}/api/user/submit-quiz`, {
             method: 'POST',
             credentials: 'include',
             headers: { 
-                'Content-Type': 'application/json',  // ✅ This is correct
+                'Content-Type': 'application/json',
                 'X-Client-Host': window.location.host
             },
-            body: JSON.stringify({  // ✅ This creates proper JSON
+            body: JSON.stringify({
                 qid: qid,
                 selectedOption: selected,
                 correctOption: correctOption,
                 week: week
             })
         });
-        console.log("📥 Response status:", response.status);
         
-        // Check if response is OK
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Server error (${response.status}): ${errorText}`);
-        }
+        console.log("📥 Response status:", response.status);
         
         const data = await response.json();
         console.log("📥 Response data:", data);
@@ -226,21 +231,28 @@ async function submitAnswer(qid) {
                 `;
             }
             
-            submitBtn?.remove();
+            // 🔥 FIX: Remove submit button
+            if (submitBtn) {
+                submitBtn.remove();
+            }
+            
             await loadUserScore();
             showResultModal(data.is_correct, earnedScore);
         }
         
     } catch (error) {
         console.error("❌ Submit error:", error);
-        alert(`Failed to submit: ${error.message}`);
+        alert("Failed to submit. Please try again.");
+        
+        // 🔥 FIX: Re-enable button
         if (submitBtn) {
             submitBtn.disabled = false;
             submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Answer';
         }
     }
 }
-// Show result modal (sirf score)
+
+// Show result modal
 function showResultModal(isCorrect, score) {
     const modal = document.getElementById('resultModal');
     const backdrop = document.getElementById('overlayBackdrop');
