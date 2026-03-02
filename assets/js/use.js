@@ -24,21 +24,6 @@ async function loadHeader() {
     }
 }
 
-// ✅ FIX: Add loadUserStats function
-async function loadUserStats() {
-    try {
-        const res = await fetch(`${CONFIG.WORKER_URL}/api/user/stats`, {
-            credentials: 'include',
-            headers: { 'X-Client-Host': window.location.host }
-        });
-        const data = await res.json();
-        if (data.success) {
-           updateAllStats(data.points, data.stamps);
-        }
-    } catch (err) {
-        console.error("Stats error:", err);
-    }
-}
 
 // LOAD REWARDS
 async function loadRewards() {
