@@ -11,8 +11,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     await loadHeaderPartial();
     await loadUserScore();
     await loadQuiz();
-    await checkSubmission();
-});
+   });
 
 
 /* ===========================================
@@ -61,8 +60,28 @@ async function loadQuiz() {
 
     quizData = data.earn;
     currentWeek = quizData[0].week || "Week 1";
-
     document.getElementById("quizWeek").textContent = currentWeek;
+
+    // 🔥 CHECK BEFORE RENDER
+    const checkRes = await fetch(
+        `${CONFIG.WORKER_URL}/api/user/check-quiz-submission?week=${currentWeek}`,
+        {
+            credentials: "include",
+            headers: { "X-Client-Host": window.location.host }
+        }
+    );
+
+    const checkData = await checkRes.json();
+
+    if (checkData.success && checkData.submitted) {
+        submitted = true;
+        container.innerHTML =
+            `<div class="already-submitted">
+                You already submitted this week's quiz.
+                <br>Score: ${checkData.score}
+            </div>`;
+        return;
+    }
 
     renderQuiz();
 }
@@ -223,5 +242,55 @@ function closeResult() {
     document.getElementById("resultModal").style.display = "none";
     location.reload();
 }
+async function openLeaderboard() {
 
+    const modal = document.getElementById("leaderboardModal");
+    const list = document.getElementById("leaderboardList");
+
+    modal.style.display = "flex";
+    list.innerHTML = "Loading...";
+
+    try {
+        const res = await fetch(
+            `${CONFIG.WORKER_URL}/api/user/leaderboard?week=${currentWeek}`,
+            {
+                credentials: "include",
+                headers: { 'X-Client-Host': window.location.host }
+            }
+        );
+
+        const data = await res.json();
+
+        if (!data.success || !data.leaderboard.length) {
+            list.innerHTML = "<div>No leaderboard data</div>";
+            return;
+        }
+
+        list.innerHTML = data.leaderboard
+            .slice(0, 10)
+            .map((u, index) => {
+
+                let badge = "";
+                if (index === 0) badge = "🥇";
+                if (index === 1) badge = "🥈";
+                if (index === 2) badge = "🥉";
+
+                return `
+                    <div class="leaderboard-row ${index < 3 ? 'top-rank' : ''}">
+                        <span class="rank">${badge || index + 1}</span>
+                        <span class="user">${u.user_id}</span>
+                        <span class="score">${u.total_score} pts</span>
+                    </div>
+                `;
+            })
+            .join("");
+
+    } catch (err) {
+        list.innerHTML = "Failed to load leaderboard";
+    }
+}
+
+function closeLeaderboard() {
+    document.getElementById("leaderboardModal").style.display = "none";
+}
 window.closeResult = closeResult;

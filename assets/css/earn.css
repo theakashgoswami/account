@@ -9,3 +9,28 @@
 .result-modal { display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);align-items:center;justify-content:center; }
 .result-box { background:white;padding:30px;border-radius:12px;text-align:center; }
 .already-submitted { text-align:center;padding:40px;font-size:18px; }
+.leaderboard-btn {
+    background: linear-gradient(45deg, #ff9800, #ff5722);
+    border: none;
+    padding: 10px 18px;
+    color: white;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.leaderboard-modal {
+    max-width: 500px;
+}
+
+.leaderboard-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.top-rank {
+    background: #fff8e1;
+    font-weight: 600;
+}
