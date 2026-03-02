@@ -6,13 +6,8 @@ let selectedAnswers = {};
 document.addEventListener("DOMContentLoaded", async function() {
     console.log("🎯 Quiz page loaded");
     
-    // Load header first
     await loadHeader();
-    
-    // Load user stats
-    await loadUserStats();
-    
-    // Load quiz questions
+    await loadUserScore();
     await loadQuiz();
 });
 
@@ -31,7 +26,6 @@ async function loadHeader() {
                 window.initHeader();
             }
             
-            // Load user profile icon
             if (window.currentUser?.user_id && typeof window.loadUserProfileIcon === 'function') {
                 await window.loadUserProfileIcon(window.currentUser.user_id);
             }
@@ -41,8 +35,8 @@ async function loadHeader() {
     }
 }
 
-// Load user stats
-async function loadUserStats() {
+// Load user score (sirf score)
+async function loadUserScore() {
     try {
         const response = await fetch(`${CONFIG.WORKER_URL}/api/user/stats`, {
             credentials: 'include',
@@ -52,14 +46,11 @@ async function loadUserStats() {
         const data = await response.json();
         
         if (data.success) {
-            const pointsEl = document.getElementById('userPoints');
-            const stampsEl = document.getElementById('userStamps');
-            
-            if (pointsEl) pointsEl.textContent = data.points;
-            if (stampsEl) stampsEl.textContent = data.stamps;
+            const scoreEl = document.getElementById('userScore');
+            if (scoreEl) scoreEl.textContent = data.points; // points = score
         }
     } catch (error) {
-        console.error("Stats error:", error);
+        console.error("Score error:", error);
     }
 }
 
@@ -115,11 +106,11 @@ function displayQuiz(questions, container) {
         const selected = selectedAnswers[qid];
         
         return `
-            <div class="quiz-card" data-qid="${qid}">
+            <div class="quiz-card" data-qid="${qid}" data-correct="${q.correct}" data-week="${q.week || 'Week 1'}">
                 <div class="question-header">
                     <span class="question-number">Question ${index + 1}/${questions.length}</span>
                     <span class="reward-badge">
-                        <i class="fas fa-star"></i> 10 Points
+                        <i class="fas fa-star"></i> 10 Score
                     </span>
                 </div>
                 
@@ -159,12 +150,7 @@ function displayQuiz(questions, container) {
                     <button class="submit-btn" onclick="submitAnswer('${qid}')">
                         <i class="fas fa-paper-plane"></i> Submit Answer
                     </button>
-                ` : `
-                    <div class="question-footer">
-                        <span><i class="fas fa-check-circle" style="color:#4CAF50"></i> Answer submitted</span>
-                        <span>Waiting for result...</span>
-                    </div>
-                `}
+                ` : ''}
             </div>
         `;
     }).join('');
@@ -172,20 +158,14 @@ function displayQuiz(questions, container) {
 
 // Select answer
 function selectAnswer(qid, option) {
-    // Remove previous selection from same question
     const buttons = document.querySelectorAll(`[data-qid="${qid}"] .option-btn`);
     buttons.forEach(btn => btn.classList.remove('selected'));
     
-    // Add selection to clicked button
     event.currentTarget.classList.add('selected');
-    
-    // Store selection
     selectedAnswers[qid] = option;
-    
-    console.log(`✅ Selected ${option} for ${qid}`);
 }
 
-// Submit answer
+// Submit answer (sirf score sheet mein jayega)
 async function submitAnswer(qid) {
     const selected = selectedAnswers[qid];
     
@@ -194,72 +174,88 @@ async function submitAnswer(qid) {
         return;
     }
     
-    const question = currentQuizData.find(q => (q.qid || q.id) === qid);
-    if (!question) return;
+    const card = document.querySelector(`[data-qid="${qid}"]`);
+    if (!card) return;
+    
+    const correctOption = card.dataset.correct;
+    const week = card.dataset.week || "Week 1";
     
     const submitBtn = event?.currentTarget;
     if (submitBtn) {
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
     }
     
-    // Simulate API call (replace with actual)
-    setTimeout(() => {
-        const isCorrect = selected === question.correct;
+    try {
+        const response = await fetch(`${CONFIG.WORKER_URL}/api/user/submit-quiz`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-Client-Host': window.location.host
+            },
+            body: JSON.stringify({
+                qid: qid,
+                selectedOption: selected,
+                correctOption: correctOption,
+                week: week
+            })
+        });
         
-        if (isCorrect) {
-            showResultModal(true, 10, 1);
+        const data = await response.json();
+        
+        if (data.success) {
+            const earnedScore = data.score || 0;
             
-            // Update card UI
-            const card = document.querySelector(`[data-qid="${qid}"]`);
-            if (card) {
+            if (data.is_correct) {
                 card.querySelector('.options-grid').innerHTML = `
-                    <div style="text-align: center; padding: 20px; background: #4CAF50; color: white; border-radius: 10px;">
-                        <i class="fas fa-check-circle" style="font-size: 40px;"></i>
-                        <p style="margin-top: 10px;">Correct! +10 Points</p>
+                    <div class="correct-answer-box">
+                        <i class="fas fa-check-circle"></i>
+                        <p>Correct! You earned <strong>${earnedScore} Score</strong></p>
                     </div>
                 `;
-                card.querySelector('.submit-btn')?.remove();
-            }
-            
-            // Update user stats
-            loadUserStats();
-        } else {
-            showResultModal(false, 0, 0);
-            
-            // Update card UI
-            const card = document.querySelector(`[data-qid="${qid}"]`);
-            if (card) {
+            } else {
                 card.querySelector('.options-grid').innerHTML = `
-                    <div style="text-align: center; padding: 20px; background: #f44336; color: white; border-radius: 10px;">
-                        <i class="fas fa-times-circle" style="font-size: 40px;"></i>
-                        <p style="margin-top: 10px;">Wrong answer! Try next question.</p>
+                    <div class="wrong-answer-box">
+                        <i class="fas fa-times-circle"></i>
+                        <p>Wrong answer! +0 Score</p>
+                        <small>Correct answer was ${correctOption}</small>
                     </div>
                 `;
-                card.querySelector('.submit-btn')?.remove();
             }
+            
+            submitBtn?.remove();
+            
+            // Update score display
+            await loadUserScore();
+            
+            // Show result modal
+            showResultModal(data.is_correct, earnedScore);
         }
         
+    } catch (error) {
+        console.error("Submit error:", error);
+        alert("Failed to submit answer. Please try again.");
         if (submitBtn) {
-            submitBtn.remove();
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Answer';
         }
-    }, 1500);
+    }
 }
 
-// Show result modal
-function showResultModal(isCorrect, points, stamps) {
+// Show result modal (sirf score)
+function showResultModal(isCorrect, score) {
     const modal = document.getElementById('resultModal');
     const backdrop = document.getElementById('overlayBackdrop');
     
     if (!modal) return;
     
-    document.getElementById('resultTitle').textContent = isCorrect ? '🎉 Congratulations!' : '😔 Better Luck Next Time';
+    document.getElementById('resultTitle').textContent = isCorrect ? '🎉 Correct!' : '😔 Wrong Answer';
     document.getElementById('resultMessage').textContent = isCorrect 
-        ? `You earned ${points} points and ${stamps} stamp!` 
-        : 'Keep trying! You\'ll get it next time.';
+        ? `You earned ${score} Score!` 
+        : 'Better luck next time!';
     
-    document.getElementById('earnedPoints').textContent = points;
-    document.getElementById('earnedStamps').textContent = stamps;
+    document.getElementById('earnedScore').textContent = score;
     
     modal.classList.add('active');
     if (backdrop) backdrop.classList.add('active');

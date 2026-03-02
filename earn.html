@@ -30,64 +30,43 @@
     <!-- Main Quiz Container -->
     <div class="quiz-page-container">
         
-        <!-- Hero Section -->
-        <div class="quiz-hero">
-            <div class="hero-content">
-                <span class="hero-badge"><i class="fas fa-bolt"></i> DAILY CHALLENGE</span>
-                <h1 class="hero-title">Test Your Knowledge, <span>Earn Rewards</span></h1>
-                <p class="hero-subtitle">Answer questions correctly and earn points & stamps instantly!</p>
-            </div>
-            <div class="hero-stats">
-                <div class="stat-item">
+    <!-- Hero Stats Section - SIRF SCORE -->
+<div class="hero-stats">
+    <div class="stat-item">
+        <i class="fas fa-star"></i>
+        <span class="stat-value" id="userScore">0</span>
+        <span class="stat-label">Total Score</span>
+    </div>
+</div>
+
+<!-- Quiz Container -->
+<div id="quizContainer" class="quiz-container">
+    <!-- Questions will be loaded here -->
+</div>
+
+<!-- Result Modal - SIRF SCORE -->
+<div id="resultModal" class="modal">
+    <div class="modal-content result-modal">
+        <div class="modal-header">
+            <i class="fas fa-trophy result-icon"></i>
+            <h2 id="resultTitle">Good Job!</h2>
+        </div>
+        <div class="modal-body">
+            <p id="resultMessage">You earned 10 score!</p>
+            <div class="result-details">
+                <div class="result-item">
                     <i class="fas fa-star"></i>
-                    <span class="stat-value" id="userPoints">0</span>
-                    <span class="stat-label">Points</span>
-                </div>
-                <div class="stat-item">
-                    <i class="fas fa-ticket-alt"></i>
-                    <span class="stat-value" id="userStamps">0</span>
-                    <span class="stat-label">Stamps</span>
+                    <span id="earnedScore">0</span> Score
                 </div>
             </div>
         </div>
-
-        <!-- Quiz Container -->
-        <div id="quizContainer" class="quiz-container">
-            <!-- Questions will be loaded here -->
-            <div class="loading-state">
-                <i class="fas fa-spinner fa-spin"></i>
-                <p>Loading exciting questions...</p>
-            </div>
+        <div class="modal-footer">
+            <button class="btn-primary" onclick="closeResultModal()">
+                <i class="fas fa-check"></i> Continue
+            </button>
         </div>
-
-        <!-- Result Modal -->
-        <div id="resultModal" class="modal">
-            <div class="modal-content result-modal">
-                <div class="modal-header">
-                    <i class="fas fa-trophy result-icon"></i>
-                    <h2 id="resultTitle">Good Job!</h2>
-                </div>
-                <div class="modal-body">
-                    <p id="resultMessage">You earned 50 points!</p>
-                    <div class="result-details">
-                        <div class="result-item">
-                            <i class="fas fa-star"></i>
-                            <span id="earnedPoints">0</span>
-                        </div>
-                        <div class="result-item">
-                            <i class="fas fa-ticket-alt"></i>
-                            <span id="earnedStamps">0</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn-primary" onclick="closeResultModal()">
-                        <i class="fas fa-check"></i> Continue
-                    </button>
-                </div>
-            </div>
-        </div>
-
+    </div>
+</div>
         <!-- Overlay Backdrop -->
         <div id="overlayBackdrop" class="overlay-backdrop" onclick="closeAllModals()"></div>
 
