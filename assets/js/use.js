@@ -123,25 +123,28 @@ async function loadUseHistory() {
     }
 }
 
-// Display use history
 function displayUseHistory(history) {
     const list = document.getElementById('historyList');
-    
+
     if (!history?.length) {
         list.innerHTML = '<div class="empty">No redemption history</div>';
         return;
     }
-const dateValue = h.date || h.created_at;
-const formattedDate = dateValue 
-    ? new Date(dateValue).toLocaleDateString()
-    : '-';
-    list.innerHTML = history.map(h => `
-        <div class="history-item">
-            <span class="date">${formattedDate}</span>
-            <span class="reason">${h.reason || h.description || 'Redeemed'}</span>
-           <span class="points">-${Math.abs(h.points || 0)}</span>
-        </div>
-    `).join('');
+
+    list.innerHTML = history.map(h => {
+        const dateValue = h.created_at;
+        const formattedDate = dateValue
+            ? new Date(dateValue).toLocaleDateString()
+            : '-';
+
+        return `
+            <div class="history-item">
+                <span class="date">${formattedDate}</span>
+                <span class="reason">${h.description || 'Redeemed'}</span>
+                <span class="points">-${Math.abs(h.points || 0)}</span>
+            </div>
+        `;
+    }).join('');
 }
 
 // Open redeem modal
