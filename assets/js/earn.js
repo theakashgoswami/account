@@ -1,225 +1,227 @@
-// assets/js/earn.js
-
-let currentQuizData = [];
-let selectedAnswers = {};
+let quizData = [];
+let selected = {};
 let currentWeek = "Week 1";
+let submitted = false;
 
-document.addEventListener("DOMContentLoaded", async function() {
-    console.log("🎯 Quiz page loaded");
-    
-    await loadHeader();
+/* ===========================================
+   INIT
+=========================================== */
+document.addEventListener("DOMContentLoaded", async () => {
+
+    await loadHeaderPartial();
     await loadUserScore();
     await loadQuiz();
-    await checkIfAlreadySubmitted();
+    await checkSubmission();
 });
 
-// Load header
-async function loadHeader() {
-    try {
-        const response = await fetch("/partials/header.html");
-        const html = await response.text();
-        
-        const headerContainer = document.getElementById("header-container");
-        if (headerContainer) {
-            headerContainer.innerHTML = html;
-            await new Promise(r => setTimeout(r, 100));
-            
-            if (typeof window.initHeader === 'function') {
-                window.initHeader();
-            }
-            
-            if (window.currentUser?.user_id && typeof window.loadUserProfileIcon === 'function') {
-                await window.loadUserProfileIcon(window.currentUser.user_id);
-            }
-        }
-    } catch (error) {
-        console.error("Header load failed:", error);
-    }
+
+/* ===========================================
+   LOAD HEADER
+=========================================== */
+async function loadHeaderPartial() {
+    const res = await fetch("/partials/header.html");
+    document.getElementById("header-container").innerHTML = await res.text();
 }
 
-// Load user score
+
+/* ===========================================
+   LOAD USER SCORE
+=========================================== */
 async function loadUserScore() {
-    try {
-        const response = await fetch(`${CONFIG.WORKER_URL}/api/user/stats`, {
-            credentials: 'include',
-            headers: { 'X-Client-Host': window.location.host }
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            const scoreEl = document.getElementById('userScore');
-            if (scoreEl) scoreEl.textContent = data.points;
-        }
-    } catch (error) {
-        console.error("Score error:", error);
+    const res = await fetch(`${CONFIG.WORKER_URL}/api/user/stats`, {
+        credentials: "include",
+        headers: { "X-Client-Host": window.location.host }
+    });
+
+    const data = await res.json();
+    if (data.success) {
+        document.getElementById("userScore").textContent = data.points;
     }
 }
 
-// Check if already submitted
-async function checkIfAlreadySubmitted() {
-    try {
-        const response = await fetch(`${CONFIG.WORKER_URL}/api/user/check-quiz-submission?week=${currentWeek}`, {
-            credentials: 'include',
-            headers: { 'X-Client-Host': window.location.host }
-        });
-        
-        const data = await response.json();
-        
-        if (data.success && data.submitted) {
-            document.querySelectorAll('.option-radio').forEach(radio => {
-                radio.disabled = true;
-            });
-            
-            const submitBtn = document.getElementById('submitAllBtn');
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '✅ Already Submitted';
-            }
-        }
-    } catch (error) {
-        console.error("Check submission error:", error);
-    }
-}
 
-// Load quiz questions
+/* ===========================================
+   LOAD QUIZ
+=========================================== */
 async function loadQuiz() {
+
     const container = document.getElementById("quizContainer");
-    
-    if (!container) {
-        console.error("Quiz container not found");
+
+    const res = await fetch(`${CONFIG.WORKER_URL}/api/user/earn`, {
+        credentials: "include",
+        headers: { "X-Client-Host": window.location.host }
+    });
+
+    const data = await res.json();
+
+    if (!data.success || !data.earn.length) {
+        container.innerHTML = "<p>No questions available</p>";
         return;
     }
 
-    try {
-        const res = await fetch(`${CONFIG.WORKER_URL}/api/user/earn`, {
-            credentials: 'include',
-            headers: { 'X-Client-Host': window.location.host }
-        });
+    quizData = data.earn;
+    currentWeek = quizData[0].week || "Week 1";
 
-        const data = await res.json();
+    document.getElementById("quizWeek").textContent = currentWeek;
 
-        if (!data.success || !data.earn || !data.earn.length) {
-            container.innerHTML = `<div class="empty-state">No questions available</div>`;
-            return;
-        }
-
-        currentQuizData = data.earn;
-        currentWeek = data.earn[0]?.week || "Week 1";
-        displayQuiz(data.earn, container);
-
-    } catch (err) {
-        console.error("Quiz error:", err);
-        container.innerHTML = `<div class="error-state">Failed to load quiz</div>`;
-    }
+    renderQuiz();
 }
 
-// Display quiz
-function displayQuiz(questions, container) {
-    if (!container) return;
-    
-    const questionsHTML = questions.map((q, index) => {
-        const qid = q.qid || q.id || `q${index}`;
-        
+
+/* ===========================================
+   RENDER QUIZ
+=========================================== */
+function renderQuiz() {
+
+    const container = document.getElementById("quizContainer");
+
+    container.innerHTML = quizData.map((q, index) => {
+
+        const qid = q.qid;
+
         return `
-            <div class="quiz-card" data-qid="${qid}" data-correct="${q.correct}">
-                <div class="question-header">
-                    <span class="question-number">Q${index + 1}/${questions.length}</span>
-                    <span class="reward-badge"><i class="fas fa-star"></i> 10</span>
+        <div class="quiz-card" data-id="${qid}">
+            <div class="question-number">Question ${index + 1}/4</div>
+            <h3>${q.question}</h3>
+
+            ${["A","B","C","D"].map(opt => `
+                <div class="option" onclick="selectAnswer('${qid}','${opt}',this)">
+                    ${opt}. ${q["option"+opt]}
                 </div>
-                <h3>${q.question}</h3>
-                <div class="options-grid">
-                    ${['A', 'B', 'C', 'D'].map(opt => `
-                        <label class="option-label">
-                            <input type="radio" name="q_${qid}" value="${opt}" class="option-radio" onchange="selectAnswer('${qid}', '${opt}')">
-                            <span class="option-text">${opt}. ${q[`option${opt}`]}</span>
-                        </label>
-                    `).join('')}
-                </div>
-            </div>
-        `;
-    }).join('');
-    
-    container.innerHTML = `
-        ${questionsHTML}
-        <div class="submit-section">
-            <button id="submitAllBtn" class="submit-all-btn" onclick="submitQuiz()">
-                <i class="fas fa-paper-plane"></i> Submit Quiz
-            </button>
-            <div id="progressMessage" class="progress-message"></div>
+            `).join("")}
         </div>
+        `;
+    }).join("") + `
+        <button class="submit-btn" onclick="submitQuiz()">Submit Quiz</button>
     `;
 }
 
-// Select answer
-function selectAnswer(qid, option) {
-    selectedAnswers[qid] = option;
+
+/* ===========================================
+   SELECT ANSWER
+=========================================== */
+function selectAnswer(qid, opt, el) {
+
+    if (submitted) return;
+
+    selected[qid] = opt;
+
+    const card = el.closest(".quiz-card");
+    card.querySelectorAll(".option").forEach(o => o.classList.remove("selected"));
+    el.classList.add("selected");
+
+    updateProgress();
 }
 
-// Submit quiz
+window.selectAnswer = selectAnswer;
+
+
+/* ===========================================
+   PROGRESS BAR
+=========================================== */
+function updateProgress() {
+    const total = quizData.length;
+    const done = Object.keys(selected).length;
+    const percent = (done / total) * 100;
+    document.getElementById("progressBar").style.width = percent + "%";
+}
+
+
+/* ===========================================
+   CHECK SUBMISSION
+=========================================== */
+async function checkSubmission() {
+
+    const res = await fetch(
+        `${CONFIG.WORKER_URL}/api/user/check-quiz-submission?week=${currentWeek}`,
+        {
+            credentials: "include",
+            headers: { "X-Client-Host": window.location.host }
+        }
+    );
+
+    const data = await res.json();
+
+    if (data.success && data.submitted) {
+        submitted = true;
+        document.getElementById("quizContainer").innerHTML =
+            `<div class="already-submitted">
+                You already submitted this week's quiz.
+                <br>Score: ${data.score}
+            </div>`;
+    }
+}
+
+
+/* ===========================================
+   SUBMIT QUIZ
+=========================================== */
 async function submitQuiz() {
-    const submitBtn = document.getElementById('submitAllBtn');
-    const progressMsg = document.getElementById('progressMessage');
-    
-    const totalQuestions = currentQuizData.length;
-    const answeredCount = Object.keys(selectedAnswers).length;
-    
-    if (answeredCount < totalQuestions) {
-        alert(`Answer all ${totalQuestions} questions!`);
+
+    if (submitted) return;
+
+    if (Object.keys(selected).length !== quizData.length) {
+        alert("Answer all questions first!");
         return;
     }
-    
-    if (!confirm(`Submit quiz for ${currentWeek}?`)) return;
-    
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
-    progressMsg.innerHTML = 'Calculating score...';
-    
-    try {
-        // Calculate score
-        let totalScore = 0;
-        currentQuizData.forEach(q => {
-            const qid = q.qid || q.id;
-            if (selectedAnswers[qid] === q.correct) totalScore += 10;
-        });
-        
-        console.log("📤 Submitting:", { week: currentWeek, score: totalScore });
-        
-        // ✅ USER ID AUTOMATICALLY WORKER SE LEGA
-        const response = await fetch(`${CONFIG.WORKER_URL}/api/user/submit-quiz`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 
-                'Content-Type': 'application/json',
-                'X-Client-Host': window.location.host
-            },
-            body: JSON.stringify({
-                week: currentWeek,
-                score: totalScore
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            progressMsg.innerHTML = '✅ Submitted!';
-            alert(`🎉 Score: ${totalScore}`);
-            
-            document.querySelectorAll('.option-radio').forEach(r => r.disabled = true);
-            submitBtn.innerHTML = '✅ Submitted';
-        } else {
-            throw new Error(data.error);
-        }
-        
-    } catch (error) {
-        console.error("❌ Error:", error);
-        alert('Failed: ' + error.message);
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Quiz';
-        progressMsg.innerHTML = '';
+
+    submitted = true;
+
+    let score = 0;
+
+    quizData.forEach(q => {
+        if (selected[q.qid] === q.correct) score += 10;
+    });
+
+    const res = await fetch(`${CONFIG.WORKER_URL}/api/user/submit-quiz`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+            "Content-Type": "application/json",
+            "X-Client-Host": window.location.host
+        },
+        body: JSON.stringify({
+            week: currentWeek,
+            score: score
+        })
+    });
+
+    const data = await res.json();
+
+    if (!data.success) {
+        alert(data.error);
+        submitted = false;
+        return;
     }
+
+    showResult(score);
 }
 
-// Expose functions
-window.selectAnswer = selectAnswer;
 window.submitQuiz = submitQuiz;
+
+
+/* ===========================================
+   RESULT MODAL
+=========================================== */
+function showResult(score) {
+
+    let message = "";
+
+    if (score === 40) message = "🔥 Perfect Score!";
+    else if (score >= 30) message = "👏 Great Job!";
+    else if (score >= 20) message = "👍 Good Attempt!";
+    else message = "Keep Practicing!";
+
+    document.getElementById("resultTitle").textContent = message;
+    document.getElementById("resultText").textContent =
+        `You scored ${score} points in ${currentWeek}`;
+
+    document.getElementById("resultModal").style.display = "flex";
+}
+
+function closeResult() {
+    document.getElementById("resultModal").style.display = "none";
+    location.reload();
+}
+
+window.closeResult = closeResult;

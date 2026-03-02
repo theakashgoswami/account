@@ -1,81 +1,56 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quiz Earn · AG TechScript</title>
-    
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    
-    <!-- CSS -->
-    <link rel="stylesheet" href="/assets/css/style.css">
-    <link rel="stylesheet" href="/assets/css/earn.css">
-    
-    <!-- Scripts (defer for performance) -->
-    <script src="../assets/js/config.js?v=1.0.0" defer></script>
-    <script src="../assets/js/api.js?v=1.0.0" defer></script>
-    <script src="../assets/js/guard.js?v=1.0.0" defer></script>
-    <script src="../assets/js/header.js?v=1.0.1" defer></script>
-    <script src="../assets/js/user-overlay.js?v=1.0.0" defer></script>
-    <script src="../assets/js/footer.js?v=1.0.0" defer></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Earn · AG TechScript</title>
+
+<link rel="stylesheet" href="/assets/css/style.css">
+<link rel="stylesheet" href="/assets/css/earn.css">
+
+<script src="/assets/js/config.js" defer></script>
+<script src="/assets/js/guard.js" defer></script>
+<script src="/assets/js/header.js" defer></script>
+<script src="/assets/js/user-overlay.js" defer></script>
+<script src="/assets/js/footer.js" defer></script>
 </head>
+
 <body>
-    <!-- Header Container -->
-    <div id="header-container"></div>
 
-    <!-- Main Quiz Container -->
-    <div class="quiz-page-container">
-        
-    <!-- Hero Stats Section - SIRF SCORE -->
-<div class="hero-stats">
-    <div class="stat-item">
-        <i class="fas fa-star"></i>
-        <span class="stat-value" id="userScore">0</span>
-        <span class="stat-label">Total Score</span>
+<div id="header-container"></div>
+
+<div class="quiz-wrapper">
+
+    <!-- TOP BAR -->
+    <div class="quiz-topbar">
+        <div class="quiz-week" id="quizWeek">Week 1</div>
+        <div class="quiz-score">
+            <span id="userScore">0</span> Score
+        </div>
+    </div>
+
+    <!-- PROGRESS -->
+    <div class="progress-container">
+        <div class="progress-bar" id="progressBar"></div>
+    </div>
+
+    <!-- QUIZ -->
+    <div id="quizContainer" class="quiz-container"></div>
+
+</div>
+
+<!-- RESULT MODAL -->
+<div id="resultModal" class="result-modal">
+    <div class="result-box">
+        <h2 id="resultTitle">Quiz Completed</h2>
+        <p id="resultText"></p>
+        <button onclick="closeResult()">Continue</button>
     </div>
 </div>
 
-<!-- Quiz Container -->
-<div id="quizContainer" class="quiz-container">
-    <!-- Questions will be loaded here -->
-</div>
+<div id="footer-container"></div>
 
-<!-- Result Modal - SIRF SCORE -->
-<div id="resultModal" class="modal">
-    <div class="modal-content result-modal">
-        <div class="modal-header">
-            <i class="fas fa-trophy result-icon"></i>
-            <h2 id="resultTitle">Good Job!</h2>
-        </div>
-        <div class="modal-body">
-            <p id="resultMessage">You earned 10 score!</p>
-            <div class="result-details">
-                <div class="result-item">
-                    <i class="fas fa-star"></i>
-                    <span id="earnedScore">0</span> Score
-                </div>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button class="btn-primary" onclick="closeResultModal()">
-                <i class="fas fa-check"></i> Continue
-            </button>
-        </div>
-    </div>
-</div>
-        <!-- Overlay Backdrop -->
-        <div id="overlayBackdrop" class="overlay-backdrop" onclick="closeAllModals()"></div>
+<script src="/assets/js/earn.js" defer></script>
 
-    </div>
-
-    <!-- Footer Container -->
-    <div id="footer-container"></div>
-
-    <!-- Quiz JavaScript -->
-    <script src="../assets/js/earn.js?v=1.0.1" defer></script>
 </body>
 </html>
