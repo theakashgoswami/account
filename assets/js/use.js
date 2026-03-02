@@ -33,7 +33,7 @@ async function loadUserStats() {
         });
         const data = await res.json();
         if (data.success) {
-            updateAllStats(data.userPoints, data.userStamps);
+           updateAllStats(data.points, data.stamps);
         }
     } catch (err) {
         console.error("Stats error:", err);
@@ -52,9 +52,7 @@ async function loadRewards() {
         
         if (data.success) {
             displayRewards(data.rewards);
-            document.getElementById('usePagePoints').textContent = data.userPoints;
-            document.getElementById('usePageStamps').textContent = data.userStamps;
-           
+          updateAllStats(data.userPoints, data.userStamps);
         } else {
             document.getElementById('rewardsGrid').innerHTML = '<div class="error">Failed to load rewards</div>';
         }
