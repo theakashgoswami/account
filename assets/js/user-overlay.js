@@ -95,20 +95,29 @@ function toggleUserOverlay() {
 // LOAD USER DATA
 // ====================================================================
 async function loadUserData() {
-    if (!window.currentUser?.user_id) {
-        console.log("No user logged in");
-        return;
-    }
-    
+    if (!window.currentUser?.user_id) return;
+
     try {
+        const response = await fetch(
+            `${CONFIG.WORKER_URL}/api/user/profile?user_id=${window.currentUser.user_id}`,
+            {
+                credentials: 'include',
+                headers: { 'X-Client-Host': window.location.host }
+            }
+        );
+
+        const data = await response.json();
+
+        if (data.success) {
+            currentUser = data;
+            window.currentUser = data;
+            updateOverlayUI();
+        }
+        
         // Load profile icon
         await loadUserProfileIcon(window.currentUser.user_id);
-        
-        // Fetch user profile
-        const response = await fetch(`${CONFIG.WORKER_URL}/api/user/profile?user_id=${window.currentUser.user_id}`, {
-            credentials: 'include',
-            headers: { 'X-Client-Host': window.location.host }
-        });
+    } catch (error) {
+        console.error("Profile load failed:", error);
     }
 }
 // ====================================================================
