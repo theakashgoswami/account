@@ -7,7 +7,6 @@ document.addEventListener("DOMContentLoaded", async function() {
     console.log("🎁 Use page loaded");
     await loadHeader();
     await Promise.all([
-        loadUserStats(),    // ✅ FIX: Add this
         loadRewards(),
         loadUseHistory()
     ]);
@@ -83,10 +82,16 @@ function displayRewards(rewards) {
                     ${r.cost_points > 0 ? `<span><i class="fas fa-star"></i> ${r.cost_points} Points</span>` : ''}
                     ${r.cost_stamps > 0 ? `<span><i class="fas fa-ticket-alt"></i> ${r.cost_stamps} Stamps</span>` : ''}
                 </div>
-                <button class="redeem-btn" onclick="openRedeemModal('${r.reward_id}', '${r.reward_name}', ${r.cost_points}, ${r.cost_stamps})"
-                    ${!r.canAfford ? 'disabled' : ''}>
-                    Redeem
-                </button>
+               <button class="redeem-btn"
+    onclick="openRedeemModal(
+        ${JSON.stringify(r.reward_id)},
+        ${JSON.stringify(r.reward_name)},
+        ${Number(r.cost_points) || 0},
+        ${Number(r.cost_stamps) || 0}
+    )"
+    ${!r.canAfford ? 'disabled' : ''}>
+    Redeem
+</button>
             </div>
         </div>
     `).join('');
@@ -120,12 +125,15 @@ function displayUseHistory(history) {
         list.innerHTML = '<div class="empty">No redemption history</div>';
         return;
     }
-
+const dateValue = h.date || h.created_at;
+const formattedDate = dateValue 
+    ? new Date(dateValue).toLocaleDateString()
+    : '-';
     list.innerHTML = history.map(h => `
         <div class="history-item">
-            <span class="date">${new Date(h.date || h.created_at).toLocaleDateString()}</span>
+            <span class="date">${formattedDate}</span>
             <span class="reason">${h.reason || h.description || 'Redeemed'}</span>
-            <span class="points">-${h.points || 0} <i class="fas fa-star"></i></span>
+           <span class="points">-${Math.abs(h.points || 0)}</span>
         </div>
     `).join('');
 }
