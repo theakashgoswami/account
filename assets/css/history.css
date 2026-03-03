@@ -363,3 +363,36 @@
         margin-left: 0;
     }
 }
+.invoice-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.invoice-card {
+    background: white;
+    width: 800px;
+    padding: 30px;
+    border-radius: 10px;
+}
+
+.invoice-btn {
+    padding: 6px 12px;
+    background: #2196f3;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.close-btn {
+    float: right;
+    background: red;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+}

@@ -230,6 +230,12 @@ function renderRow(item) {
             <td>₹${item.amount}</td>
             <td class="points-positive">+${item.points}</td>
             <td><span class="status-badge">${item.stamp === 'Yes' ? '✅ Stamp' : '—'}</span></td>
+            <td>
+    <button class="invoice-btn"
+        onclick="openInvoice('${item.invoiceId}')">
+        View Invoice
+    </button>
+</td>
         </tr>`;
     }
 
@@ -303,7 +309,61 @@ function formatPoints() {
         };
     });
 }
+async function openInvoice(invoiceId) {
 
+    document.getElementById("invoiceOverlay").style.display = "flex";
+    document.getElementById("invoiceContent").innerHTML = "Loading...";
+
+    try {
+
+        const res = await fetch(
+            `${CONFIG.WORKER_URL}/api/user/invoice?invoice=${invoiceId}`,
+            {
+                credentials: "include",
+                headers: { "X-Client-Host": window.location.host }
+            }
+        );
+
+        const data = await res.json();
+
+        if (!data.success) {
+            document.getElementById("invoiceContent").innerHTML =
+                "Invoice not found";
+            return;
+        }
+
+        const inv = data.invoice;
+        const user = inv.user;
+
+        document.getElementById("invoiceContent").innerHTML = `
+            <h3>Invoice #${inv.invoice_id}</h3>
+            <p><strong>Date:</strong> ${new Date(inv.date).toLocaleDateString()}</p>
+            <hr>
+            <p><strong>User ID:</strong> ${user.user_id}</p>
+            <p><strong>Name:</strong> ${user.name}</p>
+            <p><strong>Email:</strong> ${user.email}</p>
+            <p><strong>Phone:</strong> ${user.phone}</p>
+            <p><strong>Address:</strong> ${user.address}</p>
+            <hr>
+            <table style="width:100%; border-collapse:collapse;">
+                <tr>
+                    <th style="text-align:left;">Item</th>
+                    <th>Amount</th>
+                </tr>
+                <tr>
+                    <td>${inv.item}</td>
+                    <td>₹${inv.amount}</td>
+                </tr>
+            </table>
+            <hr>
+            <h3>Total: ₹${inv.amount}</h3>
+        `;
+
+    } catch (err) {
+        document.getElementById("invoiceContent").innerHTML =
+            "Error loading invoice";
+    }
+}
 // ------------------------------------------------
 // HELPERS
 // ------------------------------------------------
