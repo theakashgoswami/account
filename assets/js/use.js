@@ -88,24 +88,31 @@ document.addEventListener('click', function(e) {
         btn.dataset.stamps
     );
 });
-// LOAD USE HISTORY
+// LOAD USE HISTORY (SECURE VERSION)
 async function loadUseHistory() {
     try {
-        const res = await fetch(`${CONFIG.WORKER_URL}/api/user/redeemhistory?user_id=${window.currentUser.user_id}`,
-             {
-            credentials: 'include',
-            headers: { 'X-Client-Host': window.location.host }
-        });
+
+        const res = await fetch(
+            `${CONFIG.WORKER_URL}/api/user/redeemhistory`,
+            {
+                credentials: 'include',
+                headers: { 'X-Client-Host': window.location.host }
+            }
+        );
+
         const data = await res.json();
-        
+
         if (data.success) {
             displayUseHistory(data.redemptions);
         } else {
-            document.getElementById('historyList').innerHTML = '<div class="error">Failed to load history</div>';
+            document.getElementById('historyList').innerHTML =
+                '<div class="error">Failed to load history</div>';
         }
+
     } catch (err) {
         console.error("History error:", err);
-        document.getElementById('historyList').innerHTML = '<div class="error">Failed to load history</div>';
+        document.getElementById('historyList').innerHTML =
+            '<div class="error">Failed to load history</div>';
     }
 }
 
