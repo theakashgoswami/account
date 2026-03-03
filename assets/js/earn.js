@@ -10,37 +10,10 @@ let userSelections = {};
    INIT
 =========================================== */
 document.addEventListener("DOMContentLoaded", async () => {
-    await loadHeaderPartial();
-    await loadUserScore();
+    await loadHeader();
     await loadQuiz();
 });
 
-/* ===========================================
-   LOAD HEADER
-=========================================== */
-async function loadHeaderPartial() {
-    const res = await fetch("/partials/header.html");
-    document.getElementById("header-container").innerHTML = await res.text();
-    if (window.initHeader) window.initHeader();
-}
-
-/* ===========================================
-   LOAD USER SCORE
-=========================================== */
-async function loadUserScore() {
-    try {
-        const res = await fetch(`${CONFIG.WORKER_URL}/api/user/stats`, {
-            credentials: "include",
-            headers: { "X-Client-Host": window.location.host }
-        });
-        const data = await res.json();
-        if (data.success) {
-            document.getElementById("userScore").textContent = data.points;
-        }
-    } catch (err) {
-        console.error("Score load error:", err);
-    }
-}
 
 /* ===========================================
    LOAD QUIZ
