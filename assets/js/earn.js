@@ -265,17 +265,52 @@ window.closeResult = closeResult;
 /* ===========================================
    VIEW ANSWERS
 =========================================== */
+/* ===========================================
+   VIEW ANSWERS - FIXED VERSION
+=========================================== */
 function viewMyAnswers() {
-
-    submitted = true;
-
     const container = document.getElementById("quizContainer");
 
-    container.innerHTML = quizData.map((q, index) => {
+    // Check if quiz data exists
+    if (!quizData || quizData.length === 0) {
+        alert("Quiz data not found. Please refresh the page.");
+        return;
+    }
 
+    // Check if we have selections
+    console.log("📋 userSelections:", userSelections);
+    console.log("📋 quizData:", quizData);
+
+    // If userSelections is empty, try to get from localStorage or show error
+    if (!userSelections || Object.keys(userSelections).length === 0) {
+        container.innerHTML = `
+            <div class="error-card">
+                <h3>❌ No answers found</h3>
+                <p>You haven't submitted any answers yet.</p>
+                <button class="btn-back" onclick="checkSubmissionAndRender()">← Back</button>
+            </div>
+        `;
+        return;
+    }
+
+    // Render answers
+    container.innerHTML = quizData.map((q, index) => {
         const qid = q.qid;
         const selectedOpt = userSelections[qid];
         const correctOpt = q.correct;
+
+        // If no selection for this question, skip
+        if (!selectedOpt) {
+            return `
+            <div class="quiz-card view-mode" data-id="${qid}">
+                <div class="question-number">Question ${index + 1}/4</div>
+                <h3>${q.question}</h3>
+                <div class="option no-answer">No answer selected</div>
+            </div>
+            `;
+        }
+
+        const isCorrect = selectedOpt === correctOpt;
 
         return `
         <div class="quiz-card view-mode" data-id="${qid}">
@@ -283,36 +318,45 @@ function viewMyAnswers() {
             <h3>${q.question}</h3>
 
             ${["A","B","C","D"].map(opt => {
-
                 let className = "option";
+                let indicator = "";
 
+                // Mark correct answer
                 if (opt === correctOpt) {
                     className += " correct-answer";
                 }
 
-                if (opt === selectedOpt && opt !== correctOpt) {
-                    className += " wrong-answer";
-                }
-
+                // Mark user's selected answer
                 if (opt === selectedOpt) {
                     className += " selected";
+                    
+                    // Add indicator based on correctness
+                    if (opt === correctOpt) {
+                        indicator = " ✓";
+                    } else {
+                        indicator = " ✗";
+                        className += " wrong-answer";
+                    }
                 }
 
                 return `
                     <div class="${className}">
-                        ${opt}. ${q["option"+opt]}
+                        ${opt}. ${q["option"+opt] || `Option ${opt}`} ${indicator}
                     </div>
                 `;
-
             }).join("")}
 
+            <div class="answer-feedback" style="margin-top: 15px; padding: 10px; border-radius: 8px; ${isCorrect ? 'background: #d4edda; color: #155724;' : 'background: #f8d7da; color: #721c24;'}">
+                ${isCorrect 
+                    ? '✅ Correct! You chose the right answer.' 
+                    : `❌ Your answer: ${selectedOpt} | Correct answer: ${correctOpt}`}
+            </div>
         </div>
         `;
-
     }).join("") + `
-        <div class="submitted-footer">
-            <button class="btn-back" onclick="checkSubmissionAndRender()">
-                ← Back
+        <div class="back-to-submitted" style="text-align: center; margin: 20px 0;">
+            <button class="btn-back" onclick="checkSubmissionAndRender()" style="padding: 10px 30px; background: #667eea; color: white; border: none; border-radius: 50px; cursor: pointer;">
+                ← Back to Message
             </button>
         </div>
     `;
