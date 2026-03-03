@@ -392,7 +392,7 @@ async function openLeaderboard() {
                 <div class="leaderboard-row ${index < 3 ? 'top-rank' : ''}">
                     <span class="rank">${badge}</span>
                     <span class="user">${user.user_id}</span>
-                    <span class="score">${user.total_score} pts</span>
+                    <span class="score">${user.total_score} score</span>
                 </div>
             `;
         }).join("");
