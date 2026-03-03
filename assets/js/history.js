@@ -66,13 +66,20 @@ async function loadAllHistory() {
         );
 
         const data = await res.json();
-        console.log("📥 History data:", data);
+        console.log("📥 Raw history data:", data);
 
         if (!data.success) throw new Error("API failed");
 
-        allHistoryData.quiz = data.quiz || [];
-        allHistoryData.purchases = data.purchases || [];
-        allHistoryData.points = data.points || [];
+        // Ensure data is arrays
+        allHistoryData.quiz = Array.isArray(data.quiz) ? data.quiz : [];
+        allHistoryData.purchases = Array.isArray(data.purchases) ? data.purchases : [];
+        allHistoryData.points = Array.isArray(data.points) ? data.points : [];
+
+        console.log("✅ Processed data:", {
+            quiz: allHistoryData.quiz.length,
+            purchases: allHistoryData.purchases.length,
+            points: allHistoryData.points.length
+        });
 
         updateSummaryStats();
         renderHistory();
@@ -153,14 +160,90 @@ function getTableHeaders() {
 }
 
 // ------------------------------------------------
-// RENDER HISTORY - WITH DYNAMIC HEADERS
+// FIXED FORMATTERS
+// ------------------------------------------------
+function formatQuiz() {
+    return allHistoryData.quiz.map(q => {
+        // Handle different possible field names
+        const week = q.week || q.Week || 'N/A';
+        const score = Number(q.score || q.Score || 0);
+        const timestamp = q.timestamp || q.Timestamp || q.created_at || q.date || new Date();
+        
+        return {
+            date: timestamp,
+            type: 'quiz',
+            activity: '📝 Quiz Attempt',
+            details: `Week ${week}`,
+            points: score,
+            status: score > 0 ? 'completed' : 'attempted',
+            // For specific views
+            quizName: `Quiz ${week}`,
+            week: week,
+            score: score
+        };
+    });
+}
+
+function formatPurchase() {
+    return allHistoryData.purchases.map(p => {
+        // Handle different possible field names
+        const item = p.item || p.Item || p.product || 'Item';
+        const amount = p.amount || p.Amount || p.price || 0;
+        const points = Number(p.points || p.Points || 0);
+        const stamp = p.stamp || p.Stamp || p.stampGiven || 'No';
+        const timestamp = p.date || p.Date || p.created_at || p.timestamp || new Date();
+        
+        return {
+            date: timestamp,
+            type: 'purchase',
+            activity: '🛒 Purchase',
+            details: `${item} - ₹${amount}`,
+            points: points,
+            status: stamp === 'Yes' ? 'stamp earned' : 'completed',
+            // For specific views
+            itemName: item,
+            amount: amount,
+            stamp: stamp
+        };
+    });
+}
+
+function formatPoints() {
+    return allHistoryData.points.map(p => {
+        // Handle different possible field names
+        const type = p.type || p.Type || p.transaction_type || 'earn';
+        const points = Number(p.points || p.Points || 0);
+        const description = p.description || p.Description || p.reason || p.Reason || 'Transaction';
+        const timestamp = p.created_at || p.Created_at || p.date || p.Date || p.timestamp || new Date();
+        
+        // Ensure points is a number
+        const pointValue = Math.abs(points);
+        const isEarn = type.toLowerCase() === 'earn';
+        
+        return {
+            date: timestamp,
+            type: 'points',
+            activity: isEarn ? '✨ Points Earned' : '💸 Points Used',
+            details: description,
+            points: isEarn ? pointValue : -pointValue,
+            status: 'completed',
+            // For specific views
+            pointType: isEarn ? '✨ Earned' : '💸 Used',
+            typeClass: isEarn ? 'points-positive' : 'points-negative',
+            description: description
+        };
+    });
+}
+
+// ------------------------------------------------
+// RENDER HISTORY - FIXED
 // ------------------------------------------------
 function renderHistory() {
     const tableHeader = document.getElementById('historyHeader');
     const tableBody = document.getElementById('historyBody');
     const pageTitle = document.querySelector('.history-title');
 
-    // 🔥 UPDATE TABLE HEADERS
+    // Update table headers
     const headers = getTableHeaders();
     tableHeader.innerHTML = `
         <tr>
@@ -168,12 +251,14 @@ function renderHistory() {
         </tr>
     `;
 
-    // Get filtered data
+    // Get and merge data
     let merged = [
         ...formatQuiz(),
         ...formatPurchase(),
         ...formatPoints()
     ];
+
+    console.log("📊 Merged data:", merged);
 
     if (currentHistoryType !== 'all') {
         merged = merged.filter(i => i.type === currentHistoryType);
@@ -200,7 +285,7 @@ function renderHistory() {
         <span class="record-count">${merged.length} records</span>
     `;
 
-    // Render rows based on current type
+    // Handle empty state
     if (!merged.length) {
         tableBody.innerHTML = `
             <tr>
@@ -213,7 +298,7 @@ function renderHistory() {
         return;
     }
 
-    // Render rows with appropriate columns
+    // Render rows based on current type
     tableBody.innerHTML = merged.map(item => {
         switch(currentHistoryType) {
             case 'quiz':
@@ -221,8 +306,8 @@ function renderHistory() {
                     <tr class="type-${item.type}">
                         <td>${formatDate(item.date)}</td>
                         <td><strong>${item.quizName || 'Quiz'}</strong></td>
-                        <td>${item.week || 'N/A'}</td>
-                        <td class="points-positive">${item.score || 0}</td>
+                        <td>${item.week}</td>
+                        <td class="points-positive">${item.score}</td>
                         <td><span class="status-badge status-${safeClass(item.status)}">${item.status}</span></td>
                     </tr>
                 `;
@@ -231,10 +316,12 @@ function renderHistory() {
                 return `
                     <tr class="type-${item.type}">
                         <td>${formatDate(item.date)}</td>
-                        <td><strong>${item.itemName || 'Item'}</strong></td>
-                        <td>₹${item.amount || 0}</td>
-                        <td class="points-positive">+${item.points || 0}</td>
-                        <td><span class="status-badge status-${safeClass(item.stamp || 'no')}">${item.stamp === 'Yes' ? '✅ Stamp' : '➖ No Stamp'}</span></td>
+                        <td><strong>${item.itemName}</strong></td>
+                        <td>₹${item.amount}</td>
+                        <td class="points-positive">+${item.points}</td>
+                        <td><span class="status-badge status-${item.stamp === 'Yes' ? 'completed' : 'pending'}">
+                            ${item.stamp === 'Yes' ? '✅ Stamp' : '➖ No Stamp'}
+                        </span></td>
                     </tr>
                 `;
                 
@@ -243,7 +330,7 @@ function renderHistory() {
                     <tr class="type-${item.type}">
                         <td>${formatDate(item.date)}</td>
                         <td><span class="${item.typeClass}">${item.pointType}</span></td>
-                        <td>${item.description || 'Transaction'}</td>
+                        <td>${item.description}</td>
                         <td class="${item.points > 0 ? 'points-positive' : 'points-negative'}">
                             ${item.points > 0 ? '+' : ''}${item.points}
                         </td>
@@ -255,14 +342,14 @@ function renderHistory() {
                 return `
                     <tr class="type-${item.type}">
                         <td>${formatDate(item.date)}</td>
-                        <td><strong>${item.activity}</strong></td>
-                        <td>${item.details}</td>
+                        <td><strong>${item.activity || 'Activity'}</strong></td>
+                        <td>${item.details || '-'}</td>
                         <td class="${item.points > 0 ? 'points-positive' : item.points < 0 ? 'points-negative' : ''}">
-                            ${item.points > 0 ? '+' : ''}${item.points}
+                            ${item.points !== 0 ? (item.points > 0 ? '+' : '') + item.points : '-'}
                         </td>
                         <td>
-                            <span class="status-badge status-${safeClass(item.status)}">
-                                ${item.status}
+                            <span class="status-badge status-${safeClass(item.status || 'completed')}">
+                                ${item.status || 'completed'}
                             </span>
                         </td>
                     </tr>
@@ -272,56 +359,21 @@ function renderHistory() {
 }
 
 // ------------------------------------------------
-// FORMATTERS (Updated)
-// ------------------------------------------------
-function formatQuiz() {
-    return allHistoryData.quiz.map(q => ({
-        date: q.timestamp || q.created_at,
-        type: 'quiz',
-        quizName: `Quiz ${q.week || ''}`,
-        week: q.week || 'N/A',
-        score: Number(q.score) || 0,
-        status: q.score > 0 ? 'completed' : 'attempted'
-    }));
-}
-
-function formatPurchase() {
-    return allHistoryData.purchases.map(p => ({
-        date: p.date || p.created_at,
-        type: 'purchase',
-        itemName: p.item || 'Item',
-        amount: p.amount || 0,
-        points: Number(p.points) || 0,
-        stamp: p.stamp || 'No'
-    }));
-}
-
-function formatPoints() {
-    return allHistoryData.points.map(p => ({
-        date: p.created_at || p.date,
-        type: 'points',
-        pointType: p.type === 'earn' ? '✨ Earned' : '💸 Used',
-        typeClass: p.type === 'earn' ? 'points-positive' : 'points-negative',
-        description: p.description || p.reason || 'Transaction',
-        points: p.type === 'earn' 
-            ? Math.abs(Number(p.points) || 0)
-            : -Math.abs(Number(p.points) || 0)
-    }));
-}
-
-// ------------------------------------------------
 // HELPERS
 // ------------------------------------------------
 function formatDate(d) {
     if (!d) return '-';
     try {
         const date = new Date(d);
+        if (isNaN(date.getTime())) return String(d);
+        
         return date.toLocaleString('en-IN', {
             day: '2-digit',
             month: '2-digit',
             year: 'numeric',
             hour: '2-digit',
-            minute: '2-digit'
+            minute: '2-digit',
+            hour12: true
         });
     } catch {
         return String(d);
