@@ -198,3 +198,25 @@
     font-weight: bold;
     color: #667eea;
 }
+.view-mode .option {
+    pointer-events: none;
+    cursor: default;
+}
+
+.correct-answer {
+    background: #d4edda;
+    border: 1px solid #28a745;
+    color: #155724;
+}
+
+.wrong-answer {
+    background: #f8d7da;
+    border: 1px solid #dc3545;
+    color: #721c24;
+}
+
+.selected-correct {
+    background: #28a745;
+    color: white;
+    font-weight: bold;
+}

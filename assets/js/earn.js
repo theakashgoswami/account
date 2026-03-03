@@ -266,7 +266,60 @@ window.closeResult = closeResult;
    VIEW ANSWERS
 =========================================== */
 function viewMyAnswers() {
-    renderQuiz();
+
+    submitted = true;
+
+    const container = document.getElementById("quizContainer");
+
+    container.innerHTML = quizData.map((q, index) => {
+
+        const qid = q.qid;
+        const selectedOpt = userSelections[qid];
+        const correctOpt = q.correct;
+
+        return `
+        <div class="quiz-card view-mode" data-id="${qid}">
+            <div class="question-number">Question ${index + 1}/4</div>
+            <h3>${q.question}</h3>
+
+            ${["A","B","C","D"].map(opt => {
+
+                let className = "option";
+
+                // Correct answer = green
+                if (opt === correctOpt) {
+                    className += " correct-answer";
+                }
+
+                // Wrong selected = red
+                if (opt === selectedOpt && opt !== correctOpt) {
+                    className += " wrong-answer";
+                }
+
+                // Selected correct = darker green
+                if (opt === selectedOpt && opt === correctOpt) {
+                    className += " selected-correct";
+                }
+
+                return `
+                    <div class="${className}">
+                        ${opt}. ${q["option"+opt]}
+                    </div>
+                `;
+
+            }).join("")}
+
+        </div>
+        `;
+
+    }).join("") + `
+        <div class="submitted-footer">
+            <button class="btn-back" onclick="checkSubmissionAndRender()">
+                ← Back
+            </button>
+        </div>
+    `;
+
 }
 
 window.viewMyAnswers = viewMyAnswers;
