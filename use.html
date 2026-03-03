@@ -2,62 +2,172 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     <title>Redeem Rewards · AG TechScript</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts - Inter & Poppins -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- CSS Files -->
     <link rel="stylesheet" href="/assets/css/style.css">
     <link rel="stylesheet" href="/assets/css/use.css">
-     <script src="../assets/js/config.js?v=1.0.0" defer></script>
+    
+    <!-- Scripts (defer for performance) -->
+    <script src="../assets/js/config.js?v=1.0.0" defer></script>
     <script src="../assets/js/api.js?v=1.0.0" defer></script>
     <script src="../assets/js/guard.js?v=1.0.0" defer></script>
     <script src="../assets/js/header.js?v=1.0.1" defer></script>
-     <script src="../assets/js/use.js?v=1.0.0" defer></script>
-     <script src="../assets/js/footer.js?v=1.0.0" defer></script>
-       <script src="../assets/js/user-overlay.js?v=1.0.0" defer></script>
+    <script src="../assets/js/user-overlay.js?v=1.0.0" defer></script>
+    <script src="../assets/js/use.js?v=1.0.0" defer></script>
+    <script src="../assets/js/footer.js?v=1.0.0" defer></script>
 </head>
 <body>
+    <!-- Header Container -->
     <div id="header-container"></div>
 
+    <!-- Main Container -->
     <div class="use-container">
-        <h1>Redeem Rewards</h1>
         
-        <!-- Points Display -->
-        <div class="stats-container">
-            <div class="stat-card">
-                <span>Your Points:</span>
-                <strong id="usePagePoints">0</strong>
+        <!-- Hero Section with Glass Effect -->
+        <div class="redeem-hero">
+            <div class="hero-content">
+                <span class="hero-badge">
+                    <i class="fas fa-gift"></i> REWARDS ZONE
+                </span>
+                <h1 class="hero-title">Redeem Your <span>Points & Stamps</span></h1>
+                <p class="hero-subtitle">Choose from exclusive rewards and redeem your hard-earned points and stamps instantly!</p>
             </div>
-            <div class="stat-card">
-                <span>Your Stamps:</span>
-                <strong id="usePageStamps">0</strong>
+            
+            <!-- Stats Cards with Gradient -->
+            <div class="hero-stats-grid">
+                <div class="stat-card premium">
+                    <div class="stat-icon">
+                        <i class="fas fa-star"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-label">Available Points</span>
+                        <span class="stat-value" id="usePagePoints">0</span>
+                    </div>
+                    <div class="stat-glow"></div>
+                </div>
+                
+                <div class="stat-card premium">
+                    <div class="stat-icon">
+                        <i class="fas fa-ticket-alt"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-label">Available Stamps</span>
+                        <span class="stat-value" id="usePageStamps">0</span>
+                    </div>
+                    <div class="stat-glow"></div>
+                </div>
             </div>
         </div>
 
-        <!-- 🔥 REWARDS GRID - YEH ADD KARO -->
-        <h2>Available Rewards</h2>
+        <!-- Section Title with Decoration -->
+        <div class="section-header">
+            <div class="section-title-wrapper">
+                <h2 class="section-title">
+                    <i class="fas fa-crown"></i>
+                    Available Rewards
+                </h2>
+                <p class="section-subtitle">Choose your favorite reward and redeem instantly</p>
+            </div>
+            <div class="title-decoration"></div>
+        </div>
+
+        <!-- Rewards Grid -->
         <div id="rewardsGrid" class="rewards-grid">
-            <div class="loading">Loading rewards...</div>
+            <div class="loading-state">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Loading amazing rewards...</p>
+            </div>
         </div>
 
-        <!-- 🔥 HISTORY LIST - YEH ADD KARO -->
-        <h2>Redemption History</h2>
-        <div id="historyList" class="history-list">
-            <div class="loading">Loading history...</div>
+        <!-- Redemption History Section -->
+        <div class="section-header history-header">
+            <div class="section-title-wrapper">
+                <h2 class="section-title">
+                    <i class="fas fa-history"></i>
+                    Redemption History
+                </h2>
+                <p class="section-subtitle">Track all your redeemed rewards</p>
+            </div>
         </div>
-    </div>
 
-    <!-- 🔥 CONFIRM MODAL - YEH ADD KARO -->
-    <div id="confirmModal" class="modal">
-        <div class="modal-content">
-            <h3>Confirm Redemption</h3>
-            <div id="modalRewardDetails"></div>
-            <div class="modal-actions">
-                <button onclick="closeModal()" class="btn-secondary">Cancel</button>
-                <button onclick="confirmRedeem()" class="btn-confirm">Yes, Redeem</button>
+        <!-- History List -->
+        <div id="historyList" class="history-container">
+            <div class="loading-state">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Loading history...</p>
             </div>
         </div>
     </div>
 
+    <!-- Premium Confirmation Modal -->
+    <div id="confirmModal" class="modal premium-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-icon">
+                    <i class="fas fa-question-circle"></i>
+                </div>
+                <h3>Confirm Redemption</h3>
+                <button class="modal-close" onclick="closeModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="reward-preview-card" id="modalRewardDetails">
+                    <!-- Dynamic content will be inserted here -->
+                </div>
+                
+                <div class="warning-message">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>This action cannot be undone. Make sure you want to redeem this reward.</span>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button onclick="closeModal()" class="btn btn-outline">
+                    <i class="fas fa-times"></i>
+                    Cancel
+                </button>
+                <button onclick="confirmRedeem()" class="btn btn-primary btn-confirm">
+                    <i class="fas fa-check"></i>
+                    Yes, Redeem
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Toast (Hidden by default) -->
+    <div id="successToast" class="toast success-toast">
+        <i class="fas fa-check-circle"></i>
+        <span id="toastMessage">Reward redeemed successfully!</span>
+    </div>
+
+    <!-- Footer Container -->
     <div id="footer-container"></div>
+
+    <!-- Back to Top Button -->
+    <button id="backToTop" class="back-to-top" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+
+    <script>
+        // Back to Top Button visibility
+        window.addEventListener('scroll', function() {
+            const btn = document.getElementById('backToTop');
+            if (window.scrollY > 300) {
+                btn.classList.add('visible');
+            } else {
+                btn.classList.remove('visible');
+            }
+        });
+    </script>
 </body>
 </html>
