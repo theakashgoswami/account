@@ -440,9 +440,7 @@ function formatPoints() {
 }
 
 // ------------------------------------------------
-// INVOICE FUNCTIONS
-// ------------------------------------------------
-// Updated openInvoice function for multiple items
+// INVOICE 
 async function openInvoice(invoiceId) {
     const overlay = document.getElementById("invoiceOverlay");
     const content = document.getElementById("invoiceContent");
@@ -489,6 +487,7 @@ async function openInvoice(invoiceId) {
             </tr>
         `).join('');
 
+        // 🔥 SINGLE COMPLETE INVOICE HTML
         content.innerHTML = `
             <div class="invoice-header">
                 <h2>AG Electronics</h2>
@@ -545,23 +544,9 @@ async function openInvoice(invoiceId) {
                     <p class="signature">Authorised Signatory</p>
                 </div>
             </div>
-        `;
-
-        // 🔥 FIX PRINT - SINGLE PAGE
-        const printStyles = `
-            <style>
-                @media print {
-                    body * { visibility: hidden; }
-                    .invoice-overlay, .invoice-overlay * { visibility: visible; }
-                    .invoice-overlay { position: absolute; left: 0; top: 0; width: 100%; }
-                    .close-btn, .loading-spinner, .error-message { display: none !important; }
-                }
-            </style>
-        `;
-        
-        // Add print button
-        content.innerHTML += `
-            <div style="text-align:center; margin-top:20px;">
+            
+            <!-- 🔥 SINGLE PRINT BUTTON -->
+            <div style="text-align:center; margin:20px 0;">
                 <button onclick="window.print()" class="invoice-print-btn">
                     <i class="fas fa-print"></i> Print Invoice
                 </button>

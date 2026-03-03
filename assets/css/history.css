@@ -67,45 +67,84 @@
     margin-left: 10px;
 }
 /* Add to history.css */
+
+/* Invoice Print Button */
 .invoice-print-btn {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     border: none;
-    padding: 10px 25px;
+    padding: 12px 30px;
     border-radius: 50px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
-    margin: 10px 0;
+    margin: 20px 0;
+    transition: all 0.3s;
+    box-shadow: 0 10px 20px rgba(102,126,234,0.2);
 }
 
 .invoice-print-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 10px 20px rgba(102,126,234,0.3);
+    box-shadow: 0 15px 30px rgba(102,126,234,0.3);
 }
 
-/* Print styles */
+.invoice-print-btn i {
+    margin-right: 8px;
+}
+
+/* 🔥 FIXED PRINT STYLES - SINGLE PAGE */
 @media print {
+    /* Hide everything except invoice */
     body * {
         visibility: hidden;
     }
+    
+    /* Show only invoice overlay content */
     .invoice-overlay,
     .invoice-overlay * {
         visibility: visible;
     }
+    
+    /* Position invoice for printing */
     .invoice-overlay {
         position: absolute;
         left: 0;
         top: 0;
         width: 100%;
+        height: auto;
         background: white;
         padding: 20px;
+        display: block !important;
     }
+    
+    /* Hide overlay background */
+    .invoice-overlay {
+        background: white;
+    }
+    
+    /* Hide close button and print button when printing */
     .close-btn,
     .invoice-print-btn,
     .loading-spinner,
     .error-message {
         display: none !important;
+    }
+    
+    /* Ensure table looks good in print */
+    .invoice-table {
+        border-collapse: collapse;
+        width: 100%;
+    }
+    
+    .invoice-table th,
+    .invoice-table td {
+        border: 1px solid #ddd;
+        padding: 8px;
+    }
+    
+    .invoice-table th {
+        background: #f0f0f0 !important;
+        color: black !important;
     }
 }
 /* ============================================
