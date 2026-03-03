@@ -1,80 +1,398 @@
-.quiz-wrapper { max-width:800px;margin:auto;padding:20px; }
-.quiz-topbar { display:flex;justify-content:space-between;margin-bottom:15px; }
-.progress-container { background:#eee;height:6px;border-radius:10px;margin-bottom:20px; }
-.progress-bar { background:#4CAF50;height:6px;width:0;border-radius:10px;transition:0.3s; }
-.quiz-card { background:white;padding:20px;border-radius:12px;margin-bottom:20px;box-shadow:0 5px 15px rgba(0,0,0,0.05); }
-.option { padding:10px;margin:8px 0;border:1px solid #ddd;border-radius:8px;cursor:pointer; }
-.option.selected { background:#4CAF50;color:white;border:none; }
-.submit-btn { padding:12px 20px;background:#111;color:white;border:none;border-radius:8px;cursor:pointer;width:100%; }
-.result-modal { display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);align-items:center;justify-content:center; }
-.result-box { background:white;padding:30px;border-radius:12px;text-align:center; }
-.already-submitted { text-align:center;padding:40px;font-size:18px; }
-/* Already submitted card */
-.already-submitted-card {
+/* ============================================
+   EARN PAGE - COMPLETE REDESIGN
+   AG TechScript Modern UI
+============================================ */
+
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* Base Styles */
+.quiz-wrapper {
+    max-width: 900px;
+    margin: 30px auto;
+    padding: 0 20px;
+    font-family: 'Inter', sans-serif;
+}
+
+/* ============================================
+   TOP BAR - MODERN GLASS DESIGN
+============================================ */
+.quiz-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding: 20px 25px;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border-radius: 20px;
-    padding: 40px 30px;
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+    color: white;
+    position: relative;
+    overflow: hidden;
+}
+
+.quiz-topbar::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    animation: rotate 20s linear infinite;
+}
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.quiz-week {
+    font-size: 20px;
+    font-weight: 600;
+    background: rgba(255,255,255,0.2);
+    padding: 8px 20px;
+    border-radius: 50px;
+    backdrop-filter: blur(5px);
+    position: relative;
+    z-index: 1;
+}
+
+.quiz-score {
+    font-size: 20px;
+    font-weight: 700;
+    background: rgba(0,0,0,0.2);
+    padding: 8px 25px;
+    border-radius: 50px;
+    backdrop-filter: blur(5px);
+    position: relative;
+    z-index: 1;
+}
+
+.quiz-score span {
+    font-size: 28px;
+    font-weight: 800;
+    margin-right: 5px;
+    color: #ffd700;
+}
+
+/* ============================================
+   PROGRESS BAR - GLOWING EFFECT
+============================================ */
+.progress-container {
+    background: rgba(0,0,0,0.05);
+    height: 10px;
+    border-radius: 10px;
+    margin-bottom: 30px;
+    overflow: hidden;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.progress-bar {
+    background: linear-gradient(90deg, #667eea, #764ba2, #ff6b6b);
+    height: 10px;
+    width: 0;
+    border-radius: 10px;
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.progress-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+/* ============================================
+   QUIZ CARDS - MODERN 3D DESIGN
+============================================ */
+.quiz-card {
+    background: white;
+    border-radius: 24px;
+    padding: 30px;
+    margin-bottom: 25px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid rgba(255,255,255,0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.quiz-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 30px 60px rgba(102, 126, 234, 0.15);
+}
+
+.quiz-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 4px 0 0 4px;
+}
+
+.question-number {
+    display: inline-block;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 6px 16px;
+    border-radius: 50px;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    letter-spacing: 0.5px;
+    box-shadow: 0 4px 10px rgba(102,126,234,0.3);
+}
+
+.quiz-card h3 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 25px;
+    line-height: 1.5;
+}
+
+/* Prepare Link */
+.prepare-link {
+    display: inline-block;
+    background: #f0f0f0;
+    color: #667eea;
+    padding: 10px 20px;
+    border-radius: 50px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 20px;
+    transition: all 0.3s;
+    border: 1px solid transparent;
+}
+
+.prepare-link:hover {
+    background: #667eea;
+    color: white;
+    transform: translateX(5px);
+    box-shadow: 0 5px 15px rgba(102,126,234,0.3);
+}
+
+/* Options Grid */
+.options-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.option {
+    padding: 16px 20px;
+    background: #f8fafc;
+    border: 2px solid transparent;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-weight: 500;
+    color: #333;
+    position: relative;
+    overflow: hidden;
+}
+
+.option:hover {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    transform: translateX(5px);
+    box-shadow: 0 10px 20px rgba(102,126,234,0.2);
+}
+
+.option.selected {
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    color: white;
+    border: none;
+    transform: scale(1.02);
+    box-shadow: 0 10px 20px rgba(76, 175, 80, 0.3);
+}
+
+.option.selected::after {
+    content: '✓';
+    position: absolute;
+    right: 20px;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+/* Submit Button */
+.submit-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 18px 30px;
+    border-radius: 60px;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    margin: 20px 0 40px;
+    transition: all 0.3s;
+    box-shadow: 0 10px 20px rgba(102,126,234,0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.submit-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.5s;
+}
+
+.submit-btn:hover::before {
+    left: 100%;
+}
+
+.submit-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 20px 30px rgba(102,126,234,0.4);
+}
+
+.submit-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: #ccc;
+}
+
+/* ============================================
+   ALREADY SUBMITTED CARD - PREMIUM DESIGN
+============================================ */
+.already-submitted-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 30px;
+    padding: 50px 40px;
     text-align: center;
     color: white;
     margin: 20px 0;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
-    animation: fadeIn 0.5s ease;
+    box-shadow: 0 30px 60px rgba(102, 126, 234, 0.3);
+    animation: fadeInUp 0.6s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.already-submitted-card::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    animation: rotate 30s linear infinite;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .submitted-icon {
-    font-size: 60px;
-    margin-bottom: 20px;
+    font-size: 80px;
+    margin-bottom: 25px;
+    animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
 }
 
 .already-submitted-card h2 {
-    font-size: 28px;
+    font-size: 32px;
+    font-weight: 700;
     margin-bottom: 15px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
 }
 
 .submitted-week {
     font-size: 18px;
     opacity: 0.9;
-    margin-bottom: 10px;
+    margin-bottom: 15px;
+    background: rgba(255,255,255,0.1);
+    display: inline-block;
+    padding: 8px 25px;
+    border-radius: 50px;
+    backdrop-filter: blur(5px);
 }
 
 .submitted-score {
-    font-size: 32px;
-    font-weight: bold;
-    margin: 20px 0;
-    background: rgba(255,255,255,0.2);
+    font-size: 48px;
+    font-weight: 800;
+    margin: 25px 0;
+    background: rgba(0,0,0,0.2);
     display: inline-block;
-    padding: 10px 30px;
-    border-radius: 50px;
+    padding: 15px 40px;
+    border-radius: 60px;
+    border: 2px solid rgba(255,255,255,0.3);
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
 }
 
 .submitted-message {
-    font-size: 16px;
+    font-size: 18px;
     line-height: 1.8;
-    margin: 20px 0;
-    padding: 0 20px;
+    margin: 25px 0;
+    padding: 0 30px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 25px;
 }
 
 .submitted-message a {
     color: #ffd700;
     text-decoration: none;
-    font-weight: bold;
+    font-weight: 700;
+    transition: all 0.3s;
+    border-bottom: 2px solid transparent;
+}
+
+.submitted-message a:hover {
+    border-bottom-color: #ffd700;
 }
 
 .submitted-footer {
     display: flex;
-    gap: 15px;
+    gap: 20px;
     justify-content: center;
-    margin-top: 30px;
+    margin-top: 35px;
 }
 
-.btn-view-answers, .btn-leaderboard, .btn-back {
-    padding: 12px 30px;
+.btn-view-answers, .btn-leaderboard {
+    padding: 15px 35px;
     border: none;
-    border-radius: 50px;
+    border-radius: 60px;
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
 }
 
 .btn-view-answers {
@@ -87,55 +405,201 @@
     color: #333;
 }
 
-.btn-back {
-    background: #f0f0f0;
-    color: #333;
-    margin: 20px 0;
+.btn-view-answers:hover, .btn-leaderboard:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 15px 30px rgba(0,0,0,0.2);
 }
 
-.btn-view-answers:hover, .btn-leaderboard:hover, .btn-back:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+.btn-view-answers::before, .btn-leaderboard::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.5s;
 }
 
-/* Answer view mode */
-.quiz-card.view-mode .option {
+.btn-view-answers:hover::before, .btn-leaderboard:hover::before {
+    left: 100%;
+}
+
+/* ============================================
+   VIEW ANSWERS MODE
+============================================ */
+.view-mode .option {
     cursor: default;
     pointer-events: none;
+    transform: none !important;
 }
 
-.quiz-card.view-mode .option.selected {
-    border: 2px solid;
+.view-mode .option.selected {
+    border: 3px solid;
 }
 
-.quiz-card.view-mode .option.correct-answer {
-    background: #4CAF50 !important;
-    color: white !important;
+.view-mode .option.correct-answer {
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    color: white;
+    border: none;
+}
+
+.view-mode .option.wrong-answer {
+    background: linear-gradient(135deg, #ff6b6b 0%, #f44336 100%);
+    color: white;
+    border: none;
+}
+
+.view-mode .option.correct-answer.selected {
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    box-shadow: 0 0 20px rgba(76, 175, 80, 0.5);
+}
+
+.view-mode .option.wrong-answer.selected {
+    background: linear-gradient(135deg, #ff6b6b 0%, #f44336 100%);
+    box-shadow: 0 0 20px rgba(244, 67, 54, 0.5);
 }
 
 .answer-feedback {
-    margin-top: 15px;
-    padding: 10px;
-    border-radius: 8px;
-    font-weight: 500;
+    margin-top: 20px;
+    padding: 15px 20px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 15px;
+    animation: slideIn 0.3s ease;
 }
 
 .correct-badge {
     color: #4CAF50;
-    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.correct-badge::before {
+    content: '✅';
+    font-size: 18px;
 }
 
 .wrong-badge {
-    color: #ff6b6b;
-    font-weight: bold;
+    color: #f44336;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-.back-to-submitted {
-    text-align: center;
+.wrong-badge::before {
+    content: '❌';
+    font-size: 18px;
+}
+
+.btn-back {
+    padding: 14px 35px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 60px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
     margin: 20px 0;
+    box-shadow: 0 10px 20px rgba(102,126,234,0.3);
 }
 
-/* Leaderboard */
+.btn-back:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 15px 30px rgba(102,126,234,0.4);
+}
+
+/* ============================================
+   RESULT MODAL - ELEGANT DESIGN
+============================================ */
+.result-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(5px);
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    animation: fadeIn 0.3s ease;
+}
+
+.result-box {
+    background: white;
+    padding: 50px 40px;
+    border-radius: 30px;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    animation: scaleIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 30px 60px rgba(0,0,0,0.3);
+}
+
+@keyframes scaleIn {
+    from {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.result-box h2 {
+    font-size: 28px;
+    color: #333;
+    margin-bottom: 15px;
+    font-weight: 700;
+}
+
+.result-box p {
+    font-size: 18px;
+    color: #666;
+    margin-bottom: 25px;
+    line-height: 1.6;
+}
+
+.result-box strong {
+    color: #667eea;
+    font-size: 24px;
+}
+
+.result-box small {
+    display: block;
+    color: #999;
+    font-size: 14px;
+    margin-top: 10px;
+}
+
+.result-box button {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 14px 35px;
+    border-radius: 60px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-top: 20px;
+    box-shadow: 0 10px 20px rgba(102,126,234,0.3);
+}
+
+.result-box button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 15px 30px rgba(102,126,234,0.4);
+}
+
+/* ============================================
+   LEADERBOARD MODAL
+============================================ */
 .modal {
     display: none;
     position: fixed;
@@ -143,33 +607,73 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0,0,0,0.5);
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(5px);
     z-index: 10000;
     align-items: center;
     justify-content: center;
+    animation: fadeIn 0.3s ease;
 }
 
 .modal-content {
     background: white;
-    border-radius: 20px;
+    border-radius: 30px;
     width: 90%;
     max-width: 500px;
     max-height: 80vh;
     overflow-y: auto;
+    animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
 }
 
 .modal-header {
-    padding: 20px;
+    padding: 25px 30px;
     border-bottom: 1px solid #eee;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 30px 30px 0 0;
+}
+
+.modal-header h2 {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0;
 }
 
 .close-btn {
-    font-size: 24px;
+    font-size: 28px;
     cursor: pointer;
-    color: #999;
+    color: white;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    transition: all 0.3s;
+}
+
+.close-btn:hover {
+    background: rgba(255,255,255,0.3);
+    transform: rotate(90deg);
+}
+
+#leaderboardList {
+    padding: 20px;
 }
 
 .leaderboard-row {
@@ -177,46 +681,174 @@
     align-items: center;
     padding: 15px 20px;
     border-bottom: 1px solid #f0f0f0;
+    transition: all 0.3s;
+}
+
+.leaderboard-row:hover {
+    background: #f8f9fa;
+    transform: translateX(5px);
 }
 
 .leaderboard-row.top-rank {
     background: linear-gradient(135deg, #fff9c4 0%, #fff59d 100%);
+    border-radius: 12px;
+    margin-bottom: 8px;
 }
 
 .rank {
-    width: 40px;
-    font-size: 18px;
-    font-weight: bold;
+    width: 50px;
+    font-size: 20px;
+    font-weight: 800;
+    color: #667eea;
+}
+
+.top-rank .rank {
+    color: #d4af37;
 }
 
 .user {
     flex: 1;
-    font-weight: 500;
+    font-weight: 600;
+    color: #333;
 }
 
 .score {
-    font-weight: bold;
+    font-weight: 700;
     color: #667eea;
-}
-.view-mode .option {
-    pointer-events: none;
-    cursor: default;
-}
-
-.correct-answer {
-    background: #d4edda;
-    border: 1px solid #28a745;
-    color: #155724;
+    background: #f0f0f0;
+    padding: 5px 15px;
+    border-radius: 50px;
+    font-size: 16px;
 }
 
-.wrong-answer {
-    background: #f8d7da;
-    border: 1px solid #dc3545;
-    color: #721c24;
-}
-
-.selected-correct {
-    background: #28a745;
+.top-rank .score {
+    background: #d4af37;
     color: white;
-    font-weight: bold;
+}
+
+/* Loading States */
+.loading, .empty, .error {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+}
+
+.loading i {
+    font-size: 30px;
+    color: #667eea;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Error Card */
+.error-card {
+    background: #ffebee;
+    color: #c62828;
+    padding: 40px 30px;
+    border-radius: 20px;
+    text-align: center;
+    margin: 20px 0;
+    border: 1px solid #ffcdd2;
+}
+
+.error-card h3 {
+    font-size: 24px;
+    margin-bottom: 15px;
+}
+
+.error-card p {
+    margin-bottom: 20px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .quiz-wrapper {
+        padding: 0 15px;
+    }
+    
+    .quiz-topbar {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+        padding: 20px;
+    }
+    
+    .quiz-week, .quiz-score {
+        width: 100%;
+        text-align: center;
+    }
+    
+    .already-submitted-card {
+        padding: 30px 20px;
+    }
+    
+    .already-submitted-card h2 {
+        font-size: 24px;
+    }
+    
+    .submitted-score {
+        font-size: 36px;
+        padding: 10px 25px;
+    }
+    
+    .submitted-footer {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .btn-view-answers, .btn-leaderboard {
+        width: 100%;
+    }
+    
+    .quiz-card {
+        padding: 20px;
+    }
+    
+    .quiz-card h3 {
+        font-size: 18px;
+    }
+    
+    .option {
+        padding: 14px 16px;
+    }
+    
+    .modal-content {
+        width: 95%;
+    }
+}
+
+@media (max-width: 480px) {
+    .quiz-week, .quiz-score {
+        font-size: 16px;
+    }
+    
+    .quiz-score span {
+        font-size: 22px;
+    }
+    
+    .submitted-message {
+        padding: 15px;
+        font-size: 16px;
+    }
+    
+    .result-box {
+        padding: 30px 20px;
+    }
+    
+    .result-box h2 {
+        font-size: 24px;
+    }
+    
+    .leaderboard-row {
+        padding: 12px 15px;
+    }
+    
+    .rank {
+        width: 35px;
+        font-size: 16px;
+    }
 }
