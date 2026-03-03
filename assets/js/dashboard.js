@@ -32,7 +32,7 @@ async function loadFullUserProfile() {
     try {
 
         const res = await fetch(
-            `${CONFIG.WORKER_URL}/api/user/profile`,
+            `${CONFIG.WORKER_URL}/api/user/profile?user_id=${window.currentUser.user_id}`,
             {
                 credentials: "include",
                 headers: { "X-Client-Host": window.location.host }
