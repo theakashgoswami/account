@@ -19,10 +19,14 @@
 
 <div id="header-container"></div>
 
-<div class="leaderboard-section">
-    <button class="leaderboard-btn" onclick="openLeaderboard()">
-        🏆 View Leaderboard
-    </button>
+<div id="leaderboardModal" class="modal">
+    <div class="modal-content leaderboard-modal">
+        <div class="modal-header">
+            <h2>🏆 Weekly Leaderboard</h2>
+            <span class="close-btn" onclick="closeLeaderboard()">✕</span>
+        </div>
+        <div id="leaderboardList"></div>
+    </div>
 </div>
 <div class="quiz-wrapper">
 

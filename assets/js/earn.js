@@ -98,14 +98,26 @@ async function checkSubmissionAndRender() {
         }
 
         container.innerHTML = `
-            <div class="already-submitted-card">
-                <h2>✅ You have already participated!</h2>
-                <p>Week: ${currentWeek}</p>
-                <p>Your Score: ${data.score} / 40</p>
-                <button onclick="viewMyAnswers()">👁️ View My Answers</button>
-                <button onclick="openLeaderboard()">🏆 Leaderboard</button>
-            </div>
-        `;
+                <div class="already-submitted-card">
+                    <div class="submitted-icon">✅</div>
+                    <h2>You have already participated!</h2>
+                    <p class="submitted-week">Week: ${currentWeek}</p>
+                    <p class="submitted-score">Your Score: ${data.score || 0} / 40</p>
+                    <p class="submitted-message">
+                        🎉 Congratulations on completing the quiz!<br>
+                        Stay tuned for the results announcement this Sunday on 
+                        <a href="https://instagram.com/agtechscript" target="_blank">Instagram</a>.
+                    </p>
+                    <div class="submitted-footer">
+                        <button class="btn-view-answers" onclick="viewMyAnswers()">
+                            👁️ View My Answers
+                        </button>
+                        <button class="btn-leaderboard" onclick="openLeaderboard()">
+                            🏆 Leaderboard
+                        </button>
+                    </div>
+                </div>
+            `;
 
         return;
     }
@@ -219,11 +231,12 @@ window.submitQuiz = submitQuiz;
 /* ===========================================
    RESULT MODAL
 =========================================== */
-function showResult(score) {
-
-    document.getElementById("resultTitle").textContent = "Quiz Completed!";
-    document.getElementById("resultText").innerHTML =
-        `You scored <strong>${score}</strong> points in ${currentWeek}`;
+function showResult(score) { let message = ""; if (score === 40) message = "🔥 Perfect Score!"; 
+    else if (score >= 30) message = "👏 Great Job!"; 
+    else if (score >= 20) message = "👍 Good Attempt!"; 
+    else message = "Keep Practicing!"; document.getElementById("resultTitle").textContent = message; 
+    document.getElementById("resultText").innerHTML = `You scored <strong>${score} points</strong> in ${currentWeek}<br>
+    <br> <small>Results will be announced this Sunday on Instagram!</small>` ;
 
     document.getElementById("resultModal").style.display = "flex";
 }
@@ -237,9 +250,6 @@ window.closeResult = closeResult;
 
 /* ===========================================
    VIEW ANSWERS
-=========================================== */
-/* ===========================================
-   VIEW ANSWERS - FIXED VERSION
 =========================================== */
 function viewMyAnswers() {
     const container = document.getElementById("quizContainer");
@@ -334,5 +344,71 @@ function viewMyAnswers() {
         </div>
     `;
 }
+/* ===========================================
+   LEADERBOARD SYSTEM
+=========================================== */
+
+async function openLeaderboard() {
+
+    const modal = document.getElementById("leaderboardModal");
+    const list = document.getElementById("leaderboardList");
+
+    if (!modal || !list) {
+        alert("Leaderboard UI not found");
+        return;
+    }
+
+    modal.style.display = "flex";
+    list.innerHTML = "<div class='loading'>Loading leaderboard...</div>";
+
+    try {
+
+        const res = await fetch(
+            `${CONFIG.WORKER_URL}/api/user/leaderboard?week=${currentWeek}`,
+            {
+                credentials: "include",
+                headers: { "X-Client-Host": window.location.host }
+            }
+        );
+
+        const data = await res.json();
+
+        if (!data.success || !data.leaderboard?.length) {
+            list.innerHTML = "<div class='empty'>No leaderboard data yet</div>";
+            return;
+        }
+
+        const leaderboard = data.leaderboard.slice(0, 10);
+
+        list.innerHTML = leaderboard.map((user, index) => {
+
+            let badge = "";
+            if (index === 0) badge = "🥇";
+            else if (index === 1) badge = "🥈";
+            else if (index === 2) badge = "🥉";
+            else badge = index + 1;
+
+            return `
+                <div class="leaderboard-row ${index < 3 ? 'top-rank' : ''}">
+                    <span class="rank">${badge}</span>
+                    <span class="user">${user.user_id}</span>
+                    <span class="score">${user.total_score} pts</span>
+                </div>
+            `;
+        }).join("");
+
+    } catch (err) {
+        console.error("Leaderboard error:", err);
+        list.innerHTML = "<div class='error'>Failed to load leaderboard</div>";
+    }
+}
+
+function closeLeaderboard() {
+    const modal = document.getElementById("leaderboardModal");
+    if (modal) modal.style.display = "none";
+}
+
+window.openLeaderboard = openLeaderboard;
+window.closeLeaderboard = closeLeaderboard;
 
 window.viewMyAnswers = viewMyAnswers;
