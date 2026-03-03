@@ -186,7 +186,7 @@ function getHeaders() {
     const map = {
         all: ['Date & Time', 'Activity', 'Details', 'Points', 'Status'],
         quiz: ['Date & Time', 'Quiz', 'Week', 'Score', 'Status'],
-        purchase: ['Date & Time', 'Item', 'Amount', 'Points', 'Stamp'],
+        purchase: ['Date & Time', 'Item', 'Amount', 'Points', 'Stamp', 'Invoice'],
         points: ['Date & Time', 'Type', 'Description', 'Points', 'Status']
     };
 
@@ -223,23 +223,27 @@ function renderRow(item) {
     }
 
     if (currentHistoryType === 'purchase') {
-        return `
-        <tr>
-            <td>${formatDate(item.date)}</td>
-            <td>${item.item}</td>
-            <td>₹${item.amount}</td>
-            <td class="points-positive">+${item.points}</td>
-            <td><span class="status-badge">${item.stamp === 'Yes' ? '✅ Stamp' : '—'}</span></td>
-         <td>
-    ${item.invoiceId 
-        ? `<button class="invoice-btn"
-            onclick="openInvoice('${item.invoiceId}')">
-            View Invoice
-           </button>`
-        : '—'}
-</td>
-        </tr>`;
-    }
+    return `
+    <tr>
+        <td>${formatDate(item.date)}</td>
+        <td>${item.item}</td>
+        <td>₹${item.amount}</td>
+        <td class="points-positive">+${item.points}</td>
+        <td>
+            <span class="status-badge">
+                ${item.stamp === 'Yes' ? '✅ Stamp' : '—'}
+            </span>
+        </td>
+        <td>
+            ${item.invoiceId
+                ? `<button class="invoice-btn"
+                    onclick="openInvoice('${item.invoiceId}')">
+                    View
+                   </button>`
+                : '—'}
+        </td>
+    </tr>`;
+}
 
     if (currentHistoryType === 'points') {
         return `
@@ -284,13 +288,16 @@ function formatQuiz() {
 
 function formatPurchase() {
     return (allHistoryData.purchases || []).map(p => ({
-        type: 'purchase',
-        invoiceId: p.invoice || p.invoice_id || '',
+        category: 'purchase',  // ✅ MUST BE category
+        invoiceId: p.invoice || '',
         date: p.date || p.created_at,
-        itemName: p.item || 'Item',
-        amount: p.amount || 0,
+        item: p.item || 'Item', // ✅ rename to item
+        amount: Number(p.amount) || 0,
         points: Number(p.points) || 0,
-        stamp: p.stamp || 'No'
+        stamp: p.stamp || 'No',
+        activity: 'Purchase',
+        details: `${p.item} - ₹${p.amount}`,
+        status: 'completed'
     }));
 }
 
