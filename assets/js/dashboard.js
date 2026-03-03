@@ -18,16 +18,43 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Load header
     await loadHeader();
-    
+    await loadFullUserProfile();
     // Show dashboard
     document.getElementById("dashboardContent").style.display = "block";
-    document.getElementById("name").innerText = window.currentUser.name;
+    document.getElementById("username").innerText = window.currentUser.name;
 
     // Load notifications
     await loadNotifications();
 });
 
+async function loadFullUserProfile() {
 
+    try {
+
+        const res = await fetch(
+            `${CONFIG.WORKER_URL}/api/user/profile`,
+            {
+                credentials: "include",
+                headers: { "X-Client-Host": window.location.host }
+            }
+        );
+
+        const data = await res.json();
+
+        if (data.success) {
+
+            // 🔥 Overwrite currentUser with full profile
+            window.currentUser = data;
+
+            document.getElementById("username").innerText =
+                data.name || data.user_id;
+
+        }
+
+    } catch (err) {
+        console.error("Profile load error:", err);
+    }
+}
 async function loadNotifications() {
     const box = document.getElementById("notifications");
     
