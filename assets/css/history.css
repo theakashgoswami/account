@@ -66,6 +66,48 @@
     border-radius: 50px;
     margin-left: 10px;
 }
+/* Add to history.css */
+.invoice-print-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 50px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    margin: 10px 0;
+}
+
+.invoice-print-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(102,126,234,0.3);
+}
+
+/* Print styles */
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    .invoice-overlay,
+    .invoice-overlay * {
+        visibility: visible;
+    }
+    .invoice-overlay {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        background: white;
+        padding: 20px;
+    }
+    .close-btn,
+    .invoice-print-btn,
+    .loading-spinner,
+    .error-message {
+        display: none !important;
+    }
+}
 /* ============================================
    HEADER SECTION
 ============================================ */

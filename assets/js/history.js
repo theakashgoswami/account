@@ -442,11 +442,10 @@ function formatPoints() {
 // ------------------------------------------------
 // INVOICE FUNCTIONS
 // ------------------------------------------------
+// Updated openInvoice function for multiple items
 async function openInvoice(invoiceId) {
     const overlay = document.getElementById("invoiceOverlay");
     const content = document.getElementById("invoiceContent");
-    
-    if (!overlay || !content) return;
     
     overlay.style.display = "flex";
     content.innerHTML = `
@@ -479,6 +478,17 @@ async function openInvoice(invoiceId) {
         const inv = data.invoice;
         const user = inv.user;
 
+        // Generate items table HTML
+        const itemsHTML = inv.items.map((item, index) => `
+            <tr>
+                <td>${index + 1}</td>
+                <td>${item.item}</td>
+                <td>₹${item.rate}</td>
+                <td>${item.qty}</td>
+                <td>₹${item.amount}</td>
+            </tr>
+        `).join('');
+
         content.innerHTML = `
             <div class="invoice-header">
                 <h2>AG Electronics</h2>
@@ -497,7 +507,6 @@ async function openInvoice(invoiceId) {
                     <h3>Customer Details</h3>
                     <p><strong>User ID:</strong> ${user.user_id}</p>
                     <p><strong>Name:</strong> ${user.name || 'N/A'}</p>
-                    <p><strong>Email:</strong> ${user.email || 'N/A'}</p>
                     <p><strong>Phone:</strong> ${user.phone || 'N/A'}</p>
                     <p><strong>Address:</strong> ${user.address || 'N/A'}</p>
                 </div>
@@ -515,18 +524,16 @@ async function openInvoice(invoiceId) {
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
-                                <td>1</td>
-                                <td>${inv.item}</td>
-                                <td>₹${inv.amount}</td>
-                                <td>1</td>
-                                <td>₹${inv.amount}</td>
-                            </tr>
+                            ${itemsHTML}
                         </tbody>
                         <tfoot>
                             <tr>
                                 <td colspan="4" style="text-align:right;"><strong>Total Amount:</strong></td>
-                                <td><strong>₹${inv.amount}</strong></td>
+                                <td><strong>₹${inv.total_amount}</strong></td>
+                            </tr>
+                            <tr>
+                                <td colspan="4" style="text-align:right;"><strong>Points Earned:</strong></td>
+                                <td><strong>${inv.total_points} Points</strong></td>
                             </tr>
                         </tfoot>
                     </table>
@@ -537,6 +544,27 @@ async function openInvoice(invoiceId) {
                     <p class="return-policy">*No return. 7 days replacement applicable only for manufacturing defects.</p>
                     <p class="signature">Authorised Signatory</p>
                 </div>
+            </div>
+        `;
+
+        // 🔥 FIX PRINT - SINGLE PAGE
+        const printStyles = `
+            <style>
+                @media print {
+                    body * { visibility: hidden; }
+                    .invoice-overlay, .invoice-overlay * { visibility: visible; }
+                    .invoice-overlay { position: absolute; left: 0; top: 0; width: 100%; }
+                    .close-btn, .loading-spinner, .error-message { display: none !important; }
+                }
+            </style>
+        `;
+        
+        // Add print button
+        content.innerHTML += `
+            <div style="text-align:center; margin-top:20px;">
+                <button onclick="window.print()" class="invoice-print-btn">
+                    <i class="fas fa-print"></i> Print Invoice
+                </button>
             </div>
         `;
 
