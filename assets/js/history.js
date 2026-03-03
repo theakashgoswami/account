@@ -230,11 +230,13 @@ function renderRow(item) {
             <td>₹${item.amount}</td>
             <td class="points-positive">+${item.points}</td>
             <td><span class="status-badge">${item.stamp === 'Yes' ? '✅ Stamp' : '—'}</span></td>
-            <td>
-    <button class="invoice-btn"
-        onclick="openInvoice('${item.invoiceId}')">
-        View Invoice
-    </button>
+         <td>
+    ${item.invoiceId 
+        ? `<button class="invoice-btn"
+            onclick="openInvoice('${item.invoiceId}')">
+            View Invoice
+           </button>`
+        : '—'}
 </td>
         </tr>`;
     }
@@ -281,16 +283,14 @@ function formatQuiz() {
 }
 
 function formatPurchase() {
-    return allHistoryData.purchases.map(p => ({
-        category: 'purchase',
-        date: p.date,
-        item: p.item || 'Item',
+    return (allHistoryData.purchases || []).map(p => ({
+        type: 'purchase',
+        invoiceId: p.invoice || p.invoice_id || '',
+        date: p.date || p.created_at,
+        itemName: p.item || 'Item',
         amount: p.amount || 0,
         points: Number(p.points) || 0,
-        stamp: p.stamp || 'No',
-        activity: 'Purchase',
-        details: `${p.item} - ₹${p.amount}`,
-        status: 'completed'
+        stamp: p.stamp || 'No'
     }));
 }
 
