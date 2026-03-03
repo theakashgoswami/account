@@ -139,11 +139,36 @@ function updateSummaryStats() {
 }
 
 // ------------------------------------------------
-// RENDER HISTORY
+// GET DYNAMIC TABLE HEADERS
+// ------------------------------------------------
+function getTableHeaders() {
+    const headers = {
+        'all': ['Date & Time', 'Activity', 'Details', 'Points', 'Status'],
+        'quiz': ['Date & Time', 'Quiz', 'Week', 'Score', 'Status'],
+        'purchase': ['Date & Time', 'Item', 'Amount', 'Points', 'Stamp'],
+        'points': ['Date & Time', 'Type', 'Description', 'Points', 'Status']
+    };
+    
+    return headers[currentHistoryType] || headers.all;
+}
+
+// ------------------------------------------------
+// RENDER HISTORY - WITH DYNAMIC HEADERS
 // ------------------------------------------------
 function renderHistory() {
+    const tableHeader = document.getElementById('historyHeader');
     const tableBody = document.getElementById('historyBody');
+    const pageTitle = document.querySelector('.history-title');
 
+    // 🔥 UPDATE TABLE HEADERS
+    const headers = getTableHeaders();
+    tableHeader.innerHTML = `
+        <tr>
+            ${headers.map(h => `<th>${h}</th>`).join('')}
+        </tr>
+    `;
+
+    // Get filtered data
     let merged = [
         ...formatQuiz(),
         ...formatPurchase(),
@@ -161,73 +186,126 @@ function renderHistory() {
         return dateB - dateA;
     });
 
-    // Update record count
-    document.getElementById('recordCount').textContent = `(${merged.length} records)`;
+    // Update page title
+    const typeNames = {
+        'all': '📊 All Activities',
+        'quiz': '🧠 Quiz History',
+        'purchase': '🛒 Purchase History',
+        'points': '💎 Points Log'
+    };
+    
+    pageTitle.innerHTML = `
+        <i class="fas fa-history"></i>
+        ${typeNames[currentHistoryType] || 'Activity History'}
+        <span class="record-count">${merged.length} records</span>
+    `;
 
+    // Render rows based on current type
     if (!merged.length) {
         tableBody.innerHTML = `
             <tr>
-                <td colspan="5" class="empty-state">
+                <td colspan="${headers.length}" class="empty-state">
                     <i class="fas fa-inbox"></i>
-                    <p>No history found</p>
+                    <p>No ${typeNames[currentHistoryType].toLowerCase()} found</p>
                 </td>
             </tr>
         `;
         return;
     }
 
-    tableBody.innerHTML = merged.map(item => `
-        <tr class="type-${item.type}">
-            <td>${formatDate(item.date)}</td>
-            <td><strong>${item.activity}</strong></td>
-            <td>${item.details}</td>
-            <td class="${item.points > 0 ? 'points-positive' : item.points < 0 ? 'points-negative' : ''}">
-                ${item.points > 0 ? '+' : ''}${item.points}
-            </td>
-            <td>
-                <span class="status-badge status-${safeClass(item.status)}">
-                    ${item.status}
-                </span>
-            </td>
-        </tr>
-    `).join('');
+    // Render rows with appropriate columns
+    tableBody.innerHTML = merged.map(item => {
+        switch(currentHistoryType) {
+            case 'quiz':
+                return `
+                    <tr class="type-${item.type}">
+                        <td>${formatDate(item.date)}</td>
+                        <td><strong>${item.quizName || 'Quiz'}</strong></td>
+                        <td>${item.week || 'N/A'}</td>
+                        <td class="points-positive">${item.score || 0}</td>
+                        <td><span class="status-badge status-${safeClass(item.status)}">${item.status}</span></td>
+                    </tr>
+                `;
+                
+            case 'purchase':
+                return `
+                    <tr class="type-${item.type}">
+                        <td>${formatDate(item.date)}</td>
+                        <td><strong>${item.itemName || 'Item'}</strong></td>
+                        <td>₹${item.amount || 0}</td>
+                        <td class="points-positive">+${item.points || 0}</td>
+                        <td><span class="status-badge status-${safeClass(item.stamp || 'no')}">${item.stamp === 'Yes' ? '✅ Stamp' : '➖ No Stamp'}</span></td>
+                    </tr>
+                `;
+                
+            case 'points':
+                return `
+                    <tr class="type-${item.type}">
+                        <td>${formatDate(item.date)}</td>
+                        <td><span class="${item.typeClass}">${item.pointType}</span></td>
+                        <td>${item.description || 'Transaction'}</td>
+                        <td class="${item.points > 0 ? 'points-positive' : 'points-negative'}">
+                            ${item.points > 0 ? '+' : ''}${item.points}
+                        </td>
+                        <td><span class="status-badge status-completed">Completed</span></td>
+                    </tr>
+                `;
+                
+            default: // 'all' view
+                return `
+                    <tr class="type-${item.type}">
+                        <td>${formatDate(item.date)}</td>
+                        <td><strong>${item.activity}</strong></td>
+                        <td>${item.details}</td>
+                        <td class="${item.points > 0 ? 'points-positive' : item.points < 0 ? 'points-negative' : ''}">
+                            ${item.points > 0 ? '+' : ''}${item.points}
+                        </td>
+                        <td>
+                            <span class="status-badge status-${safeClass(item.status)}">
+                                ${item.status}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+        }
+    }).join('');
 }
 
 // ------------------------------------------------
-// FORMATTERS
+// FORMATTERS (Updated)
 // ------------------------------------------------
 function formatQuiz() {
     return allHistoryData.quiz.map(q => ({
         date: q.timestamp || q.created_at,
-        activity: '📝 Quiz',
-        details: `Week ${q.week || 'N/A'} | Score: ${q.score || 0}/40`,
-        points: Number(q.score) || 0,
-        status: q.score > 0 ? 'completed' : 'attempted',
-        type: 'quiz'
+        type: 'quiz',
+        quizName: `Quiz ${q.week || ''}`,
+        week: q.week || 'N/A',
+        score: Number(q.score) || 0,
+        status: q.score > 0 ? 'completed' : 'attempted'
     }));
 }
 
 function formatPurchase() {
     return allHistoryData.purchases.map(p => ({
         date: p.date || p.created_at,
-        activity: '🛒 Purchase',
-        details: `${p.item || 'Item'} - ₹${p.amount || 0}`,
+        type: 'purchase',
+        itemName: p.item || 'Item',
+        amount: p.amount || 0,
         points: Number(p.points) || 0,
-        status: p.stamp === 'Yes' ? 'stamp earned' : 'completed',
-        type: 'purchase'
+        stamp: p.stamp || 'No'
     }));
 }
 
 function formatPoints() {
     return allHistoryData.points.map(p => ({
         date: p.created_at || p.date,
-        activity: p.type === 'earn' ? '✨ Points Earned' : '💸 Points Used',
-        details: p.description || p.reason || 'Transaction',
+        type: 'points',
+        pointType: p.type === 'earn' ? '✨ Earned' : '💸 Used',
+        typeClass: p.type === 'earn' ? 'points-positive' : 'points-negative',
+        description: p.description || p.reason || 'Transaction',
         points: p.type === 'earn' 
             ? Math.abs(Number(p.points) || 0)
-            : -Math.abs(Number(p.points) || 0),
-        status: 'completed',
-        type: 'points'
+            : -Math.abs(Number(p.points) || 0)
     }));
 }
 
