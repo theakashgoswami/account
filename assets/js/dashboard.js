@@ -21,7 +21,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     
     // Show dashboard
     document.getElementById("dashboardContent").style.display = "block";
-    document.getElementById("username").innerText = window.currentUser.user_id;
+    document.getElementById("name").innerText = window.currentUser.name;
 
     // Load notifications
     await loadNotifications();
