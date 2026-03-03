@@ -317,12 +317,18 @@ function formatPoints() {
     });
 }
 async function openInvoice(invoiceId) {
-
-    document.getElementById("invoiceOverlay").style.display = "flex";
-    document.getElementById("invoiceContent").innerHTML = "Loading...";
+    const overlay = document.getElementById("invoiceOverlay");
+    const content = document.getElementById("invoiceContent");
+    
+    overlay.style.display = "flex";
+    content.innerHTML = `
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i> Loading invoice...
+        </div>
+    `;
 
     try {
-
+        // Fetch invoice details from worker
         const res = await fetch(
             `${CONFIG.WORKER_URL}/api/user/invoice?invoice=${invoiceId}`,
             {
@@ -334,50 +340,119 @@ async function openInvoice(invoiceId) {
         const data = await res.json();
 
         if (!data.success) {
-            document.getElementById("invoiceContent").innerHTML =
-                "Invoice not found";
+            content.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-circle"></i>
+                    Invoice not found
+                </div>
+            `;
             return;
         }
 
         const inv = data.invoice;
         const user = inv.user;
 
-        document.getElementById("invoiceContent").innerHTML = `
-            <h3>Invoice #${inv.invoice_id}</h3>
-            <p><strong>Date:</strong> ${new Date(inv.date).toLocaleDateString()}</p>
-            <hr>
-            <p><strong>User ID:</strong> ${user.user_id}</p>
-            <p><strong>Name:</strong> ${user.name}</p>
-            <p><strong>Email:</strong> ${user.email}</p>
-            <p><strong>Phone:</strong> ${user.phone}</p>
-            <p><strong>Address:</strong> ${user.address}</p>
-            <hr>
-            <table style="width:100%; border-collapse:collapse;">
-                <tr>
-                    <th style="text-align:left;">Item</th>
-                    <th>Amount</th>
-                </tr>
-                <tr>
-                    <td>${inv.item}</td>
-                    <td>₹${inv.amount}</td>
-                </tr>
-            </table>
-            <hr>
-            <h3>Total: ₹${inv.amount}</h3>
+        // Format the invoice HTML
+        content.innerHTML = `
+            <div class="invoice-header">
+                <h2>AG Electronics</h2>
+                <p class="invoice-subtitle">A Unit of AG TechScript™</p>
+                <p class="invoice-address">Baba Jaharveer Mandir, Kisrauli, Kasganj UP 207124</p>
+                <p class="invoice-contact">📞 6397563847 | GSTIN: 09JYTPK4090Q123</p>
+            </div>
+            
+            <div class="invoice-body">
+                <div class="invoice-details">
+                    <p><strong>Invoice No:</strong> ${inv.invoice_id}</p>
+                    <p><strong>Date:</strong> ${new Date(inv.date).toLocaleDateString('en-IN', {
+                        day: '2-digit', month: '2-digit', year: 'numeric'
+                    })}</p>
+                </div>
+                
+                <div class="customer-details">
+                    <h3>Customer Details</h3>
+                    <p><strong>User ID:</strong> ${user.user_id}</p>
+                    <p><strong>Name:</strong> ${user.name || 'N/A'}</p>
+                    <p><strong>Email:</strong> ${user.email || 'N/A'}</p>
+                    <p><strong>Phone:</strong> ${user.phone || 'N/A'}</p>
+                    <p><strong>Address:</strong> ${user.address || 'N/A'}</p>
+                    ${user.gstin ? `<p><strong>GSTIN:</strong> ${user.gstin}</p>` : ''}
+                </div>
+                
+                <div class="invoice-items">
+                    <h3>Item Details</h3>
+                    <table class="invoice-table">
+                        <thead>
+                            <tr>
+                                <th>S No.</th>
+                                <th>Item</th>
+                                <th>Rate</th>
+                                <th>Qty</th>
+                                <th>Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>1</td>
+                                <td>${inv.item}</td>
+                                <td>₹${inv.amount}</td>
+                                <td>1</td>
+                                <td>₹${inv.amount}</td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="4" style="text-align:right;"><strong>Total Amount:</strong></td>
+                                <td><strong>₹${inv.amount}</strong></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                
+                <div class="invoice-footer">
+                    <p class="tax-note">Composition taxable person, not eligible to collect tax on supplies.</p>
+                    <p class="return-policy">*No return. 7 days replacement applicable only for manufacturing defects.</p>
+                    <p class="signature">Authorised Signatory</p>
+                </div>
+            </div>
         `;
 
     } catch (err) {
-        document.getElementById("invoiceContent").innerHTML =
-            "Error loading invoice";
+        console.error("Invoice error:", err);
+        content.innerHTML = `
+            <div class="error-message">
+                <i class="fas fa-exclamation-circle"></i>
+                Error loading invoice. Please try again.
+            </div>
+        `;
     }
 }
+
+function closeInvoice() {
+    document.getElementById("invoiceOverlay").style.display = "none";
+}
+
 // ------------------------------------------------
 // HELPERS
 // ------------------------------------------------
 function formatDate(d) {
     if (!d) return '-';
-    return new Date(d).toLocaleString('en-IN');
+    try {
+        const date = new Date(d);
+        if (isNaN(date.getTime())) return String(d);
+        return date.toLocaleString('en-IN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        });
+    } catch {
+        return String(d);
+    }
 }
+
 
 // ------------------------------------------------
 // FILTER
