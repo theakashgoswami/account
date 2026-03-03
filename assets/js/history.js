@@ -1,5 +1,5 @@
 // assets/js/history.js
-
+setInterval(loadAllHistory, 60000); // refresh every 60 sec
 let currentHistoryType = 'all';
 let allHistoryData = {
     quiz: [],
@@ -93,7 +93,11 @@ function updateSummaryStats() {
 
     const totalQuiz = allHistoryData.quiz.length;
     const totalPurchase = allHistoryData.purchases.length;
-    const totalPoints = allHistoryData.points.reduce((sum, p) => sum + (p.points || 0), 0);
+    const totalPoints = allHistoryData.points.reduce((sum, p) => {
+    if (p.type === "earn") return sum + (p.points || 0);
+    if (p.type === "use") return sum - Math.abs(p.points || 0);
+    return sum;
+}, 0);
     const totalScore = allHistoryData.quiz.reduce((sum, q) => sum + (q.score || 0), 0);
 
     document.getElementById('summaryStats').innerHTML = `
@@ -122,9 +126,11 @@ function renderHistory() {
         merged = merged.filter(i => i.type === currentHistoryType);
     }
 
-    merged.sort((a, b) =>
-        new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
+    merged.sort((a, b) => {
+        const dateA = a.date ? new Date(a.date).getTime() : 0;
+        const dateB = b.date ? new Date(b.date).getTime() : 0;
+        return dateB - dateA;
+    });
 
     if (!merged.length) {
         tableBody.innerHTML = `
@@ -138,7 +144,7 @@ function renderHistory() {
     }
 
     tableBody.innerHTML = merged.map(item => `
-        <tr>
+        <tr class="type-${item.type}">
             <td>${formatDate(item.date)}</td>
             <td><strong>${item.activity}</strong></td>
             <td>${item.details}</td>
@@ -153,7 +159,6 @@ function renderHistory() {
         </tr>
     `).join('');
 }
-
 
 // ------------------------------------------------
 // FORMATTERS
@@ -185,7 +190,9 @@ function formatPoints() {
         date: p.created_at,
         activity: p.type === 'earn' ? 'Points Earned' : 'Points Used',
         details: p.description || 'Transaction',
-        points: p.type === 'earn' ? p.points : -Math.abs(p.points),
+       points: p.type === 'earn'
+    ? Math.abs(p.points || 0)
+    : -Math.abs(p.points || 0),
         status: 'completed',
         type: 'points'
     }));

@@ -35,7 +35,7 @@
                 <i class="fas fa-history"></i>
                 Activity History
             </div>
-            
+            <span id="recordCount"></span>
             <div class="filter-container">
                 <span class="filter-label">
                     <i class="fas fa-filter"></i> Filter:
@@ -67,11 +67,9 @@
                     </tr>
                 </thead>
                 <tbody id="historyBody">
-                    <tr>
-                        <td colspan="5" class="loading-row">
-                            <i class="fas fa-spinner fa-spin"></i> Loading history...
-                        </td>
-                    </tr>
+                    <tr class="skeleton">
+  <td colspan="5">Loading...</td>
+</tr>
                 </tbody>
             </table>
         </div>
