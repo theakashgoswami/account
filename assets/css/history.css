@@ -1,13 +1,22 @@
+/* assets/css/history.css */
+
 .history-container {
     max-width: 1200px;
     margin: 90px auto 40px;
     padding: 0 20px;
     animation: fadeIn 0.5s ease;
+    font-family: 'Inter', sans-serif;
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* ============================================
@@ -19,13 +28,12 @@
     align-items: center;
     margin-bottom: 30px;
     padding: 20px 25px;
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
     color: white;
     flex-wrap: wrap;
     gap: 15px;
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
 }
 
 .history-title {
@@ -39,6 +47,15 @@
 .history-title i {
     color: #ffd700;
     font-size: 32px;
+}
+
+.record-count {
+    font-size: 14px;
+    font-weight: normal;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 4px 12px;
+    border-radius: 50px;
+    margin-left: 15px;
 }
 
 .filter-container {
@@ -66,7 +83,7 @@
     background: rgba(255, 255, 255, 0.2);
     border: 1px solid rgba(255, 255, 255, 0.3);
     color: white;
-    padding: 10px 25px;
+    padding: 8px 25px;
     border-radius: 50px;
     font-size: 15px;
     font-weight: 500;
@@ -95,72 +112,22 @@
 }
 
 .stat-card {
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border-radius: 20px;
     padding: 20px;
     display: flex;
     align-items: center;
     gap: 15px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    transition: all 0.3s;
     color: white;
+    box-shadow: 0 10px 20px rgba(102, 126, 234, 0.2);
+    transition: all 0.3s;
 }
 
 .stat-card:hover {
     transform: translateY(-5px);
-    background: rgba(255, 255, 255, 0.15);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-}
-/* Add to history.css */
-.record-count {
-    font-size: 14px;
-    font-weight: normal;
-    background: rgba(255,255,255,0.2);
-    padding: 4px 12px;
-    border-radius: 50px;
-    margin-left: 15px;
+    box-shadow: 0 15px 30px rgba(102, 126, 234, 0.4);
 }
 
-.stat-card {
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    border-radius: 20px;
-    padding: 20px;
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: white;
-}
-
-.stat-icon {
-    width: 50px;
-    height: 50px;
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 15px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-}
-
-.stat-info {
-    flex: 1;
-}
-
-.stat-label {
-    display: block;
-    font-size: 14px;
-    opacity: 0.8;
-    margin-bottom: 5px;
-}
-
-.stat-value {
-    display: block;
-    font-size: 24px;
-    font-weight: 700;
-}
 .stat-icon {
     width: 50px;
     height: 50px;
@@ -193,22 +160,21 @@
    TABLE DESIGN
 ============================================ */
 .table-wrapper {
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
+    background: white;
     border-radius: 20px;
     overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
     margin: 20px 0;
 }
 
 #historyTable {
     width: 100%;
     border-collapse: collapse;
-    color: white;
 }
 
 #historyTable thead {
-    background: rgba(0, 0, 0, 0.3);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
 }
 
 #historyTable th {
@@ -218,13 +184,13 @@
     font-size: 15px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 #historyTable td {
     padding: 15px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid #f0f0f0;
     font-size: 14px;
+    color: #333;
 }
 
 #historyTable tbody tr {
@@ -232,7 +198,7 @@
 }
 
 #historyTable tbody tr:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: #f8faff;
     transform: scale(1.01);
 }
 
@@ -246,7 +212,7 @@
     text-align: center;
 }
 
-.status-completed {
+.status-completed, .status-active, .status-correct {
     background: #d4edda;
     color: #155724;
 }
@@ -256,37 +222,22 @@
     color: #856404;
 }
 
-.status-active {
-    background: #d4edda;
-    color: #155724;
-}
-
-.status-expired {
-    background: #f8d7da;
-    color: #721c24;
-}
-
-.status-correct {
-    background: #d4edda;
-    color: #155724;
-}
-
-.status-wrong {
+.status-expired, .status-wrong {
     background: #f8d7da;
     color: #721c24;
 }
 
 /* Type Indicators */
-.type-quiz {
-    border-left: 3px solid #9c27b0;
+.type-quiz td:first-child {
+    border-left: 4px solid #9c27b0;
 }
 
-.type-purchase {
-    border-left: 3px solid #2196f3;
+.type-purchase td:first-child {
+    border-left: 4px solid #2196f3;
 }
 
-.type-points {
-    border-left: 3px solid #ff9800;
+.type-points td:first-child {
+    border-left: 4px solid #ff9800;
 }
 
 /* Points Column */
@@ -304,7 +255,7 @@
 .loading-row {
     text-align: center;
     padding: 40px !important;
-    color: rgba(255, 255, 255, 0.6);
+    color: #999;
 }
 
 .loading-row i {
@@ -316,44 +267,44 @@
 .empty-state {
     text-align: center;
     padding: 60px !important;
-    color: rgba(255, 255, 255, 0.6);
+    color: #999;
 }
 
 .empty-state i {
     font-size: 48px;
     margin-bottom: 15px;
     opacity: 0.5;
+    color: #667eea;
 }
 
 /* ============================================
    INFO CARD
 ============================================ */
 .info-card {
-    background: rgba(0, 0, 0, 0.2);
-    backdrop-filter: blur(10px);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border-radius: 20px;
     padding: 18px 25px;
     margin-top: 30px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
     display: flex;
     align-items: center;
     gap: 15px;
     color: white;
     flex-wrap: wrap;
+    box-shadow: 0 10px 20px rgba(102, 126, 234, 0.2);
 }
 
 .info-card i {
-    color: #00ffe0;
+    color: #ffd700;
     font-size: 1.3rem;
 }
 
 .live-badge {
     margin-left: auto;
-    background: rgba(0, 255, 200, 0.1);
+    background: rgba(255, 255, 255, 0.2);
     padding: 6px 18px;
     border-radius: 50px;
     font-size: 0.85rem;
-    border: 1px solid rgba(0, 255, 200, 0.2);
+    backdrop-filter: blur(5px);
 }
 
 .live-badge i {
@@ -371,6 +322,7 @@
     
     .filter-container {
         width: 100%;
+        justify-content: space-between;
     }
     
     .history-filter {
@@ -404,5 +356,10 @@
     
     .history-title {
         font-size: 24px;
+        flex-wrap: wrap;
+    }
+    
+    .record-count {
+        margin-left: 0;
     }
 }
