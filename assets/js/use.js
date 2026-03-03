@@ -91,14 +91,15 @@ document.addEventListener('click', function(e) {
 // LOAD USE HISTORY
 async function loadUseHistory() {
     try {
-        const res = await fetch(`${CONFIG.WORKER_URL}/api/user/pointslog`, {
+        const res = await fetch(`${CONFIG.WORKER_URL}/api/user/redeemhistory?user_id=${window.currentUser.user_id}`,
+             {
             credentials: 'include',
             headers: { 'X-Client-Host': window.location.host }
         });
         const data = await res.json();
         
         if (data.success) {
-            displayUseHistory(data.use);
+            displayUseHistory(data.redemptions);
         } else {
             document.getElementById('historyList').innerHTML = '<div class="error">Failed to load history</div>';
         }
@@ -109,6 +110,7 @@ async function loadUseHistory() {
 }
 
 function displayUseHistory(history) {
+
     const list = document.getElementById('historyList');
 
     if (!history?.length) {
@@ -117,21 +119,22 @@ function displayUseHistory(history) {
     }
 
     list.innerHTML = history.map(h => {
-        const dateValue = h.created_at;
-        const formattedDate = dateValue
-            ? new Date(dateValue).toLocaleDateString()
+
+        const formattedDate = h.created_at
+            ? new Date(h.created_at).toLocaleString()
             : '-';
 
         return `
             <div class="history-item">
                 <span class="date">${formattedDate}</span>
-                <span class="reason">${h.description || 'Redeemed'}</span>
-                <span class="points">-${Math.abs(h.points || 0)}</span>
+                <span class="reason">${h.reward_name}</span>
+                <span class="points">-${h.points}</span>
+                <span class="status">${h.status}</span>
             </div>
         `;
+
     }).join('');
 }
-
 // Open redeem modal
 function openRedeemModal(rewardId, rewardName, points, stamps) {
     console.log("📦 Opening modal with:", { rewardId, rewardName, points, stamps });
