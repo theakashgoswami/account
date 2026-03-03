@@ -286,19 +286,16 @@ function viewMyAnswers() {
 
                 let className = "option";
 
-                // Correct answer = green
                 if (opt === correctOpt) {
                     className += " correct-answer";
                 }
 
-                // Wrong selected = red
                 if (opt === selectedOpt && opt !== correctOpt) {
                     className += " wrong-answer";
                 }
 
-                // Selected correct = darker green
-                if (opt === selectedOpt && opt === correctOpt) {
-                    className += " selected-correct";
+                if (opt === selectedOpt) {
+                    className += " selected";
                 }
 
                 return `
@@ -319,7 +316,6 @@ function viewMyAnswers() {
             </button>
         </div>
     `;
-
 }
 
 window.viewMyAnswers = viewMyAnswers;
