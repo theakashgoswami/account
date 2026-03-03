@@ -7,14 +7,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 
-.modal {
-    padding: 80px;
-}
 /* Base Styles */
 .quiz-wrapper {
     max-width: 900px;
     margin: 30px auto;
-    padding: 0 20px;
+    padding: 80px 20px;
     font-family: 'Inter', sans-serif;
 }
 
@@ -757,7 +754,7 @@
 /* Responsive Design */
 @media (max-width: 768px) {
     .quiz-wrapper {
-        padding: 0 15px;
+        padding: 80px 15px;
     }
     
     .quiz-topbar {
