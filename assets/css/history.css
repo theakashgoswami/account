@@ -19,6 +19,53 @@
     }
 }
 
+/* Add to history.css */
+
+/* Skeleton Loader */
+.skeleton-loader {
+    padding: 20px;
+}
+
+.skeleton-line {
+    height: 20px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 4px;
+    margin: 10px 0;
+}
+
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Load More Button */
+.load-more-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 10px 30px;
+    border-radius: 50px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.load-more-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(102,126,234,0.3);
+}
+
+/* Cache indicator */
+.cache-badge {
+    font-size: 12px;
+    background: rgba(255,255,255,0.2);
+    padding: 4px 10px;
+    border-radius: 50px;
+    margin-left: 10px;
+}
 /* ============================================
    HEADER SECTION
 ============================================ */
