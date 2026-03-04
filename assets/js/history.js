@@ -441,12 +441,10 @@ function formatPoints() {
 
 // ------------------------------------------------
 // INVOICE 
-// ------------------------------------------------
-
 async function openInvoice(invoiceId) {
     const overlay = document.getElementById("invoiceOverlay");
     const content = document.getElementById("invoiceContent");
-    
+    document.body.style.overflow = "hidden";
     overlay.style.display = "flex";
     content.innerHTML = `
         <div class="loading-spinner">
@@ -489,71 +487,69 @@ async function openInvoice(invoiceId) {
             </tr>
         `).join('');
 
-        // Single complete invoice HTML
+        // 🔥 SINGLE COMPLETE INVOICE HTML
         content.innerHTML = `
-            <div class="invoice-print-wrapper">
-                <div class="invoice-header">
-                    <h2>AG Electronics</h2>
-                    <p class="invoice-subtitle">A Unit of AG TechScript™</p>
-                    <p class="invoice-address">Baba Jaharveer Mandir, Kisrauli, Kasganj UP 207124</p>
-                    <p class="invoice-contact">📞 6397563847 | GSTIN: 09JYTPK4090Q123</p>
+            <div class="invoice-header">
+                <h2>AG Electronics</h2>
+                <p class="invoice-subtitle">A Unit of AG TechScript™</p>
+                <p class="invoice-address">Baba Jaharveer Mandir, Kisrauli, Kasganj UP 207124</p>
+                <p class="invoice-contact">📞 6397563847 | GSTIN: 09JYTPK4090Q123</p>
+            </div>
+            
+            <div class="invoice-body">
+                <div class="invoice-details">
+                    <p><strong>Invoice No:</strong> ${inv.invoice_id}</p>
+                    <p><strong>Date:</strong> ${new Date(inv.date).toLocaleDateString('en-IN')}</p>
                 </div>
                 
-                <div class="invoice-body">
-                    <div class="invoice-details">
-                        <p><strong>Invoice No:</strong> ${inv.invoice_id}</p>
-                        <p><strong>Date:</strong> ${new Date(inv.date).toLocaleDateString('en-IN')}</p>
-                    </div>
-                    
-                    <div class="customer-details">
-                        <h3>Customer Details</h3>
-                        <p><strong>User ID:</strong> ${user.user_id}</p>
-                        <p><strong>Name:</strong> ${user.name || 'N/A'}</p>
-                        <p><strong>Phone:</strong> ${user.phone || 'N/A'}</p>
-                        <p><strong>Address:</strong> ${user.address || 'N/A'}</p>
-                    </div>
-                    
-                    <div class="invoice-items">
-                        <h3>Item Details</h3>
-                        <table class="invoice-table">
-                            <thead>
-                                <tr>
-                                    <th>S No.</th>
-                                    <th>Item</th>
-                                    <th>Rate</th>
-                                    <th>Qty</th>
-                                    <th>Amount</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${itemsHTML}
-                            </tbody>
-                            <tfoot>
-                                <tr>
-                                    <td colspan="4" style="text-align:right;"><strong>Total Amount:</strong></td>
-                                    <td><strong>₹${inv.total_amount}</strong></td>
-                                </tr>
-                                <tr>
-                                    <td colspan="4" style="text-align:right;"><strong>Points Earned:</strong></td>
-                                    <td><strong>${inv.total_points} Points</strong></td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-                    
-                    <div class="invoice-footer">
-                        <p class="tax-note">Composition taxable person, not eligible to collect tax on supplies.</p>
-                        <p class="return-policy">*No return. 7 days replacement applicable only for manufacturing defects.</p>
-                        <p class="signature">Authorised Signatory</p>
-                    </div>
+                <div class="customer-details">
+                    <h3>Customer Details</h3>
+                    <p><strong>User ID:</strong> ${user.user_id}</p>
+                    <p><strong>Name:</strong> ${user.name || 'N/A'}</p>
+                    <p><strong>Phone:</strong> ${user.phone || 'N/A'}</p>
+                    <p><strong>Address:</strong> ${user.address || 'N/A'}</p>
                 </div>
                 
-                <!-- Single Print Button -->
-                <div style="text-align:center; margin:20px 0; print-color-adjust: exact;">
-                    <button onclick="window.print()" class="invoice-print-btn">
-                        <i class="fas fa-print"></i> Print Invoice
-                    </button>
+                <div class="invoice-items">
+                    <h3>Item Details</h3>
+                    <table class="invoice-table">
+                        <thead>
+                            <tr>
+                                <th>S No.</th>
+                                <th>Item</th>
+                                <th>Rate</th>
+                                <th>Qty</th>
+                                <th>Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${itemsHTML}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="4" style="text-align:right;"><strong>Total Amount:</strong></td>
+                                <td><strong>₹${inv.total_amount}</strong></td>
+                            </tr>
+                            <tr>
+                                <td colspan="4" style="text-align:right;"><strong>Points Earned:</strong></td>
+                                <td><strong>${inv.total_points} Points</strong></td>
+                            </tr>
+                        </tfoot>
+                    </table>
                 </div>
+                
+                <div class="invoice-footer">
+                    <p class="tax-note">Composition taxable person, not eligible to collect tax on supplies.</p>
+                    <p class="return-policy">*No return. 7 days replacement applicable only for manufacturing defects.</p>
+                    <p class="signature">Authorised Signatory</p>
+                </div>
+            </div>
+            
+            <!-- 🔥 SINGLE PRINT BUTTON -->
+            <div style="text-align:center; margin:20px 0;">
+                <button onclick="window.print()" class="invoice-print-btn">
+                    <i class="fas fa-print"></i> Print Invoice
+                </button>
             </div>
         `;
 
@@ -567,6 +563,7 @@ async function openInvoice(invoiceId) {
         `;
     }
 }
+
 function closeInvoice() {
     const overlay = document.getElementById("invoiceOverlay");
     if (overlay) overlay.style.display = "none";
