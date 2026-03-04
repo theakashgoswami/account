@@ -37,15 +37,49 @@ async function loadQuiz() {
 
         const data = await res.json();
 
-        if (!data.success || !data.earn?.length) {
-            container.innerHTML = "<p>No questions available</p>";
+        if (!data.success) {
+            container.innerHTML = "<p>Error loading quiz</p>";
             return;
         }
+
+        // 🧠 NEW
+        if (data.submitted) {
+
+            submitted = true;
+
+            if (data.selections) {
+                userSelections = JSON.parse(data.selections);
+            }
+
+            container.innerHTML = `
+                <div class="already-submitted-card">
+                    <div class="submitted-icon">✅</div>
+                    <h2>You have already participated!</h2>
+                    <p class="submitted-week">Week: ${currentWeek}</p>
+                    <p class="submitted-score">Your Score: ${data.score || 0} / 40</p>
+                    <p class="submitted-message">
+                        🎉 Congratulations on completing the quiz!<br>
+                        Stay tuned for the results announcement this Sunday on 
+                        <a href="https://instagram.com/agtechscript" target="_blank">Instagram</a>.
+                    </p>
+                    <div class="submitted-footer">
+                        <button class="btn-view-answers" onclick="viewMyAnswers()">
+                            👁️ View My Answers
+                        </button>
+                        <button class="btn-leaderboard" onclick="openLeaderboard()">
+                            🏆 Leaderboard
+                        </button>
+                    </div>
+                </div>
+            `;
+
+        return;
+    }
 
         quizData = data.earn;
         document.getElementById("quizWeek").textContent = currentWeek;
 
-        await checkSubmissionAndRender();
+        renderQuiz();
 
     } catch (err) {
         console.error("Quiz load error:", err);
@@ -72,58 +106,6 @@ function getCurrentISOWeek() {
     return `${year}-W${String(week).padStart(2, "0")}`;
 }
 
-/* ===========================================
-   CHECK SUBMISSION
-=========================================== */
-async function checkSubmissionAndRender() {
-
-    const container = document.getElementById("quizContainer");
-
-    const res = await fetch(
-        `${CONFIG.WORKER_URL}/api/user/check-quiz-submission?week=${currentWeek}`,
-        {
-            credentials: "include",
-            headers: { "X-Client-Host": window.location.host }
-        }
-    );
-
-    const data = await res.json();
-
-    if (data.success && data.submitted) {
-
-        submitted = true;
-
-        if (data.selections) {
-            userSelections = JSON.parse(data.selections);
-        }
-
-        container.innerHTML = `
-                <div class="already-submitted-card">
-                    <div class="submitted-icon">✅</div>
-                    <h2>You have already participated!</h2>
-                    <p class="submitted-week">Week: ${currentWeek}</p>
-                    <p class="submitted-score">Your Score: ${data.score || 0} / 40</p>
-                    <p class="submitted-message">
-                        🎉 Congratulations on completing the quiz!<br>
-                        Stay tuned for the results announcement this Sunday on 
-                        <a href="https://instagram.com/agtechscript" target="_blank">Instagram</a>.
-                    </p>
-                    <div class="submitted-footer">
-                        <button class="btn-view-answers" onclick="viewMyAnswers()">
-                            👁️ View My Answers
-                        </button>
-                        <button class="btn-leaderboard" onclick="openLeaderboard()">
-                            🏆 Leaderboard
-                        </button>
-                    </div>
-                </div>
-            `;
-
-        return;
-    }
-
-    renderQuiz();
-}
 
 /* ===========================================
    RENDER QUIZ
