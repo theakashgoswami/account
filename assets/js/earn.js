@@ -128,29 +128,38 @@ async function checkSubmissionAndRender() {
 /* ===========================================
    RENDER QUIZ
 =========================================== */
+/* ===========================================
+   RENDER QUIZ
+=========================================== */
 function renderQuiz() {
 
     const container = document.getElementById("quizContainer");
 
-    container.innerHTML = quizData.map((q, index) => {
+    container.innerHTML = `
 
-        return `
-         <a href="${q.url}" target="_blank" class="prepare-link">
+        <div class="prepare-wrapper">
+            <a href="${quizData[0]?.url || '#'}" target="_blank" class="prepare-link">
                 📘 Prepare for these questions
             </a>
+        </div>
+
+        ${quizData.map((q, index) => `
+
         <div class="quiz-card" data-id="${q.qid}">
             <div class="question-number">Question ${index + 1}/4</div>
             <h3>${q.question}</h3>
+
             ${["A","B","C","D"].map(opt => `
                 <div class="option ${selected[q.qid] === opt ? 'selected' : ''}"
                      onclick="selectAnswer('${q.qid}','${opt}',this)">
                     ${opt}. ${q["option"+opt]}
                 </div>
             `).join("")}
-        </div>
-        `;
 
-    }).join("") + `
+        </div>
+
+        `).join("")}
+
         <button class="submit-btn" onclick="submitQuiz()">📤 Submit Quiz</button>
     `;
 }

@@ -411,7 +411,11 @@
 .btn-view-answers:hover::before, .btn-leaderboard:hover::before {
     left: 100%;
 }
-
+.prepare-wrapper {
+    position: sticky;
+    top: 80px;
+    z-index: 10;
+}
 /* ============================================
    VIEW ANSWERS MODE
 ============================================ */
