@@ -135,14 +135,12 @@ function renderQuiz() {
     container.innerHTML = quizData.map((q, index) => {
 
         return `
+         <a href="${q.url}" target="_blank" class="prepare-link">
+                📘 Prepare for these questions
+            </a>
         <div class="quiz-card" data-id="${q.qid}">
             <div class="question-number">Question ${index + 1}/4</div>
             <h3>${q.question}</h3>
-
-            <a href="${q.url}" target="_blank" class="prepare-link">
-                📘 Prepare for this question
-            </a>
-
             ${["A","B","C","D"].map(opt => `
                 <div class="option ${selected[q.qid] === opt ? 'selected' : ''}"
                      onclick="selectAnswer('${q.qid}','${opt}',this)">
