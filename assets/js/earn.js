@@ -50,7 +50,9 @@ async function loadQuiz() {
             if (data.selections) {
                 userSelections = JSON.parse(data.selections);
             }
-
+              if (data.earn) {
+        quizData = data.earn;
+    }
             container.innerHTML = `
                 <div class="already-submitted-card">
                     <div class="submitted-icon">✅</div>
