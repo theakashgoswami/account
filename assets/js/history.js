@@ -490,10 +490,11 @@ async function openInvoice(invoiceId) {
         // 🔥 SINGLE COMPLETE INVOICE HTML
         content.innerHTML = `
             <div class="invoice-header">
+                <img class="header-logo-image" alt="AG TechScript" src="/assets/images/AGTechScript.webp"> 
                 <h2>AG Electronics</h2>
                 <p class="invoice-subtitle">A Unit of AG TechScript™</p>
                 <p class="invoice-address">Baba Jaharveer Mandir, Kisrauli, Kasganj UP 207124</p>
-                <p class="invoice-contact">📞 6397563847 | GSTIN: 09JYTPK4090Q123</p>
+                <p class="invoice-contact">📞 6397563847 | GSTIN: 09JYTPK4090Q1Z3</p>
             </div>
             
             <div class="invoice-body">
