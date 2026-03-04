@@ -24,42 +24,41 @@ async function loadQuiz() {
   try {
     const weekParam = getWeekFromURL();
     currentWeek = weekParam;
-    console.log("Loading quiz for week:", currentWeek);
 
-    const url = `${CONFIG.WORKER_URL}/api/user/earn?week=${currentWeek}`;
-    console.log("Fetching from:", url);
-
-    const res = await fetch(url, {
-      credentials: "include",
-      headers: { "X-Client-Host": window.location.host }
-    });
-
-    console.log("Response status:", res.status);
-    
-    if (!res.ok) {
-      console.error("HTTP error:", res.status);
-      container.innerHTML = `<p>Error loading quiz: HTTP ${res.status}</p>`;
-      return;
-    }
+    const res = await fetch(
+      `${CONFIG.WORKER_URL}/api/user/earn?week=${currentWeek}`,
+      {
+        credentials: "include",
+        headers: { "X-Client-Host": window.location.host }
+      }
+    );
 
     const data = await res.json();
-    console.log("Response data:", data);
 
     if (!data.success) {
-      console.error("API returned success=false:", data);
       container.innerHTML = "<p>Error loading quiz</p>";
       return;
     }
 
-    // 🧠 FIXED: Added the missing quizData assignment
     if (data.submitted) {
       submitted = true;
 
+      // ✅ FIXED: Handle selections properly
       if (data.selections) {
-        userSelections = JSON.parse(data.selections);
+        if (typeof data.selections === 'string') {
+          try {
+            userSelections = JSON.parse(data.selections);
+          } catch (e) {
+            console.error("Failed to parse selections:", e);
+            userSelections = {};
+          }
+        } else {
+          // It's already an object
+          userSelections = data.selections;
+        }
       }
       
-      // ✅ IMPORTANT: Load the quiz questions even if already submitted
+      // ✅ Load quiz questions
       if (data.earn && Array.isArray(data.earn)) {
         quizData = data.earn;
       }
@@ -251,25 +250,23 @@ window.closeResult = closeResult;
 /* ===========================================
    VIEW ANSWERS
 =========================================== */
-function viewMyAnswers(){
+function viewMyAnswers() {
+  const container = document.getElementById("quizContainer");
 
-const container=document.getElementById("quizContainer");
+  if (!quizData || !quizData.length) {
+    alert("Quiz data not found. Please refresh the page.");
+    return;
+  }
 
-if(!quizData || !quizData.length){
- alert("Quiz data not found. Please refresh the page.");
- return;
-}
-
-if(!userSelections || Object.keys(userSelections).length===0){
-
- container.innerHTML=`
- <div class="error-card">
- <h3>❌ No answers found</h3>
- <p>You haven't submitted any answers yet.</p>
- <button class="btn-back" onclick="location.reload()">← Back</button>
- </div>`;
- return;
-}
+  if (!userSelections || Object.keys(userSelections).length === 0) {
+    container.innerHTML = `
+      <div class="error-card">
+        <h3>❌ No answers found</h3>
+        <p>You haven't submitted any answers yet.</p>
+        <button class="btn-back" onclick="location.reload()">← Back</button>
+      </div>`;
+    return;
+  }
 
 const fragment=document.createDocumentFragment();
 
