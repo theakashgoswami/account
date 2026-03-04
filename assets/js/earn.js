@@ -86,7 +86,9 @@ async function loadQuiz() {
         container.innerHTML = "<p>Error loading quiz</p>";
     }
 }
-
+function checkSubmissionAndRender(){
+    location.reload();
+}
 /* ===========================================
    GET WEEK FROM URL OR DEFAULT
 =========================================== */
@@ -110,13 +112,10 @@ function getCurrentISOWeek() {
 /* ===========================================
    RENDER QUIZ
 =========================================== */
-/* ===========================================
-   RENDER QUIZ
-=========================================== */
 function renderQuiz() {
 
     const container = document.getElementById("quizContainer");
-
+requestAnimationFrame(()=>{
     container.innerHTML = `
 
         <div class="prepare-wrapper">
@@ -144,8 +143,8 @@ function renderQuiz() {
 
         <button class="submit-btn" onclick="submitQuiz()">📤 Submit Quiz</button>
     `;
+});
 }
-
 /* ===========================================
    SELECT ANSWER
 =========================================== */
@@ -240,98 +239,110 @@ window.closeResult = closeResult;
 /* ===========================================
    VIEW ANSWERS
 =========================================== */
-function viewMyAnswers() {
-    const container = document.getElementById("quizContainer");
+function viewMyAnswers(){
 
-    // Check if quiz data exists
-    if (!quizData || quizData.length === 0) {
-        alert("Quiz data not found. Please refresh the page.");
-        return;
-    }
+const container=document.getElementById("quizContainer");
 
-    // Check if we have selections
-    console.log("📋 userSelections:", userSelections);
-    console.log("📋 quizData:", quizData);
+if(!quizData || !quizData.length){
+ alert("Quiz data not found. Please refresh the page.");
+ return;
+}
 
-    // If userSelections is empty, try to get from localStorage or show error
-    if (!userSelections || Object.keys(userSelections).length === 0) {
-        container.innerHTML = `
-            <div class="error-card">
-                <h3>❌ No answers found</h3>
-                <p>You haven't submitted any answers yet.</p>
-                <button class="btn-back" onclick="checkSubmissionAndRender()">← Back</button>
-            </div>
-        `;
-        return;
-    }
+if(!userSelections || Object.keys(userSelections).length===0){
 
-    // Render answers
-    container.innerHTML = quizData.map((q, index) => {
-        const qid = q.qid;
-        const selectedOpt = userSelections[qid];
-        const correctOpt = q.correct;
+ container.innerHTML=`
+ <div class="error-card">
+ <h3>❌ No answers found</h3>
+ <p>You haven't submitted any answers yet.</p>
+ <button class="btn-back" onclick="location.reload()">← Back</button>
+ </div>`;
+ return;
+}
 
-        // If no selection for this question, skip
-        if (!selectedOpt) {
-            return `
-            <div class="quiz-card view-mode" data-id="${qid}">
-                <div class="question-number">Question ${index + 1}/4</div>
-                <h3>${q.question}</h3>
-                <div class="option no-answer">No answer selected</div>
-            </div>
-            `;
-        }
+const fragment=document.createDocumentFragment();
 
-        const isCorrect = selectedOpt === correctOpt;
+quizData.forEach((q,index)=>{
 
-        return `
-        <div class="quiz-card view-mode" data-id="${qid}">
-            <div class="question-number">Question ${index + 1}/4</div>
-            <h3>${q.question}</h3>
+ const qid=q.qid;
+ const selectedOpt=userSelections[qid];
+ const correctOpt=q.correct;
 
-            ${["A","B","C","D"].map(opt => {
-                let className = "option";
-                let indicator = "";
+ const card=document.createElement("div");
+ card.className="quiz-card view-mode";
 
-                // Mark correct answer
-                if (opt === correctOpt) {
-                    className += " correct-answer";
-                }
+ let optionsHTML="";
 
-                // Mark user's selected answer
-                if (opt === selectedOpt) {
-                    className += " selected";
-                    
-                    // Add indicator based on correctness
-                    if (opt === correctOpt) {
-                        indicator = " ✓";
-                    } else {
-                        indicator = " ✗";
-                        className += " wrong-answer";
-                    }
-                }
+ ["A","B","C","D"].forEach(opt=>{
 
-                return `
-                    <div class="${className}">
-                        ${opt}. ${q["option"+opt] || `Option ${opt}`} ${indicator}
-                    </div>
-                `;
-            }).join("")}
+  let className="option";
+  let indicator="";
 
-            <div class="answer-feedback" style="margin-top: 15px; padding: 10px; border-radius: 8px; ${isCorrect ? 'background: #d4edda; color: #155724;' : 'background: #f8d7da; color: #721c24;'}">
-                ${isCorrect 
-                    ? '✅ Correct! You chose the right answer.' 
-                    : `❌ Your answer: ${selectedOpt} | Correct answer: ${correctOpt}`}
-            </div>
-        </div>
-        `;
-    }).join("") + `
-        <div class="back-to-submitted" style="text-align: center; margin: 20px 0;">
-            <button class="btn-back" onclick="checkSubmissionAndRender()" style="padding: 10px 30px; background: #667eea; color: white; border: none; border-radius: 50px; cursor: pointer;">
-                ← Back to Message
-            </button>
-        </div>
-    `;
+  if(opt===correctOpt){
+   className+=" correct-answer";
+  }
+
+  if(opt===selectedOpt){
+   className+=" selected";
+
+   if(opt===correctOpt){
+    indicator=" ✓";
+   }else{
+    indicator=" ✗";
+    className+=" wrong-answer";
+   }
+  }
+
+  optionsHTML+=`
+  <div class="${className}">
+  ${opt}. ${q["option"+opt] || "Option "+opt} ${indicator}
+  </div>`;
+ });
+
+ const isCorrect=selectedOpt===correctOpt;
+
+ card.innerHTML=`
+ <div class="question-number">Question ${index+1}/4</div>
+ <h3>${q.question}</h3>
+ ${optionsHTML}
+ <div class="answer-feedback" style="
+ margin-top:15px;
+ padding:10px;
+ border-radius:8px;
+ ${isCorrect ? "background:#d4edda;color:#155724;" : "background:#f8d7da;color:#721c24;"}
+ ">
+ ${isCorrect
+ ? "✅ Correct! You chose the right answer."
+ : `❌ Your answer: ${selectedOpt} | Correct answer: ${correctOpt}`}
+ </div>
+ `;
+
+ fragment.appendChild(card);
+
+});
+
+container.innerHTML="";
+container.appendChild(fragment);
+
+const back=document.createElement("div");
+back.style.textAlign="center";
+back.style.margin="20px 0";
+
+back.innerHTML=`
+<button class="btn-back"
+onclick="location.reload()"
+style="
+padding:10px 30px;
+background:#667eea;
+color:white;
+border:none;
+border-radius:50px;
+cursor:pointer">
+← Back to Message
+</button>
+`;
+
+container.appendChild(back);
+
 }
 /* ===========================================
    LEADERBOARD SYSTEM

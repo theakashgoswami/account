@@ -843,3 +843,20 @@
         font-size: 16px;
     }
 }
+.quiz-card{
+transform:translateY(20px);
+opacity:0;
+animation:cardIn .4s ease forwards;
+}
+
+@keyframes cardIn{
+to{
+transform:translateY(0);
+opacity:1;
+}
+}
+
+.option:hover{
+transform:scale(1.02);
+transition:.2s;
+}
