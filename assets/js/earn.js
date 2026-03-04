@@ -19,74 +19,73 @@ document.addEventListener("DOMContentLoaded", async () => {
    LOAD QUIZ
 =========================================== */
 async function loadQuiz() {
+  const container = document.getElementById("quizContainer");
 
-    const container = document.getElementById("quizContainer");
+  try {
+    const weekParam = getWeekFromURL();
+    currentWeek = weekParam;
 
-    try {
+    const res = await fetch(
+      `${CONFIG.WORKER_URL}/api/user/earn?week=${currentWeek}`,
+      {
+        credentials: "include",
+        headers: { "X-Client-Host": window.location.host }
+      }
+    );
 
-        const weekParam = getWeekFromURL();
-        currentWeek = weekParam;
+    const data = await res.json();
 
-        const res = await fetch(
-            `${CONFIG.WORKER_URL}/api/user/earn?week=${currentWeek}`,
-            {
-                credentials: "include",
-                headers: { "X-Client-Host": window.location.host }
-            }
-        );
+    if (!data.success) {
+      container.innerHTML = "<p>Error loading quiz</p>";
+      return;
+    }
 
-        const data = await res.json();
+    // 🧠 FIXED: Added the missing quizData assignment
+    if (data.submitted) {
+      submitted = true;
 
-        if (!data.success) {
-            container.innerHTML = "<p>Error loading quiz</p>";
-            return;
-        }
-
-        // 🧠 NEW
-        if (data.submitted) {
-
-            submitted = true;
-
-            if (data.selections) {
-                userSelections = JSON.parse(data.selections);
-            }
-              if (data.earn) {
+      if (data.selections) {
+        userSelections = JSON.parse(data.selections);
+      }
+      
+      // ✅ IMPORTANT: Load the quiz questions even if already submitted
+      if (data.earn && Array.isArray(data.earn)) {
         quizData = data.earn;
+      }
+
+      container.innerHTML = `
+        <div class="already-submitted-card">
+          <div class="submitted-icon">✅</div>
+          <h2>You have already participated!</h2>
+          <p class="submitted-week">Week: ${currentWeek}</p>
+          <p class="submitted-score">Your Score: ${data.score || 0} / 40</p>
+          <p class="submitted-message">
+            🎉 Congratulations on completing the quiz!<br>
+            Stay tuned for the results announcement this Sunday on 
+            <a href="https://instagram.com/agtechscript" target="_blank">Instagram</a>.
+          </p>
+          <div class="submitted-footer">
+            <button class="btn-view-answers" onclick="viewMyAnswers()">
+              👁️ View My Answers
+            </button>
+            <button class="btn-leaderboard" onclick="openLeaderboard()">
+              🏆 Leaderboard
+            </button>
+          </div>
+        </div>
+      `;
+
+      return;
     }
-            container.innerHTML = `
-                <div class="already-submitted-card">
-                    <div class="submitted-icon">✅</div>
-                    <h2>You have already participated!</h2>
-                    <p class="submitted-week">Week: ${currentWeek}</p>
-                    <p class="submitted-score">Your Score: ${data.score || 0} / 40</p>
-                    <p class="submitted-message">
-                        🎉 Congratulations on completing the quiz!<br>
-                        Stay tuned for the results announcement this Sunday on 
-                        <a href="https://instagram.com/agtechscript" target="_blank">Instagram</a>.
-                    </p>
-                    <div class="submitted-footer">
-                        <button class="btn-view-answers" onclick="viewMyAnswers()">
-                            👁️ View My Answers
-                        </button>
-                        <button class="btn-leaderboard" onclick="openLeaderboard()">
-                            🏆 Leaderboard
-                        </button>
-                    </div>
-                </div>
-            `;
 
-        return;
-    }
+    quizData = data.earn;
+    document.getElementById("quizWeek").textContent = currentWeek;
+    renderQuiz();
 
-        quizData = data.earn;
-        document.getElementById("quizWeek").textContent = currentWeek;
-
-        renderQuiz();
-
-    } catch (err) {
-        console.error("Quiz load error:", err);
-        container.innerHTML = "<p>Error loading quiz</p>";
-    }
+  } catch (err) {
+    console.error("Quiz load error:", err);
+    container.innerHTML = "<p>Error loading quiz</p>";
+  }
 }
 function checkSubmissionAndRender(){
     location.reload();
