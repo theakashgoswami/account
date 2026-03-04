@@ -24,18 +24,29 @@ async function loadQuiz() {
   try {
     const weekParam = getWeekFromURL();
     currentWeek = weekParam;
+    console.log("Loading quiz for week:", currentWeek);
 
-    const res = await fetch(
-      `${CONFIG.WORKER_URL}/api/user/earn?week=${currentWeek}`,
-      {
-        credentials: "include",
-        headers: { "X-Client-Host": window.location.host }
-      }
-    );
+    const url = `${CONFIG.WORKER_URL}/api/user/earn?week=${currentWeek}`;
+    console.log("Fetching from:", url);
+
+    const res = await fetch(url, {
+      credentials: "include",
+      headers: { "X-Client-Host": window.location.host }
+    });
+
+    console.log("Response status:", res.status);
+    
+    if (!res.ok) {
+      console.error("HTTP error:", res.status);
+      container.innerHTML = `<p>Error loading quiz: HTTP ${res.status}</p>`;
+      return;
+    }
 
     const data = await res.json();
+    console.log("Response data:", data);
 
     if (!data.success) {
+      console.error("API returned success=false:", data);
       container.innerHTML = "<p>Error loading quiz</p>";
       return;
     }
