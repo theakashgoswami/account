@@ -109,28 +109,29 @@ function getWeekFromURL() {
 }
 
 function getCurrentISOWeek() {
-  // UTC date le rahe hain
+  // Indian time (IST) ke hisaab se date lo
   const now = new Date();
-  const utcDate = new Date(Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate()
-  ));
   
-  const target = new Date(utcDate);
-  const dayNr = (utcDate.getUTCDay() + 6) % 7;
+  // Convert to IST date properly
+  const istDate = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
   
-  target.setUTCDate(target.getUTCDate() - dayNr + 3);
+  // Ab IST date ke hisaab se week calculate karo
+  const target = new Date(istDate);
+  const dayNr = (target.getDay() + 6) % 7; // Monday = 0, Sunday = 6
   
-  const firstThursday = new Date(Date.UTC(target.getUTCFullYear(), 0, 4));
+  target.setDate(target.getDate() - dayNr + 3);
+  
+  const firstThursday = new Date(target.getFullYear(), 0, 4);
   const diff = target - firstThursday;
   
   // Math.floor use karo, round nahi
   const week = 1 + Math.floor(diff / (7 * 24 * 60 * 60 * 1000));
   
-  return target.getUTCFullYear() + "-W" + String(week).padStart(2, "0");
+  console.log("IST Date:", istDate.toDateString()); // Debug
+  console.log("Calculated Week:", week); // Debug
+  
+  return target.getFullYear() + "-W" + String(week).padStart(2, "0");
 }
-
 
 /* ===========================================
    RENDER QUIZ
