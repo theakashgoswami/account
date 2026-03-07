@@ -108,27 +108,27 @@ function getWeekFromURL() {
     return params.get("week") || getCurrentISOWeek();
 }
 
-/* ===========================================
-   AUTO ISO WEEK
-=========================================== */
 function getCurrentISOWeek() {
-
-  const date = new Date();
-
-  // ISO week starts Monday
-  const target = new Date(date.valueOf());
-  const dayNr = (date.getDay() + 6) % 7;
-
-  target.setDate(target.getDate() - dayNr + 3);
-
-  const firstThursday = new Date(target.getFullYear(), 0, 4);
-
+  // UTC date le rahe hain
+  const now = new Date();
+  const utcDate = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate()
+  ));
+  
+  const target = new Date(utcDate);
+  const dayNr = (utcDate.getUTCDay() + 6) % 7;
+  
+  target.setUTCDate(target.getUTCDate() - dayNr + 3);
+  
+  const firstThursday = new Date(Date.UTC(target.getUTCFullYear(), 0, 4));
   const diff = target - firstThursday;
-
-  const week = 1 + Math.round(diff / 604800000);
-
-  return target.getFullYear() + "-W" + String(week).padStart(2, "0");
-
+  
+  // Math.floor use karo, round nahi
+  const week = 1 + Math.floor(diff / (7 * 24 * 60 * 60 * 1000));
+  
+  return target.getUTCFullYear() + "-W" + String(week).padStart(2, "0");
 }
 
 
