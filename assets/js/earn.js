@@ -112,11 +112,23 @@ function getWeekFromURL() {
    AUTO ISO WEEK
 =========================================== */
 function getCurrentISOWeek() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const oneJan = new Date(now.getFullYear(), 0, 1);
-    const week = Math.ceil((((now - oneJan) / 86400000) + oneJan.getDay() + 1) / 7);
-    return `${year}-W${String(week).padStart(2, "0")}`;
+
+  const date = new Date();
+
+  // ISO week starts Monday
+  const target = new Date(date.valueOf());
+  const dayNr = (date.getDay() + 6) % 7;
+
+  target.setDate(target.getDate() - dayNr + 3);
+
+  const firstThursday = new Date(target.getFullYear(), 0, 4);
+
+  const diff = target - firstThursday;
+
+  const week = 1 + Math.round(diff / 604800000);
+
+  return target.getFullYear() + "-W" + String(week).padStart(2, "0");
+
 }
 
 
