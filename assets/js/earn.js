@@ -109,28 +109,22 @@ function getWeekFromURL() {
 }
 
 function getCurrentISOWeek() {
-  // Indian time (IST) ke hisaab se date lo
-  const now = new Date();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
   
-  // Convert to IST date properly
-  const istDate = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+  const target = new Date(today);
+  const dayNr = (today.getDay() + 6) % 7;
+  target.setDate(today.getDate() - dayNr + 3);
   
-  // Ab IST date ke hisaab se week calculate karo
-  const target = new Date(istDate);
-  const dayNr = (target.getDay() + 6) % 7; // Monday = 0, Sunday = 6
+  // Simple formula for ISO week
+  const year = target.getFullYear();
+  const firstJan = new Date(year, 0, 1);
+  const days = Math.floor((target - firstJan) / (24 * 60 * 60 * 1000));
   
-  target.setDate(target.getDate() - dayNr + 3);
+  // ISO week calculation
+  const week = Math.floor((days - firstJan.getDay() + 10) / 7);
   
-  const firstThursday = new Date(target.getFullYear(), 0, 4);
-  const diff = target - firstThursday;
-  
-  // Math.floor use karo, round nahi
-  const week = 1 + Math.floor(diff / (7 * 24 * 60 * 60 * 1000));
-  
-  console.log("IST Date:", istDate.toDateString()); // Debug
-  console.log("Calculated Week:", week); // Debug
-  
-  return target.getFullYear() + "-W" + String(week).padStart(2, "0");
+  return year + "-W" + String(week).padStart(2, "0");
 }
 
 /* ===========================================
