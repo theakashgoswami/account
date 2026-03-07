@@ -111,21 +111,31 @@ function getWeekFromURL() {
 function getCurrentISOWeek() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  
+
+  // Target date set karte hain current week ke Thursday par
+  // (Monday = 1, Tuesday = 2, ..., Sunday = 0)
+  const dayPos = today.getDay() || 7; // Sunday ko 0 ki jagah 7 maante hain
   const target = new Date(today);
-  const dayNr = (today.getDay() + 6) % 7;
-  target.setDate(today.getDate() - dayNr + 3);
-  
-  // Simple formula for ISO week
+  target.setDate(today.getDate() + 4 - dayPos);
+
+  // Is saal ka pehla Thursday dhoondte hain
   const year = target.getFullYear();
   const firstJan = new Date(year, 0, 1);
-  const days = Math.floor((target - firstJan) / (24 * 60 * 60 * 1000));
   
-  // ISO week calculation
-  const week = Math.floor((days - firstJan.getDay() + 10) / 7);
-  
-  return year + "-W" + String(week).padStart(2, "0");
+  // ISO rule: Pehla hafta wo jisme saal ka pehla Thursday ho
+  const firstThursday = new Date(year, 0, 1);
+  if (firstThursday.getDay() !== 4) {
+    firstThursday.setMonth(0, 1 + ((4 - firstThursday.getDay() + 7) % 7));
+  }
+
+  // Weeks calculate karte hain
+  const weekNumber = 1 + Math.ceil((target - firstThursday) / (7 * 24 * 60 * 60 * 1000));
+
+  return `${year}-W${String(weekNumber).padStart(2, "0")}`;
 }
+
+console.log("Current Week:", getCurrentWeekMondayToSunday()); 
+// Aaj 7 March 2026 hai, toh output aayega: 2026-W10
 
 /* ===========================================
    RENDER QUIZ
