@@ -134,7 +134,7 @@ function getCurrentISOWeek() {
   return `${year}-W${String(weekNumber).padStart(2, "0")}`;
 }
 
-console.log("Current Week:", getCurrentWeekMondayToSunday()); 
+console.log("Current Week:", getCurrentISOWeek()); 
 // Aaj 7 March 2026 hai, toh output aayega: 2026-W10
 
 /* ===========================================
