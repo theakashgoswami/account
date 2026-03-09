@@ -14,7 +14,7 @@ async function initDashboard() {
 
         // Load header instantly (no await needed)
         loadHeader();
-
+        await loadDashboardStats();
         // Parallel loading (FAST)
         const [profileResult, notificationsResult] = await Promise.all([
             loadFullUserProfile(),
@@ -95,7 +95,7 @@ document.getElementById("purchaseCount").innerText = data.purchases;
 document.getElementById("referralCount").innerText = data.referrals;
 
 }
-await loadDashboardStats();
+
 /* ===============================
    LOAD NOTIFICATIONS
 ================================ */
