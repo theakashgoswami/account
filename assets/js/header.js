@@ -166,6 +166,13 @@ window.updateAllStats = function(points, stamps) {
 
     if (usePoints) usePoints.textContent = points;
     if (useStamps) useStamps.textContent = stamps;
+
+        // Use page update
+    const pointsValue = document.getElementById('pointsValue');
+    const stampsValue = document.getElementById('stampsValue');
+
+    if (pointsValue) pointsValue.textContent = points;
+    if (stampsValue) stampsValue.textContent = stamps;
 };
 // ✅ FIX: Add loadUserStats function
 async function loadUserStats() {

@@ -441,12 +441,10 @@
 // ======================================================
 document.addEventListener('DOMContentLoaded', () => {
   console.log("🚀 Page loaded, initializing...");
-  loadUserStats();
   loadRedeemHistory();
   
   // Auto-refresh every 30 seconds
   setInterval(() => {
-    loadUserStats();
     loadRecentRedeems(); // Only if modal is open
   }, 30000);
 });
@@ -467,35 +465,6 @@ function closeRedeemModal() {
   console.log("📱 Closing redeem modal");
   document.getElementById('redeemModal').style.display = 'none';
 }
-
-// ======================================================
-// LOAD USER STATS (Points & Stamps from D1)
-// ======================================================
-async function loadUserStats() {
-  try {
-    console.log("📊 Loading user stats...");
-    
-    const res = await fetch(`${CONFIG.WORKER_URL}/api/user/stats`, {
-      credentials: 'include',
-      headers: {
-        'X-Client-Host': window.location.host
-      }
-    });
-    
-    const data = await res.json();
-    
-    if (data.success) {
-      document.getElementById('pointsValue').textContent = data.points;
-      document.getElementById('stampsValue').textContent = data.stamps;
-      console.log(`✅ Stats loaded: ${data.points} points, ${data.stamps} stamps`);
-    } else {
-      console.error("❌ Failed to load stats:", data.error);
-    }
-  } catch (err) {
-    console.error("❌ Stats fetch error:", err);
-  }
-}
-
 // ======================================================
 // REDEEM CODE
 // ======================================================
@@ -514,9 +483,7 @@ async function redeemCode() {
   redeemBtn.disabled = true;
   showMessage('Processing...', 'info');
   
-  try {
-    console.log(`🎁 Redeeming code: ${code} for week: ${currentWeek}`);
-    
+  try {    
     const res = await fetch(`${CONFIG.WORKER_URL}/api/user/redeem-code`, {
       method: 'POST',
       credentials: 'include',
