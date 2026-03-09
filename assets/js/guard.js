@@ -47,7 +47,7 @@ function showSubdomainError(expected, current) {
 
 function showUnauthorized() {
     document.body.innerHTML = `
-    <div style="padding:40px;color:white;text-align:center">
+    <div style="padding:40px;color:red;text-align:center">
         <h1>❌ Unauthorized Access</h1>
         <p>Please login to continue.</p>
         <a href="https://agtechscript.in" 
