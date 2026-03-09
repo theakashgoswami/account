@@ -5,7 +5,7 @@ let selected = {};
 let currentWeek = null;
 let submitted = false;
 let userSelections = {};
-
+let submitting = false;
 /* ===========================================
    INIT
 =========================================== */
@@ -40,53 +40,45 @@ async function loadQuiz() {
       return;
     }
 
-    if (data.submitted) {
-      submitted = true;
+   // assets/js/earn.js mein loadQuiz() ka ye part update karo
 
-      // ✅ FIXED: Handle selections properly
-      if (data.selections) {
+if (data.submitted) {
+    submitted = true;
+    
+    // Score ko set karo (agar global variable hai toh)
+    const userScore = data.score || 0;
+
+    // Selections handle karo
+    if (data.selections) {
         if (typeof data.selections === 'string') {
-          try {
-            userSelections = JSON.parse(data.selections);
-          } catch (e) {
-            console.error("Failed to parse selections:", e);
-            userSelections = {};
-          }
+            try {
+                userSelections = JSON.parse(data.selections);
+            } catch (e) {
+                userSelections = {};
+            }
         } else {
-          // It's already an object
-          userSelections = data.selections;
+            userSelections = data.selections;
         }
-      }
-      
-      // ✅ Load quiz questions
-      if (data.earn && Array.isArray(data.earn)) {
-        quizData = data.earn;
-      }
+    }
 
-      container.innerHTML = `
+    // Questions data ko bhi save karo warna view mode nahi chalega
+    if (data.earn) {
+        quizData = data.earn;
+    }
+
+    container.innerHTML = `
         <div class="already-submitted-card">
           <div class="submitted-icon">✅</div>
           <h2>You have already participated!</h2>
-          <p class="submitted-week">Week: ${currentWeek}</p>
-          <p class="submitted-score">Your Score: ${data.score || 0} / 40</p>
-          <p class="submitted-message">
-            🎉 Congratulations on completing the quiz!<br>
-            Stay tuned for the results announcement this Sunday on 
-            <a href="https://instagram.com/agtechscript" target="_blank">Instagram</a>.
-          </p>
+          <p class="submitted-score">Your Score: ${userScore} / 40</p>
           <div class="submitted-footer">
-            <button class="btn-view-answers" onclick="viewMyAnswers()">
-              👁️ View My Answers
-            </button>
-            <button class="btn-leaderboard" onclick="openLeaderboard()">
-              🏆 Leaderboard
-            </button>
+            <button class="btn-view-answers" onclick="viewMyAnswers()">👁️ View My Answers</button>
+            <button class="btn-leaderboard" onclick="openLeaderboard()">🏆 Leaderboard</button>
           </div>
         </div>
-      `;
-
-      return;
-    }
+    `;
+    return;
+}
 
     quizData = data.earn;
     document.getElementById("quizWeek").textContent = currentWeek;
@@ -190,10 +182,11 @@ function selectAnswer(qid, opt, el) {
 window.selectAnswer = selectAnswer;
 
 /* ===========================================
-   SUBMIT QUIZ
-=========================================== */
+   SUBMIT QUIZ=========================================== */
 async function submitQuiz() {
+    if(submitting) return;
 
+submitting = true;
     if (submitted) return;
 
     if (Object.keys(selected).length !== quizData.length) {
@@ -244,6 +237,7 @@ async function submitQuiz() {
 
 window.submitQuiz = submitQuiz;
 
+
 /* ===========================================
    RESULT MODAL
 =========================================== */
@@ -268,6 +262,8 @@ window.closeResult = closeResult;
    VIEW ANSWERS
 =========================================== */
 function viewMyAnswers() {
+  console.log("Quiz Data:", quizData);
+  console.log("User Selections:", userSelections);
   const container = document.getElementById("quizContainer");
 
   if (!quizData || !quizData.length) {
