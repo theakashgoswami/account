@@ -435,17 +435,89 @@
 </style>
 
 <script>
+// ======================================================
+// CONFIGURATION
+// ======================================================
+// Get current week from your existing function
+function getCurrentISOWeek() {
+  const date = new Date();
+  const target = new Date(date.valueOf());
+  const dayNr = (date.getDay() + 6) % 7;
+  target.setDate(target.getDate() - dayNr + 3);
+  const firstThursday = new Date(target.getFullYear(), 0, 4);
+  const diff = target - firstThursday;
+  const week = 1 + Math.round(diff / 604800000);
+  return target.getFullYear() + "-W" + String(week).padStart(2, "0");
+}
+
+const currentWeek = getCurrentISOWeek();
+
+// ======================================================
+// WAIT FOR HEADER.JS
+// ======================================================
+function waitForHeaderJS() {
+  return new Promise(resolve => {
+    if (typeof loadUserStats === 'function') {
+      resolve();
+    } else {
+      const checkInterval = setInterval(() => {
+        if (typeof loadUserStats === 'function') {
+          clearInterval(checkInterval);
+          resolve();
+        }
+      }, 100);
+    }
+  });
+}
+
+// ======================================================
+// FALLBACK STATS FETCH
+// ======================================================
+async function fetchUserStats() {
+  try {
+    console.log("📊 Fetching user stats...");
+    const res = await fetch(`${CONFIG.WORKER_URL}/api/user/stats`, {
+      credentials: 'include',
+      headers: { 'X-Client-Host': window.location.host }
+    });
+    const data = await res.json();
+    if (data.success) {
+      document.getElementById('pointsValue').textContent = data.points;
+      document.getElementById('stampsValue').textContent = data.stamps;
+      console.log(`✅ Stats: ${data.points} points, ${data.stamps} stamps`);
+    }
+  } catch (err) {
+    console.error("❌ Stats fetch error:", err);
+  }
+}
 
 // ======================================================
 // INITIALIZATION
 // ======================================================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   console.log("🚀 Page loaded, initializing...");
+  console.log("📅 Current week:", currentWeek);
+  
+  // Wait for header.js to load
+  await waitForHeaderJS();
+  
+  // Load stats
+  if (typeof loadUserStats === 'function') {
+    loadUserStats();
+  } else {
+    fetchUserStats();
+  }
+  
   loadRedeemHistory();
   
   // Auto-refresh every 30 seconds
   setInterval(() => {
-    loadRecentRedeems(); // Only if modal is open
+    if (typeof loadUserStats === 'function') {
+      loadUserStats();
+    }
+    if (document.getElementById('redeemModal').style.display === 'flex') {
+      loadRecentRedeems();
+    }
   }, 30000);
 });
 
@@ -465,6 +537,7 @@ function closeRedeemModal() {
   console.log("📱 Closing redeem modal");
   document.getElementById('redeemModal').style.display = 'none';
 }
+
 // ======================================================
 // REDEEM CODE
 // ======================================================
@@ -479,7 +552,6 @@ async function redeemCode() {
     return;
   }
   
-  // Disable button to prevent double submission
   redeemBtn.disabled = true;
   showMessage('Processing...', 'info');
   
@@ -501,27 +573,21 @@ async function redeemCode() {
     console.log("📦 Redeem response:", data);
     
     if (data.success) {
-      // Show success message
       showMessage(data.message || `🎉 You got ${data.reward_value} ${data.reward_type}!`, 'success');
-      
-      // Clear input
       codeInput.value = '';
       
-      // Update stats in UI
+      // Update stats
       document.getElementById('pointsValue').textContent = data.points;
       document.getElementById('stampsValue').textContent = data.stamps;
       
-      // Refresh recent redeems and history
+      if (typeof updateAllStats === 'function') {
+        updateAllStats(data.points, data.stamps);
+      }
+      
       loadRecentRedeems();
       loadRedeemHistory();
       
-      // Play success sound (optional)
-      // playSuccessSound();
-      
-      // Auto close after 2 seconds
-      setTimeout(() => {
-        closeRedeemModal();
-      }, 2000);
+      setTimeout(() => closeRedeemModal(), 2000);
     } else {
       showMessage(data.error || 'Invalid code', 'error');
     }
@@ -529,13 +595,12 @@ async function redeemCode() {
     console.error("❌ Redeem error:", err);
     showMessage('Network error. Please try again.', 'error');
   } finally {
-    // Re-enable button
     redeemBtn.disabled = false;
   }
 }
 
 // ======================================================
-// LOAD RECENT REDEEMS (Public Feed)
+// LOAD RECENT REDEEMS
 // ======================================================
 async function loadRecentRedeems() {
   try {
@@ -543,16 +608,13 @@ async function loadRecentRedeems() {
     
     const res = await fetch(`${CONFIG.WORKER_URL}/api/user/recent-redeems`, {
       credentials: 'include',
-      headers: {
-        'X-Client-Host': window.location.host
-      }
+      headers: { 'X-Client-Host': window.location.host }
     });
     
     const data = await res.json();
-    
     const recentList = document.getElementById('recentList');
     
-    if (data.success && data.redeems && data.redeems.length > 0) {
+    if (data.success && data.redeems?.length) {
       const html = data.redeems.map(r => `
         <div class="recent-item">
           <span class="recent-user">${r.user_id}</span>
@@ -562,7 +624,6 @@ async function loadRecentRedeems() {
       `).join('');
       
       recentList.innerHTML = html;
-      console.log(`✅ Loaded ${data.redeems.length} recent redeems`);
     } else {
       recentList.innerHTML = '<div class="empty">No recent redeems</div>';
     }
@@ -573,7 +634,7 @@ async function loadRecentRedeems() {
 }
 
 // ======================================================
-// LOAD USER'S REDEEM HISTORY
+// LOAD REDEEM HISTORY
 // ======================================================
 async function loadRedeemHistory() {
   try {
@@ -581,16 +642,13 @@ async function loadRedeemHistory() {
     
     const res = await fetch(`${CONFIG.WORKER_URL}/api/user/redeem-history`, {
       credentials: 'include',
-      headers: {
-        'X-Client-Host': window.location.host
-      }
+      headers: { 'X-Client-Host': window.location.host }
     });
     
     const data = await res.json();
-    
     const historyEl = document.getElementById('redeemHistory');
     
-    if (data.success && data.history && data.history.length > 0) {
+    if (data.success && data.history?.length) {
       const html = data.history.map(h => {
         const value = h.points > 0 ? h.points : h.stamps;
         const type = h.points > 0 ? 'points' : 'stamps';
@@ -605,41 +663,34 @@ async function loadRedeemHistory() {
       }).join('');
       
       historyEl.innerHTML = html;
-      console.log(`✅ Loaded ${data.history.length} history items`);
     } else {
       historyEl.innerHTML = '<div class="empty">No redeem history yet</div>';
     }
   } catch (err) {
     console.error("❌ History error:", err);
-    document.getElementById('redeemHistory').innerHTML = '<div class="error">Failed to load history</div>';
+    document.getElementById('redeemHistory').innerHTML = '<div class="error">Failed to load</div>';
   }
 }
 
 // ======================================================
 // HELPER FUNCTIONS
 // ======================================================
-
-// Show message in modal
 function showMessage(msg, type) {
   const box = document.getElementById('messageBox');
   box.textContent = msg;
   box.className = `message-box ${type}`;
   box.style.display = 'block';
   
-  // Auto hide success/error after 3 seconds
   if (type !== 'info') {
-    setTimeout(() => {
-      box.style.display = 'none';
-    }, 3000);
+    setTimeout(() => box.style.display = 'none', 3000);
   }
 }
 
-// Format date for display
 function formatDate(dateStr) {
   try {
     const date = new Date(dateStr);
     const now = new Date();
-    const diff = Math.floor((now - date) / 1000); // seconds
+    const diff = Math.floor((now - date) / 1000);
     
     if (diff < 60) return 'just now';
     if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
@@ -652,20 +703,10 @@ function formatDate(dateStr) {
   }
 }
 
-// Play success sound (optional)
-function playSuccessSound() {
-  try {
-    const audio = new Audio('data:audio/wav;base64,UklGRlwAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVoAAACAgICAf39/f39/f3+AgICAf39/f39/f3+AgICAf39/f3+AgICAf39/f3+AgICAf39/f3+AgICAf39/fw==');
-    audio.volume = 0.3;
-    audio.play().catch(() => {});
-  } catch (e) {}
-}
-
 // ======================================================
 // KEYBOARD SHORTCUTS
 // ======================================================
 document.addEventListener('keydown', (e) => {
-  // Press 'r' to open redeem modal
   if (e.key === 'r' && !e.ctrlKey && !e.metaKey) {
     const modal = document.getElementById('redeemModal');
     if (modal.style.display !== 'flex') {
@@ -673,12 +714,10 @@ document.addEventListener('keydown', (e) => {
     }
   }
   
-  // Press Escape to close modal
   if (e.key === 'Escape') {
     closeRedeemModal();
   }
   
-  // Press Enter in input to submit
   if (e.key === 'Enter' && document.getElementById('redeemModal').style.display === 'flex') {
     const input = document.getElementById('codeInput');
     if (document.activeElement === input) {
