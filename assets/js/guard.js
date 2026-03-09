@@ -57,5 +57,4 @@ function showUnauthorized() {
     </div>`;
 }
 
-// ⚡ Auto-run when script loads
-requireAuth();
+window.addEventListener("DOMContentLoaded", requireAuth);

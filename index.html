@@ -11,7 +11,8 @@
     <!-- Preconnect for faster API calls -->
     <link rel="preconnect" href="https://api.agtechscript.in">
     <link rel="preconnect" href="https://cdn.agtechscript.in">
-    
+    <link rel="dns-prefetch" href="//api.agtechscript.in">
+    <link rel="dns-prefetch" href="//cdn.agtechscript.in">
     <!-- CSS with cache busting -->
     <link rel="stylesheet" href="../assets/css/style.css?v=1.0.1">
     
@@ -34,7 +35,29 @@
     <!-- Main dashboard content -->
     <div id="dashboardContent" style="display:none;">
         <h2 class="welcome-text">Welcome <span id="username"></span> 👋</h2>
-        
+        <div class="stats-grid">
+
+<div class="stat-card">
+<h3 id="quizPlayed">0</h3>
+<p>Quiz Played</p>
+</div>
+
+<div class="stat-card">
+<h3 id="quizScore">0</h3>
+<p>Total Score</p>
+</div>
+
+<div class="stat-card">
+<h3 id="purchaseCount">0</h3>
+<p>Purchases</p>
+</div>
+
+<div class="stat-card">
+<h3 id="referralCount">0</h3>
+<p>Referrals</p>
+</div>
+
+</div>
         <h3 class="section-title">Notifications</h3>
         <div id="notifications">
             <div class="note-card">Loading notifications...</div>

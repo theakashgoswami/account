@@ -31,38 +31,16 @@ async function initDashboard() {
     }
 }
 
-/* ===============================
-   WAIT FOR USER (FAST VERSION)
-================================ */
-function waitForUser() {
+async function waitForUser() {
 
-    return new Promise(resolve => {
+    let tries = 0;
 
-        if (window.currentUser) {
-            return resolve(window.currentUser);
-        }
+    while (!window.currentUser && tries < 20) {
+        await new Promise(r => setTimeout(r,100));
+        tries++;
+    }
 
-        const observer = new MutationObserver(() => {
-
-            if (window.currentUser) {
-                observer.disconnect();
-                resolve(window.currentUser);
-            }
-
-        });
-
-        observer.observe(document.documentElement, {
-            childList: true,
-            subtree: true
-        });
-
-        // fallback timeout
-        setTimeout(() => {
-            observer.disconnect();
-            resolve(window.currentUser || null);
-        }, 2000);
-
-    });
+    return window.currentUser || null;
 }
 
 /* ===============================
@@ -98,7 +76,26 @@ async function loadFullUserProfile() {
         return null;
     }
 }
+async function loadDashboardStats(){
 
+const res = await fetch(
+`${CONFIG.WORKER_URL}/api/user/dashboard-stats`,
+{
+credentials:"include",
+headers:{ "X-Client-Host":window.location.host }
+});
+
+const data = await res.json();
+
+if(!data.success) return;
+
+document.getElementById("quizPlayed").innerText = data.quizPlayed;
+document.getElementById("quizScore").innerText = data.quizScore;
+document.getElementById("purchaseCount").innerText = data.purchases;
+document.getElementById("referralCount").innerText = data.referrals;
+
+}
+await loadDashboardStats();
 /* ===============================
    LOAD NOTIFICATIONS
 ================================ */
@@ -125,9 +122,9 @@ async function loadNotifications() {
         // single DOM update (FAST)
         const html = notifications.map(n => `
             <div class="note-card">
-                <b>${n.activity || 'Activity'}</b>
-                <p>${n.details || 'No details'}</p>
-                <span class="note-time">${formatDate(n.timestamp)}</span>
+                <b>${n.title || 'Notification'}</b>
+<p>${n.message || ''}</p>
+<span class="note-time">${formatDate(n.created_at)}</span>
             </div>
         `).join("");
 
