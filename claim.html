@@ -491,36 +491,31 @@ async function fetchUserStats() {
   }
 }
 
-// ======================================================
-// INITIALIZATION
-// ======================================================
-document.addEventListener('DOMContentLoaded', async () => {
-  console.log("🚀 Page loaded, initializing...");
-  console.log("📅 Current week:", currentWeek);
-  
-  // Wait for header.js to load
+document.addEventListener("DOMContentLoaded", async () => {
+
+  console.log("🚀 Page loaded");
+
   await waitForHeaderJS();
-  
-  // Load stats
-  if (typeof loadUserStats === 'function') {
+
+  // load header
+  if (typeof loadHeader === "function") {
+    await loadHeader();
+  }
+Promise.all([
+  loadHeader(),
+  loadUserStats()
+]);
+  // load stats
+  if (typeof loadUserStats === "function") {
     loadUserStats();
   } else {
     fetchUserStats();
   }
-  
-  loadRedeemHistory();
-  
-  // Auto-refresh every 30 seconds
-  setInterval(() => {
-    if (typeof loadUserStats === 'function') {
-      loadUserStats();
-    }
-    if (document.getElementById('redeemModal').style.display === 'flex') {
-      loadRecentRedeems();
-    }
-  }, 30000);
-});
 
+  // load history
+  loadRedeemHistory();
+
+});
 // ======================================================
 // MODAL FUNCTIONS
 // ======================================================
