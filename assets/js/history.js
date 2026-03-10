@@ -1,597 +1,586 @@
-// assets/js/history.js - OPTIMIZED & FIXED
+// ========================================
+// HISTORY PAGE - MAIN CONTROLLER
+// ========================================
 
-let currentHistoryType = 'all';
-let allHistoryData = {
+// State Management
+let currentUser = null;
+let historyData = {
     quiz: [],
     purchases: [],
     points: []
 };
-let isLoading = false;
+let currentFilter = 'all';
 let currentPage = 1;
 const pageSize = 20;
+let isLoading = false;
 let refreshInterval = null;
 
-// ------------------------------------------------
-// INIT - SINGLE ENTRY POINT
-// ------------------------------------------------
-document.addEventListener("DOMContentLoaded", async function () {
-    console.time("history-load");
+// Initialize on DOM Load
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('📊 History page initializing...');
     
-    await waitForUser();
+    // Load header first
     await loadHeader();
     
-    // Show skeleton loading
-    showSkeleton();
+    // Check authentication
+    await checkAuth();
+    
+    // Initialize components
+    initEventListeners();
     
     // Load history data
-    await loadAllHistory();
-
-    // Setup filter change listener
-    const filterEl = document.getElementById('historyType');
-    if (filterEl) {
-        filterEl.addEventListener('change', changeHistoryType);
-    }
-
-    // Auto refresh every 60 seconds
-    refreshInterval = setInterval(loadAllHistory, 60000);
+    await loadHistoryData();
     
-    console.timeEnd("history-load");
+    // Start auto-refresh
+    startAutoRefresh();
 });
 
-// ------------------------------------------------
-// WAIT FOR AUTH
-// ------------------------------------------------
-async function waitForUser() {
-    let retries = 0;
-    while (!window.currentUser?.user_id && retries < 15) {
-        await new Promise(r => setTimeout(r, 300));
-        retries++;
-    }
-    if (!window.currentUser?.user_id) {
-        window.location.href = "https://agtechscript.in";
+// ========================================
+// AUTHENTICATION
+// ========================================
+
+async function checkAuth() {
+    try {
+        const response = await fetch(`${CONFIG.WORKER_URL}/api/auth/status`, {
+            credentials: 'include',
+            headers: { 'X-Client-Host': window.location.host }
+        });
+        
+        const data = await response.json();
+        
+        if (!data.authenticated) {
+            window.location.href = 'https://agtechscript.in';
+            return;
+        }
+        
+        currentUser = {
+            user_id: data.user_id,
+            role: data.role,
+            profile_image: data.profile_image
+        };
+        
+        console.log('✅ User authenticated:', currentUser.user_id);
+        
+    } catch (error) {
+        console.error('❌ Auth check failed:', error);
+        window.location.href = 'https://agtechscript.in';
     }
 }
 
-// ------------------------------------------------
-// LOAD HEADER
-// ------------------------------------------------
+// ========================================
+// HEADER LOADING
+// ========================================
+
 async function loadHeader() {
     try {
-        const res = await fetch("/partials/header.html");
-        document.getElementById("header-container").innerHTML = await res.text();
-        if (window.initHeader) window.initHeader();
+        const response = await fetch('/partials/header.html');
+        const html = await response.text();
+        document.getElementById('header-container').innerHTML = html;
         
-        // Load user profile icon if available
-        if (window.currentUser?.user_id && window.loadUserProfileIcon) {
-            await window.loadUserProfileIcon(window.currentUser.user_id);
+        // Initialize header if function exists
+        if (window.initHeader) {
+            window.initHeader();
         }
-    } catch (err) {
-        console.error("Header error:", err);
+    } catch (error) {
+        console.error('❌ Header load failed:', error);
     }
 }
 
-// ------------------------------------------------
-// SHOW SKELETON LOADING
-// ------------------------------------------------
-function showSkeleton() {
-    const tableBody = document.getElementById('historyBody');
-    if (!tableBody) return;
+// ========================================
+// EVENT LISTENERS
+// ========================================
+
+function initEventListeners() {
+    // Filter change
+    const filter = document.getElementById('historyFilter');
+    if (filter) {
+        filter.addEventListener('change', (e) => {
+            currentFilter = e.target.value;
+            currentPage = 1;
+            renderHistory();
+            updateActiveFilter();
+        });
+    }
     
-    tableBody.innerHTML = `
-        <tr>
-            <td colspan="5">
-                <div class="skeleton-loader">
-                    <div class="skeleton-line"></div>
-                    <div class="skeleton-line"></div>
-                    <div class="skeleton-line"></div>
-                    <div class="skeleton-line"></div>
-                </div>
-            </td>
-        </tr>
-    `;
+    // Load more button
+    const loadMoreBtn = document.getElementById('loadMoreBtn');
+    if (loadMoreBtn) {
+        loadMoreBtn.addEventListener('click', loadMore);
+    }
 }
 
-// ------------------------------------------------
-// SHOW ERROR
-// ------------------------------------------------
-function showError() {
-    const tableBody = document.getElementById('historyBody');
-    if (!tableBody) return;
-    
-    tableBody.innerHTML = `
-        <tr>
-            <td colspan="5" class="empty-state">
-                <i class="fas fa-exclamation-triangle"></i>
-                Failed to load history. Please refresh the page.
-            </td>
-        </tr>
-    `;
-}
+// ========================================
+// DATA FETCHING
+// ========================================
 
-// ------------------------------------------------
-// LOAD HISTORY - WITH CACHE CHECK
-// ------------------------------------------------
-async function loadAllHistory() {
-
+async function loadHistoryData() {
     if (isLoading) return;
+    
     isLoading = true;
-
+    showSkeletonLoading();
+    
     try {
-
-        const res = await fetch(
-            `${CONFIG.WORKER_URL}/api/user/full-history`,
-            {
-                credentials: 'include',
-                headers: { 'X-Client-Host': window.location.host }
-            }
-        );
-
-        const data = await res.json();
-
-        if (!data.success) throw new Error("API failed");
-
-        allHistoryData.quiz = data.quiz || [];
-        allHistoryData.purchases = data.purchases || [];
-        allHistoryData.points = data.points || [];
-
-        updateSummaryStats();
+        const response = await fetch(`${CONFIG.WORKER_URL}/api/user/full-history`, {
+            credentials: 'include',
+            headers: { 'X-Client-Host': window.location.host }
+        });
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error('Failed to load history');
+        }
+        
+        // Update data
+        historyData = {
+            quiz: data.quiz || [],
+            purchases: data.purchases || [],
+            points: data.points || []
+        };
+        
+        console.log('✅ History loaded:', {
+            quiz: historyData.quiz.length,
+            purchases: historyData.purchases.length,
+            points: historyData.points.length
+        });
+        
+        // Update UI
+        updateStats();
         renderHistory();
-
-    } catch (err) {
-        console.error("History load error:", err);
+        
+    } catch (error) {
+        console.error('❌ History load failed:', error);
         showError();
+    } finally {
+        isLoading = false;
     }
-
-    isLoading = false;
 }
 
-// ------------------------------------------------
-// UPDATE SUMMARY STATS
-// ------------------------------------------------
-function updateSummaryStats() {
-    const statsEl = document.getElementById('summaryStats');
-    if (!statsEl) return;
+// ========================================
+// STATS CARDS
+// ========================================
+
+function updateStats() {
+    const statsGrid = document.getElementById('statsGrid');
+    if (!statsGrid) return;
     
-    const totalQuiz = allHistoryData.quiz.length;
-    const totalPurchase = allHistoryData.purchases.length;
-
-    const totalPoints = allHistoryData.points.reduce((sum, p) => {
-        const value = Number(p.points) || 0;
-        return p.type === "earn" ? sum + value : sum - Math.abs(value);
-    }, 0);
-
-    const totalScore = allHistoryData.quiz.reduce(
-        (sum, q) => sum + (Number(q.score) || 0),
-        0
-    );
-
-    statsEl.innerHTML = `
+    // Calculate stats
+    const totalQuiz = historyData.quiz.length;
+    const totalPurchases = historyData.purchases.length;
+    
+    // Calculate net points
+    const totalEarned = historyData.points
+        .filter(p => p.type === 'earn')
+        .reduce((sum, p) => sum + (Number(p.points) || 0), 0);
+    
+    const totalSpent = historyData.points
+        .filter(p => p.type !== 'earn')
+        .reduce((sum, p) => sum + Math.abs(Number(p.points) || 0), 0);
+    
+    const netPoints = totalEarned - totalSpent;
+    
+    // Calculate total score from quizzes
+    const totalScore = historyData.quiz.reduce((sum, q) => sum + (Number(q.score) || 0), 0);
+    
+    // Update HTML
+    statsGrid.innerHTML = `
         <div class="stat-card">
             <div class="stat-icon">🧠</div>
             <div class="stat-info">
-                <span class="stat-label">Quizzes</span>
-                <span class="stat-value">${totalQuiz}</span>
+                <div class="stat-label">Quizzes Played</div>
+                <div class="stat-value">${totalQuiz}</div>
             </div>
         </div>
         <div class="stat-card">
             <div class="stat-icon">🛒</div>
             <div class="stat-info">
-                <span class="stat-label">Purchases</span>
-                <span class="stat-value">${totalPurchase}</span>
+                <div class="stat-label">Purchases</div>
+                <div class="stat-value">${totalPurchases}</div>
             </div>
         </div>
         <div class="stat-card">
             <div class="stat-icon">💎</div>
             <div class="stat-info">
-                <span class="stat-label">Net Points</span>
-                <span class="stat-value">${totalPoints}</span>
+                <div class="stat-label">Net Points</div>
+                <div class="stat-value ${netPoints >= 0 ? 'points-positive' : 'points-negative'}">
+                    ${netPoints >= 0 ? '+' : ''}${netPoints}
+                </div>
             </div>
         </div>
         <div class="stat-card">
             <div class="stat-icon">🏆</div>
             <div class="stat-info">
-                <span class="stat-label">Total Score</span>
-                <span class="stat-value">${totalScore}</span>
+                <div class="stat-label">Total Score</div>
+                <div class="stat-value">${totalScore}</div>
             </div>
         </div>
     `;
+    
+    // Update record count
+    const totalRecords = getFilteredData().length;
+    document.getElementById('recordCount').textContent = `${totalRecords} records`;
 }
 
-// ------------------------------------------------
-// BUILD MERGED DATA
-// ------------------------------------------------
-function buildMergedData() {
-    let merged = [
-        ...formatQuiz(),
-        ...formatPurchase(),
-        ...formatPoints()
-    ];
+// ========================================
+// DATA FILTERING
+// ========================================
 
-    if (currentHistoryType !== 'all') {
-        merged = merged.filter(i => i.category === currentHistoryType);
-    }
-
-    merged.sort((a, b) => {
-        const A = a.date ? new Date(a.date).getTime() : 0;
-        const B = b.date ? new Date(b.date).getTime() : 0;
-        return B - A;
+function getFilteredData() {
+    let allActivities = [];
+    
+    // Format quiz data
+    const quizActivities = historyData.quiz.map(q => ({
+        id: `quiz-${q.quiz_date}-${Math.random()}`,
+        type: 'quiz',
+        date: q.created_at || q.quiz_date,
+        category: 'quiz',
+        title: 'Quiz Attempt',
+        description: `Score: ${q.score} points`,
+        points: Number(q.score) || 0,
+        details: {
+            week: q.quiz_date || 'Week',
+            score: q.score || 0
+        },
+        status: 'completed'
+    }));
+    
+    // Format purchase data
+    const purchaseActivities = historyData.purchases.map(p => ({
+        id: `purchase-${p.invoice_id}`,
+        type: 'purchase',
+        date: p.created_at,
+        category: 'purchase',
+        title: p.item || 'Purchase',
+        description: `₹${p.amount} • ${p.points} points`,
+        points: Number(p.points) || 0,
+        details: {
+            invoiceId: p.invoice_id,
+            item: p.item,
+            amount: p.amount,
+            stamp: p.stamp
+        },
+        status: 'completed'
+    }));
+    
+    // Format points data
+    const pointActivities = historyData.points.map(p => {
+        const points = Number(p.points) || 0;
+        return {
+            id: `points-${p.created_at}-${Math.random()}`,
+            type: 'points',
+            date: p.created_at,
+            category: 'points',
+            title: p.type === 'earn' ? '✨ Points Earned' : '💸 Points Used',
+            description: p.description || 'Transaction',
+            points: p.type === 'earn' ? points : -points,
+            details: {
+                type: p.type,
+                description: p.description
+            },
+            status: 'completed'
+        };
     });
-
-    return merged;
+    
+    // Combine all
+    allActivities = [...quizActivities, ...purchaseActivities, ...pointActivities];
+    
+    // Filter by category
+    if (currentFilter !== 'all') {
+        allActivities = allActivities.filter(a => a.category === currentFilter);
+    }
+    
+    // Sort by date (newest first)
+    allActivities.sort((a, b) => {
+        const dateA = a.date ? new Date(a.date).getTime() : 0;
+        const dateB = b.date ? new Date(b.date).getTime() : 0;
+        return dateB - dateA;
+    });
+    
+    return allActivities;
 }
 
-// ------------------------------------------------
-// GET HEADERS
-// ------------------------------------------------
+// ========================================
+// RENDERING
+// ========================================
+
+function renderHistory() {
+    const tbody = document.getElementById('tableBody');
+    const tableHeader = document.getElementById('tableHeader');
+    const loadMoreContainer = document.getElementById('loadMoreContainer');
+    
+    if (!tbody || !tableHeader) return;
+    
+    const filteredData = getFilteredData();
+    const headers = getHeaders();
+    
+    // Update headers
+    updateHeaders(tableHeader, headers);
+    
+    if (filteredData.length === 0) {
+        showEmptyState(tbody, headers.length);
+        loadMoreContainer.style.display = 'none';
+        return;
+    }
+    
+    // Paginate
+    const start = 0;
+    const end = currentPage * pageSize;
+    const paginatedData = filteredData.slice(0, end);
+    
+    // Generate rows
+    tbody.innerHTML = paginatedData.map(item => generateRow(item)).join('');
+    
+    // Show/hide load more
+    if (end < filteredData.length) {
+        loadMoreContainer.style.display = 'block';
+        document.getElementById('remainingCount').textContent = 
+            `+${filteredData.length - end} more`;
+    } else {
+        loadMoreContainer.style.display = 'none';
+    }
+}
+
 function getHeaders() {
-    const map = {
+    const headers = {
         all: ['Date & Time', 'Activity', 'Details', 'Points', 'Status'],
         quiz: ['Date & Time', 'Quiz', 'Week', 'Score', 'Status'],
         purchase: ['Date & Time', 'Item', 'Amount', 'Points', 'Stamp', 'Invoice'],
         points: ['Date & Time', 'Type', 'Description', 'Points', 'Status']
     };
-    return map[currentHistoryType] || map.all;
+    return headers[currentFilter] || headers.all;
 }
 
-// ------------------------------------------------
-// GET TITLE
-// ------------------------------------------------
-function getTitle() {
-    const map = {
-        all: '📊 All Activities',
-        quiz: '🧠 Quiz History',
-        purchase: '🛒 Purchase History',
-        points: '💎 Points Log'
-    };
-    return map[currentHistoryType] || 'Activity History';
-}
-
-// ------------------------------------------------
-// RENDER HISTORY
-// ------------------------------------------------
-function renderHistory() {
-    const tableHeader = document.getElementById('historyHeader');
-    const tableBody = document.getElementById('historyBody');
-    const pageTitle = document.querySelector('.history-title');
-    
-    if (!tableHeader || !tableBody) return;
-
-    const merged = buildMergedData();
-
-    // Update headers
-    const headers = getHeaders();
-    tableHeader.innerHTML = `
+function updateHeaders(headerElement, headers) {
+    headerElement.innerHTML = `
         <tr>
             ${headers.map(h => `<th>${h}</th>`).join('')}
         </tr>
     `;
+}
 
-    if (!merged.length) {
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="${headers.length}" class="empty-state">
-                    <i class="fas fa-inbox"></i>
-                    <p>No records found</p>
-                </td>
-            </tr>
-        `;
-        return;
-    }
-
-    // Pagination - show only current page
-    const start = 0;
-    const end = currentPage * pageSize;
-    const paginatedData = merged.slice(0, end);
-
-    tableBody.innerHTML = paginatedData.map(item => {
-        if (currentHistoryType === 'quiz') {
+function generateRow(item) {
+    const date = formatDate(item.date);
+    
+    switch (currentFilter) {
+        case 'quiz':
             return `
-            <tr class="type-quiz">
-                <td>${formatDate(item.date)}</td>
-                <td><strong>Quiz</strong></td>
-                <td>Week ${item.week}</td>
-                <td class="points-positive">${item.score}</td>
-                <td><span class="status-badge status-completed">Completed</span></td>
-            </tr>`;
-        }
-
-        if (currentHistoryType === 'purchase') {
+                <tr class="type-quiz">
+                    <td>${date}</td>
+                    <td><strong>Quiz Attempt</strong></td>
+                    <td>Week ${item.details.week}</td>
+                    <td class="points-positive">+${item.points}</td>
+                    <td><span class="status-badge status-completed">Completed</span></td>
+                </tr>
+            `;
+            
+        case 'purchase':
             return `
-            <tr class="type-purchase">
-                <td>${formatDate(item.date)}</td>
-                <td><strong>${item.item}</strong></td>
-                <td>₹${item.amount}</td>
-                <td class="points-positive">+${item.points}</td>
-                <td>
-                    <span class="status-badge ${item.stamp === 'Yes' ? 'status-completed' : 'status-pending'}">
-                        ${item.stamp === 'Yes' ? '✅ Stamp' : '—'}
-                    </span>
-                </td>
-                <td>
-                    ${item.invoiceId
-                        ? `<button class="invoice-btn" onclick="openInvoice('${item.invoiceId}')">
-                            <i class="fas fa-file-invoice"></i> View
-                           </button>`
-                        : '—'}
-                </td>
-            </tr>`;
-        }
-
-        if (currentHistoryType === 'points') {
+                <tr class="type-purchase">
+                    <td>${date}</td>
+                    <td><strong>${item.details.item}</strong></td>
+                    <td>₹${item.details.amount}</td>
+                    <td class="points-positive">+${item.points}</td>
+                    <td>
+                        <span class="status-badge ${item.details.stamp === 'Yes' ? 'status-completed' : 'status-pending'}">
+                            ${item.details.stamp === 'Yes' ? '✅ Stamp' : '—'}
+                        </span>
+                    </td>
+                    <td>
+                        ${item.details.invoiceId ? `
+                            <button class="invoice-btn" onclick="window.openInvoice('${item.details.invoiceId}')">
+                                <i class="fas fa-file-invoice"></i> View
+                            </button>
+                        ` : '—'}
+                    </td>
+                </tr>
+            `;
+            
+        case 'points':
             return `
-            <tr class="type-points">
-                <td>${formatDate(item.date)}</td>
-                <td><span class="${item.points > 0 ? 'points-positive' : 'points-negative'}">${item.typeLabel}</span></td>
-                <td>${item.description}</td>
-                <td class="${item.points > 0 ? 'points-positive' : 'points-negative'}">
-                    ${item.points > 0 ? '+' : ''}${item.points}
-                </td>
-                <td><span class="status-badge status-completed">Completed</span></td>
-            </tr>`;
-        }
-
-        // All activities view
-        return `
-        <tr class="type-${item.category}">
-            <td>${formatDate(item.date)}</td>
-            <td><strong>${item.activity}</strong></td>
-            <td>${item.details}</td>
-            <td class="${item.points > 0 ? 'points-positive' : item.points < 0 ? 'points-negative' : ''}">
-                ${item.points > 0 ? '+' : ''}${item.points}
-            </td>
-            <td><span class="status-badge status-completed">${item.status}</span></td>
-        </tr>`;
-    }).join('');
-
-    // Load more button
-    if (end < merged.length) {
-        tableBody.innerHTML += `
-            <tr>
-                <td colspan="${headers.length}" style="text-align:center; padding:20px;">
-                    <button class="load-more-btn" onclick="loadMore()">
-                        Load More (${merged.length - end} remaining)
-                    </button>
-                </td>
-            </tr>
-        `;
-    }
-
-    // Update page title with record count
-    if (pageTitle) {
-        pageTitle.innerHTML = `
-            <i class="fas fa-history"></i>
-            ${getTitle()}
-            <span class="record-count">${merged.length} records</span>
-        `;
+                <tr class="type-points">
+                    <td>${date}</td>
+                    <td><span class="${item.points > 0 ? 'points-positive' : 'points-negative'}">${item.title}</span></td>
+                    <td>${item.description}</td>
+                    <td class="${item.points > 0 ? 'points-positive' : 'points-negative'}">
+                        ${item.points > 0 ? '+' : ''}${item.points}
+                    </td>
+                    <td><span class="status-badge status-completed">Completed</span></td>
+                </tr>
+            `;
+            
+        default: // all activities
+            return `
+                <tr class="type-${item.category}">
+                    <td>${date}</td>
+                    <td><strong>${item.title}</strong></td>
+                    <td>${item.description}</td>
+                    <td class="${item.points > 0 ? 'points-positive' : item.points < 0 ? 'points-negative' : ''}">
+                        ${item.points > 0 ? '+' : ''}${item.points}
+                    </td>
+                    <td><span class="status-badge status-completed">${item.status}</span></td>
+                </tr>
+            `;
     }
 }
 
-// ------------------------------------------------
+// ========================================
 // LOAD MORE
-// ------------------------------------------------
+// ========================================
+
 function loadMore() {
     currentPage++;
     renderHistory();
 }
 
-// ------------------------------------------------
-// FORMATTERS
-// ------------------------------------------------
-function formatQuiz() {
+// ========================================
+// INVOICE HANDLING
+// ========================================
 
-    return allHistoryData.quiz.map(q => ({
-
-        category: 'quiz',
-        date: q.created_at || q.quiz_date,
-        week: q.quiz_date || '-',
-        score: Number(q.score) || 0,
-
-        activity: 'Quiz Attempt',
-        details: `Score: ${q.score}`,
-
-        points: Number(q.score) || 0,
-        status: 'completed'
-
-    }));
-}
-
-function formatPurchase() {
-
-    return allHistoryData.purchases.map(p => ({
-
-        category: 'purchase',
-
-        invoiceId: p.invoice_id || '',
-
-        date: p.created_at,
-
-        item: p.item || 'Item',
-
-        amount: Number(p.amount) || 0,
-
-        points: Number(p.points) || 0,
-
-        stamp: p.stamp || 'No',
-
-        activity: 'Purchase',
-
-        details: `${p.item} - ₹${p.amount}`,
-
-        status: 'completed'
-
-    }));
-
-}
-
-function formatPoints() {
-
-    return allHistoryData.points.map(p => {
-
-        const val = Number(p.points) || 0;
-
-        return {
-
-            category: 'points',
-
-            date: p.created_at,
-
-            typeLabel: p.type === 'earn' ? '✨ Earned' : '💸 Used',
-
-            description: p.description || 'Transaction',
-
-            points: p.type === 'earn' ? val : -val,
-
-            activity: p.type === 'earn' ? 'Points Earned' : 'Points Used',
-
-            details: p.description || 'Transaction',
-
-            status: 'completed'
-
-        };
-
-    });
-
-}
-
-// ------------------------------------------------
-// INVOICE 
 async function openInvoice(invoiceId) {
-    const overlay = document.getElementById("invoiceOverlay");
-    const content = document.getElementById("invoiceContent");
-    document.body.style.overflow = "hidden";
-    overlay.style.display = "flex";
+    const modal = document.getElementById('invoiceModal');
+    const content = document.getElementById('invoiceContent');
+    
+    if (!modal || !content) return;
+    
+    // Show modal with loading
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    
     content.innerHTML = `
         <div class="loading-spinner">
-            <i class="fas fa-spinner fa-spin"></i> Loading invoice...
+            <i class="fas fa-spinner fa-spin"></i>
+            Loading invoice...
         </div>
     `;
-
+    
     try {
-        const res = await fetch(
+        const response = await fetch(
             `${CONFIG.WORKER_URL}/api/user/invoice?invoice=${invoiceId}`,
             {
-                credentials: "include",
-                headers: { "X-Client-Host": window.location.host }
+                credentials: 'include',
+                headers: { 'X-Client-Host': window.location.host }
             }
         );
-
-        const data = await res.json();
-
+        
+        const data = await response.json();
+        
         if (!data.success) {
-            content.innerHTML = `
-                <div class="error-message">
-                    <i class="fas fa-exclamation-circle"></i>
-                    Invoice not found
-                </div>
-            `;
-            return;
+            throw new Error('Invoice not found');
         }
-
-        const inv = data.invoice;
-        const user = inv.user;
-
-        // Generate items table HTML
-        const itemsHTML = inv.items.map((item, index) => `
-            <tr>
-                <td>${index + 1}</td>
-                <td>${item.item}</td>
-                <td>₹${item.rate}</td>
-                <td>${item.qty}</td>
-                <td>₹${item.amount}</td>
-            </tr>
-        `).join('');
-
-        // 🔥 SINGLE COMPLETE INVOICE HTML
+        
+        // Render invoice
+        content.innerHTML = generateInvoiceHTML(data.invoice);
+        
+    } catch (error) {
+        console.error('❌ Invoice load failed:', error);
         content.innerHTML = `
-            <div class="invoice-header">
-                <img class="header-logo-image" alt="AG TechScript" src="/assets/images/AGTechScript.webp"> 
-                <h2>AG Electronics</h2>
-                <p class="invoice-subtitle">A Unit of AG TechScript™</p>
-                <p class="invoice-address">Baba Jaharveer Mandir, Kisrauli, Kasganj UP 207124</p>
-                <p class="invoice-contact">📞 6397563847 | GSTIN: 09JYTPK4090Q1Z3</p>
-            </div>
-            
-            <div class="invoice-body">
-                <div class="invoice-details">
-                    <p><strong>Invoice No:</strong> ${inv.invoice_id}</p>
-                    <p><strong>Date:</strong> ${new Date(inv.date).toLocaleDateString('en-IN')}</p>
-                </div>
-                
-                <div class="customer-details">
-                    <h3>Customer Details</h3>
-                    <p><strong>User ID:</strong> ${user.user_id}</p>
-                    <p><strong>Name:</strong> ${user.name || 'N/A'}</p>
-                    <p><strong>Phone:</strong> ${user.phone || 'N/A'}</p>
-                    <p><strong>Address:</strong> ${user.address || 'N/A'}</p>
-                </div>
-                
-                <div class="invoice-items">
-                    <h3>Item Details</h3>
-                    <table class="invoice-table">
-                        <thead>
-                            <tr>
-                                <th>S No.</th>
-                                <th>Item</th>
-                                <th>Rate</th>
-                                <th>Qty</th>
-                                <th>Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${itemsHTML}
-                        </tbody>
-                        <tfoot>
-                            <tr>
-                                <td colspan="4" style="text-align:right;"><strong>Total Amount:</strong></td>
-                                <td><strong>₹${inv.total_amount}</strong></td>
-                            </tr>
-                            <tr>
-                                <td colspan="4" style="text-align:right;"><strong>Points Earned:</strong></td>
-                                <td><strong>${inv.total_points} Points</strong></td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-                
-                <div class="invoice-footer">
-                    <p class="tax-note">Composition taxable person, not eligible to collect tax on supplies.</p>
-                    <p class="return-policy">*No return. 7 days replacement applicable only for manufacturing defects.</p>
-                    <p class="signature">Authorised Signatory</p>
-                </div>
-            </div>
-            
-            <!-- 🔥 SINGLE PRINT BUTTON -->
-            <div style="text-align:center; margin:20px 0;">
-                <button onclick="window.print()" class="invoice-print-btn">
-                    <i class="fas fa-print"></i> Print Invoice
-                </button>
-            </div>
-        `;
-
-    } catch (err) {
-        console.error("Invoice error:", err);
-        content.innerHTML = `
-            <div class="error-message">
+            <div class="error-state">
                 <i class="fas fa-exclamation-circle"></i>
-                Error loading invoice
+                <p>Failed to load invoice. Please try again.</p>
             </div>
         `;
     }
 }
 
 function closeInvoice() {
-    const overlay = document.getElementById("invoiceOverlay");
-    if (overlay) overlay.style.display = "none";
+    const modal = document.getElementById('invoiceModal');
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
 }
 
-// ------------------------------------------------
-// FORMAT DATE
-// ------------------------------------------------
-function formatDate(d) {
-    if (!d) return '-';
+function generateInvoiceHTML(invoice) {
+    const items = invoice.items || [];
+    const user = invoice.user || {};
+    
+    const itemsHTML = items.map((item, index) => `
+        <tr>
+            <td>${index + 1}</td>
+            <td>${item.item || 'Item'}</td>
+            <td>₹${item.rate || 0}</td>
+            <td>${item.qty || 1}</td>
+            <td>₹${item.amount || 0}</td>
+        </tr>
+    `).join('');
+    
+    return `
+        <div class="invoice-header">
+            <img src="/assets/images/AGTechScript.webp" alt="AG TechScript" class="invoice-logo">
+            <h2>AG Electronics</h2>
+            <p class="invoice-subtitle">A Unit of AG TechScript™</p>
+            <p class="invoice-address">Baba Jaharveer Mandir, Kisrauli, Kasganj UP 207124</p>
+            <p class="invoice-contact">📞 6397563847 | GSTIN: 09JYTPK4090Q1Z3</p>
+        </div>
+        
+        <div class="invoice-body">
+            <div class="invoice-details">
+                <p><strong>Invoice No:</strong> ${invoice.invoice_id}</p>
+                <p><strong>Date:</strong> ${formatDate(invoice.date)}</p>
+            </div>
+            
+            <div class="customer-details">
+                <h3>Customer Details</h3>
+                <p><strong>User ID:</strong> ${user.user_id}</p>
+                <p><strong>Name:</strong> ${user.name || 'N/A'}</p>
+                <p><strong>Phone:</strong> ${user.phone || 'N/A'}</p>
+                <p><strong>Address:</strong> ${user.address || 'N/A'}</p>
+            </div>
+            
+            <div class="invoice-items">
+                <h3>Item Details</h3>
+                <table class="invoice-table">
+                    <thead>
+                        <tr>
+                            <th>S No.</th>
+                            <th>Item</th>
+                            <th>Rate</th>
+                            <th>Qty</th>
+                            <th>Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${itemsHTML}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" style="text-align:right;"><strong>Total Amount:</strong></td>
+                            <td><strong>₹${invoice.total_amount}</strong></td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" style="text-align:right;"><strong>Points Earned:</strong></td>
+                            <td><strong>${invoice.total_points} Points</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            
+            <div class="invoice-footer">
+                <p class="tax-note">Composition taxable person, not eligible to collect tax on supplies.</p>
+                <p class="return-policy">*No return. 7 days replacement applicable only for manufacturing defects.</p>
+                <p class="signature">Authorised Signatory</p>
+            </div>
+            
+            <div class="invoice-actions">
+                <button onclick="window.print()" class="invoice-print-btn">
+                    <i class="fas fa-print"></i> Print Invoice
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+// ========================================
+// UTILITY FUNCTIONS
+// ========================================
+
+function formatDate(dateString) {
+    if (!dateString) return '-';
+    
     try {
-        const date = new Date(d);
-        if (isNaN(date.getTime())) return String(d);
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return dateString;
+        
         return date.toLocaleString('en-IN', {
             day: '2-digit',
             month: '2-digit',
@@ -601,21 +590,122 @@ function formatDate(d) {
             hour12: true
         });
     } catch {
-        return String(d);
+        return dateString;
     }
 }
 
-// ------------------------------------------------
-// FILTER CHANGE
-// ------------------------------------------------
-function changeHistoryType(event) {
-    currentHistoryType = event?.target?.value || 'all';
-    currentPage = 1; // Reset to first page
-    renderHistory();
+// ========================================
+// UI STATES
+// ========================================
+
+function showSkeletonLoading() {
+    const statsGrid = document.getElementById('statsGrid');
+    const tbody = document.getElementById('tableBody');
+    
+    if (statsGrid) {
+        statsGrid.innerHTML = `
+            <div class="stat-card skeleton">
+                <div class="stat-icon"></div>
+                <div class="stat-info"></div>
+            </div>
+            <div class="stat-card skeleton">
+                <div class="stat-icon"></div>
+                <div class="stat-info"></div>
+            </div>
+            <div class="stat-card skeleton">
+                <div class="stat-icon"></div>
+                <div class="stat-info"></div>
+            </div>
+            <div class="stat-card skeleton">
+                <div class="stat-icon"></div>
+                <div class="stat-info"></div>
+            </div>
+        `;
+    }
+    
+    if (tbody) {
+        tbody.innerHTML = `
+            <tr class="skeleton-row">
+                <td colspan="5">
+                    <div class="skeleton-line"></div>
+                    <div class="skeleton-line"></div>
+                    <div class="skeleton-line"></div>
+                    <div class="skeleton-line"></div>
+                </td>
+            </tr>
+        `;
+    }
 }
 
-// Make functions globally available
-window.changeHistoryType = changeHistoryType;
+function showEmptyState(tbody, colspan) {
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="${colspan}" class="empty-state">
+                <i class="fas fa-inbox"></i>
+                <p>No activities found</p>
+                <small>Your history will appear here</small>
+            </td>
+        </tr>
+    `;
+}
+
+function showError() {
+    const tbody = document.getElementById('tableBody');
+    const statsGrid = document.getElementById('statsGrid');
+    
+    if (tbody) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="empty-state error">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Failed to load history</p>
+                    <button onclick="window.location.reload()" class="retry-btn">
+                        <i class="fas fa-redo"></i> Retry
+                    </button>
+                </td>
+            </tr>
+        `;
+    }
+}
+
+function updateActiveFilter() {
+    const filter = document.getElementById('historyFilter');
+    if (filter) {
+        filter.value = currentFilter;
+    }
+}
+
+// ========================================
+// AUTO REFRESH
+// ========================================
+
+function startAutoRefresh() {
+    // Clear existing interval
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+    }
+    
+    // Set new interval (60 seconds)
+    refreshInterval = setInterval(async () => {
+        console.log('🔄 Auto-refreshing history...');
+        await loadHistoryData();
+    }, 60000);
+}
+
+// ========================================
+// CLEANUP
+// ========================================
+
+window.addEventListener('beforeunload', () => {
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+    }
+});
+
+// ========================================
+// EXPORT TO GLOBAL SCOPE
+// ========================================
+
 window.openInvoice = openInvoice;
 window.closeInvoice = closeInvoice;
 window.loadMore = loadMore;

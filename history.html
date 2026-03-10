@@ -3,97 +3,146 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>History · AG TechScript</title>
+    <title>Activity History · AG TechScript</title>
     
-    <!-- Font Awesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
-    <!-- CSS Files -->
-    <link rel="stylesheet" href="assets/css/style.css">
-    <link rel="stylesheet" href="assets/css/history.css">
+    <!-- CSS -->
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <link rel="stylesheet" href="/assets/css/history.css">
     
-      <script src="../assets/js/config.js?v=1.0.0" defer></script>
-    <script src="../assets/js/api.js?v=1.0.0" defer></script>
-    <script src="../assets/js/guard.js?v=1.0.0" defer></script>
-    <script src="../assets/js/header.js?v=1.0.1" defer></script>
-    <script src="../assets/js/user-overlay.js?v=1.0.0" defer></script>
-    <script src="../assets/js/history.js?v=1.0.0" defer></script>
-    <script src="../assets/js/footer.js?v=1.0.0" defer></script>
+    <!-- Scripts -->
+    <script src="/assets/js/config.js"></script>
+    <script src="/assets/js/api.js"></script>
+    <script src="/assets/js/guard.js"></script>
+    <script src="/assets/js/header.js"></script>
+    <script src="/assets/js/user-overlay.js"></script>
+    <script src="/assets/js/history.js"></script>
+    <script src="/assets/js/footer.js"></script>
 </head>
 <body>
-    <!-- Header Container -->
+    <!-- Header -->
     <div id="header-container"></div>
 
-    <div class="history-container">
-        
-        <!-- Header with Title and Filter -->
-        <div class="history-header">
-        <div class="history-title">
-             <i class="fas fa-history"></i>
-                 Activity History
-              <span id="recordCount" class="record-count"></span>
-        </div>
-            <div class="filter-container">
-                <span class="filter-label">
-                    <i class="fas fa-filter"></i> Filter:
+    <main class="history-main">
+        <div class="history-container">
+            
+            <!-- Header with Title and Filter -->
+            <div class="history-header">
+                <h1 class="history-title">
+                    <i class="fas fa-history"></i>
+                    Activity History
+                </h1>
+                
+                <div class="filter-wrapper">
+                    <i class="fas fa-filter filter-icon"></i>
+                    <select id="historyFilter" class="history-filter">
+                        <option value="all">📊 All Activities</option>
+                        <option value="quiz">🧠 Quiz History</option>
+                        <option value="purchase">🛒 Purchase History</option>
+                        <option value="points">💎 Points Log</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Stats Cards -->
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card skeleton">
+                    <div class="stat-icon"></div>
+                    <div class="stat-info"></div>
+                </div>
+                <div class="stat-card skeleton">
+                    <div class="stat-icon"></div>
+                    <div class="stat-info"></div>
+                </div>
+                <div class="stat-card skeleton">
+                    <div class="stat-icon"></div>
+                    <div class="stat-info"></div>
+                </div>
+                <div class="stat-card skeleton">
+                    <div class="stat-icon"></div>
+                    <div class="stat-info"></div>
+                </div>
+            </div>
+            
+            <!-- History Table -->
+            <div class="table-card">
+                <div class="table-header">
+                    <span class="record-count" id="recordCount">0 records</span>
+                    <span class="live-badge">
+                        <i class="fas fa-circle"></i>
+                        Live
+                    </span>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="history-table" id="historyTable">
+                        <thead id="tableHeader">
+                            <tr>
+                                <th>Date & Time</th>
+                                <th>Activity</th>
+                                <th>Details</th>
+                                <th>Points</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <!-- Skeleton loading -->
+                            <tr class="skeleton-row">
+                                <td colspan="5">
+                                    <div class="skeleton-line"></div>
+                                    <div class="skeleton-line"></div>
+                                    <div class="skeleton-line"></div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Load More Container -->
+                <div class="load-more-container" id="loadMoreContainer" style="display: none;">
+                    <button class="load-more-btn" id="loadMoreBtn">
+                        <i class="fas fa-chevron-down"></i>
+                        Load More
+                        <span class="remaining-count" id="remainingCount"></span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Info Banner -->
+            <div class="info-banner">
+                <i class="fas fa-info-circle"></i>
+                <span>Showing your complete activity history across all platforms.</span>
+                <span class="auto-refresh">
+                    <i class="fas fa-sync-alt"></i>
+                    Auto-refreshes every 60s
                 </span>
-                <select id="historyType" class="history-filter" onchange="changeHistoryType()">
-                    <option value="all">📊 All Activities</option>
-                    <option value="quiz">🧠 Quiz History</option>
-                    <option value="purchase">🛒 Purchase History</option>
-                    <option value="points">💎 Points Log</option>
-                </select>
+            </div>
+            
+        </div>
+    </main>
+
+    <!-- Invoice Modal -->
+    <div class="modal" id="invoiceModal">
+        <div class="modal-content invoice-modal">
+            <div class="modal-header">
+                <h2><i class="fas fa-file-invoice"></i> Invoice Details</h2>
+                <button class="modal-close" onclick="window.closeInvoice()">&times;</button>
+            </div>
+            <div class="modal-body" id="invoiceContent">
+                <div class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    Loading invoice...
+                </div>
             </div>
         </div>
-        
-        <!-- Summary Stats Cards -->
-        <div class="summary-stats" id="summaryStats">
-            <!-- Dynamically populated by JS -->
-        </div>
-        
-        <!-- History Table - Glass Card -->
-        <div class="table-wrapper">
-            <table id="historyTable">
-                <thead id="historyHeader">
-                    <tr>
-                        <th>Date & Time</th>
-                        <th>Activity</th>
-                        <th>Details</th>
-                        <th>Points</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody id="historyBody">
-                    <tr class="skeleton">
-  <td colspan="5">Loading...</td>
-</tr>
-                </tbody>
-            </table>
-        </div>
-        
-        <!-- Info Card -->
-        <div class="info-card">
-            <i class="fas fa-chart-line"></i>
-            <span>Showing your complete activity history across all platforms.</span>
-            <span class="live-badge">
-                <i class="fas fa-sync-alt"></i> Live
-            </span>
-        </div>
-        
     </div>
-    <div id="invoiceOverlay" class="invoice-overlay">
-  <div class="invoice-card">
-    <button class="close-btn" onclick="closeInvoice()">✖</button>
-    <div id="invoiceContent">
-        Loading invoice...
-</div>
-</div>
-</div>
 
-    <!-- FOOTER -->
+    <!-- Footer -->
     <div id="footer-container"></div>
 </body>
 </html>
