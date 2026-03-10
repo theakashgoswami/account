@@ -233,6 +233,11 @@ async function submitQuiz() {
 
         submitted = true;
         userSelections = { ...selected };
+        if (data.correctAnswers) {
+    data.correctAnswers.forEach(q=>{
+        correctAnswers[q.qid] = q.correct_option;
+    });
+}
         showResult(data.score);
 
     } catch (err) {
@@ -244,11 +249,7 @@ async function submitQuiz() {
         submitting = false;
     
 
-if (data.correctAnswers) {
-    data.correctAnswers.forEach(q=>{
-        correctAnswers[q.qid] = q.correct_option;
-    });
-}
+
 }
 }
 window.submitQuiz = submitQuiz;
