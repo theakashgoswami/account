@@ -64,25 +64,25 @@ async function loadQuiz() {
            ALREADY SUBMITTED
         =============================== */
 
-        if (data.submitted) {
-            submitted = true;
-            const userScore = data.score || 0;
-            
-            if (data.selections) {
-                if (typeof data.selections === "string") {
-                    try {
-                        userSelections = JSON.parse(data.selections);
-                    } catch {
-                        userSelections = {};
-                    }
-                } else {
-                    userSelections = data.selections;
-                }
-            }
+    if (data.submitted) {
 
-            if (data.earn) {
-                quizData = Array.isArray(data.earn) ? data.earn : [];
-            }
+    submitted = true;
+    const userScore = data.score || 0;
+
+    userSelections = typeof data.selections === "string"
+        ? JSON.parse(data.selections)
+        : (data.selections || {});
+
+    quizData = Array.isArray(data.earn) ? data.earn : [];
+
+    // store correct answers
+    quizData.forEach(q=>{
+        if(q.correct_option){
+            correctAnswers[q.qid] = q.correct_option;
+        }
+    });
+
+
 
             container.innerHTML = `
                 <div class="already-submitted-card">
@@ -328,8 +328,7 @@ function viewMyAnswers() {
             const qid = String(q.qid);
 
             const selectedOpt = userSelections[qid] || '';
-            const correctOpt = (correctAnswers[qid] || '').toUpperCase();
-
+            const correctOpt = (correctAnswers[qid] || '').toString().toUpperCase();
             const optA = q.option_a || 'Option A';
             const optB = q.option_b || 'Option B';
             const optC = q.option_c || 'Option C';
