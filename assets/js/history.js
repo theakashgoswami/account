@@ -2,38 +2,48 @@
 // HISTORY PAGE - MAIN CONTROLLER
 // ========================================
 
-// State Management
-let currentUser = null;
-let historyData = {
-    quiz: [],
-    purchases: [],
-    points: []
-};
-let currentFilter = 'all';
-let currentPage = 1;
-const pageSize = 20;
-let isLoading = false;
-let refreshInterval = null;
-
-// Initialize on DOM Load
+// Wait for DOM to load
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('📊 History page initializing...');
     
-    // Load header first
-    await loadHeader();
-    
-    // Check authentication
-    await checkAuth();
-    
-    // Initialize components
-    initEventListeners();
-    
-    // Load history data
-    await loadHistoryData();
-    
-    // Start auto-refresh
-    startAutoRefresh();
+    try {
+        // Load header first
+        await loadHeader();
+        
+        // Check authentication
+        const user = await checkAuth();
+        if (!user) return;
+        
+        // Initialize components
+        initEventListeners();
+        
+        // Load history data
+        await loadHistoryData();
+        
+        // Start auto-refresh
+        startAutoRefresh();
+        
+    } catch (error) {
+        console.error('❌ Initialization failed:', error);
+        showFatalError();
+    }
 });
+
+// ========================================
+// STATE MANAGEMENT (using different variable names)
+// ========================================
+
+let historyState = {
+    user: null,
+    quizData: [],
+    purchaseData: [],
+    pointsData: [],
+    currentFilter: 'all',
+    currentPage: 1,
+    pageSize: 20,
+    isLoading: false,
+    refreshInterval: null
+};
 
 // ========================================
 // AUTHENTICATION
@@ -41,29 +51,39 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function checkAuth() {
     try {
-        const response = await fetch(`${CONFIG.WORKER_URL}/api/auth/status`, {
+        console.log('🔐 Checking authentication...');
+        
+        const response = await fetch(`${window.CONFIG?.WORKER_URL || ''}/api/auth/status`, {
             credentials: 'include',
-            headers: { 'X-Client-Host': window.location.host }
+            headers: { 
+                'X-Client-Host': window.location.host,
+                'Content-Type': 'application/json'
+            }
         });
         
         const data = await response.json();
+        console.log('📡 Auth response:', data);
         
         if (!data.authenticated) {
+            console.log('❌ Not authenticated, redirecting...');
             window.location.href = 'https://agtechscript.in';
-            return;
+            return null;
         }
         
-        currentUser = {
+        // Store user in historyState
+        historyState.user = {
             user_id: data.user_id,
             role: data.role,
             profile_image: data.profile_image
         };
         
-        console.log('✅ User authenticated:', currentUser.user_id);
+        console.log('✅ User authenticated:', historyState.user.user_id);
+        return historyState.user;
         
     } catch (error) {
         console.error('❌ Auth check failed:', error);
-        window.location.href = 'https://agtechscript.in';
+        showToast('Authentication failed', 'error');
+        return null;
     }
 }
 
@@ -73,17 +93,86 @@ async function checkAuth() {
 
 async function loadHeader() {
     try {
-        const response = await fetch('/partials/header.html');
-        const html = await response.text();
-        document.getElementById('header-container').innerHTML = html;
+        console.log('📋 Loading header...');
         
-        // Initialize header if function exists
-        if (window.initHeader) {
-            window.initHeader();
+        // Try multiple possible paths for header
+        const possiblePaths = [
+            '/partials/header.html',
+            '../partials/header.html',
+            'partials/header.html',
+            '/assets/partials/header.html'
+        ];
+        
+        let headerHtml = null;
+        let successPath = null;
+        
+        for (const path of possiblePaths) {
+            try {
+                const response = await fetch(path);
+                if (response.ok) {
+                    headerHtml = await response.text();
+                    successPath = path;
+                    break;
+                }
+            } catch (e) {
+                // Continue to next path
+            }
         }
+        
+        if (!headerHtml) {
+            console.warn('⚠️ Header not found, using fallback');
+            headerHtml = getFallbackHeader();
+        } else {
+            console.log(`✅ Header loaded from: ${successPath}`);
+        }
+        
+        const headerContainer = document.getElementById('header-container');
+        if (headerContainer) {
+            headerContainer.innerHTML = headerHtml;
+            
+            // Initialize header components
+            if (typeof window.initHeader === 'function') {
+                setTimeout(() => window.initHeader(), 100);
+            }
+            
+            // Load user profile icon if available
+            if (historyState.user?.user_id && typeof window.loadUserProfileIcon === 'function') {
+                setTimeout(() => window.loadUserProfileIcon(historyState.user.user_id), 200);
+            }
+        } else {
+            console.error('❌ Header container not found');
+        }
+        
     } catch (error) {
         console.error('❌ Header load failed:', error);
+        // Still continue, page might work without header
     }
+}
+
+// Fallback header if file not found
+function getFallbackHeader() {
+    return `
+        <header class="main-header">
+            <nav class="navbar">
+                <div class="nav-brand">
+                    <a href="/">
+                        <img src="/assets/images/AGTechScript.webp" alt="AG TechScript" class="logo">
+                    </a>
+                </div>
+                <div class="nav-menu">
+                    <a href="/" class="nav-link">Home</a>
+                    <a href="/quiz" class="nav-link">Quiz</a>
+                    <a href="/rewards" class="nav-link">Rewards</a>
+                    <a href="/history" class="nav-link active">History</a>
+                </div>
+                <div class="nav-user" id="userProfileIcon">
+                    <div class="user-icon-placeholder">
+                        <i class="fas fa-user-circle"></i>
+                    </div>
+                </div>
+            </nav>
+        </header>
+    `;
 }
 
 // ========================================
@@ -91,22 +180,27 @@ async function loadHeader() {
 // ========================================
 
 function initEventListeners() {
+    console.log('🔧 Initializing event listeners...');
+    
     // Filter change
     const filter = document.getElementById('historyFilter');
     if (filter) {
         filter.addEventListener('change', (e) => {
-            currentFilter = e.target.value;
-            currentPage = 1;
-            renderHistory();
-            updateActiveFilter();
+            historyState.currentFilter = e.target.value;
+            historyState.currentPage = 1;
+            renderHistoryTable();
         });
+        console.log('✅ Filter listener attached');
+    } else {
+        console.warn('⚠️ Filter element not found');
     }
     
-    // Load more button
-    const loadMoreBtn = document.getElementById('loadMoreBtn');
-    if (loadMoreBtn) {
-        loadMoreBtn.addEventListener('click', loadMore);
-    }
+    // Load more button (delegation)
+    document.addEventListener('click', (e) => {
+        if (e.target.closest('#loadMoreBtn')) {
+            loadMoreHistory();
+        }
+    });
 }
 
 // ========================================
@@ -114,45 +208,56 @@ function initEventListeners() {
 // ========================================
 
 async function loadHistoryData() {
-    if (isLoading) return;
+    if (historyState.isLoading) {
+        console.log('⏳ Already loading...');
+        return;
+    }
     
-    isLoading = true;
+    historyState.isLoading = true;
     showSkeletonLoading();
     
     try {
-        const response = await fetch(`${CONFIG.WORKER_URL}/api/user/full-history`, {
+        console.log('📡 Fetching history data...');
+        
+        const response = await fetch(`${window.CONFIG?.WORKER_URL || ''}/api/user/full-history`, {
             credentials: 'include',
-            headers: { 'X-Client-Host': window.location.host }
+            headers: { 
+                'X-Client-Host': window.location.host,
+                'Content-Type': 'application/json'
+            }
         });
         
-        const data = await response.json();
-        
-        if (!data.success) {
-            throw new Error('Failed to load history');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        // Update data
-        historyData = {
-            quiz: data.quiz || [],
-            purchases: data.purchases || [],
-            points: data.points || []
-        };
+        const data = await response.json();
+        console.log('📊 History data received:', data);
+        
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to load history');
+        }
+        
+        // Update state
+        historyState.quizData = data.quiz || [];
+        historyState.purchaseData = data.purchases || [];
+        historyState.pointsData = data.points || [];
         
         console.log('✅ History loaded:', {
-            quiz: historyData.quiz.length,
-            purchases: historyData.purchases.length,
-            points: historyData.points.length
+            quiz: historyState.quizData.length,
+            purchases: historyState.purchaseData.length,
+            points: historyState.pointsData.length
         });
         
         // Update UI
-        updateStats();
-        renderHistory();
+        updateStatsCards();
+        renderHistoryTable();
         
     } catch (error) {
         console.error('❌ History load failed:', error);
-        showError();
+        showErrorState(error.message);
     } finally {
-        isLoading = false;
+        historyState.isLoading = false;
     }
 }
 
@@ -160,27 +265,30 @@ async function loadHistoryData() {
 // STATS CARDS
 // ========================================
 
-function updateStats() {
+function updateStatsCards() {
     const statsGrid = document.getElementById('statsGrid');
-    if (!statsGrid) return;
+    if (!statsGrid) {
+        console.warn('⚠️ Stats grid not found');
+        return;
+    }
     
     // Calculate stats
-    const totalQuiz = historyData.quiz.length;
-    const totalPurchases = historyData.purchases.length;
+    const totalQuiz = historyState.quizData.length;
+    const totalPurchases = historyState.purchaseData.length;
     
     // Calculate net points
-    const totalEarned = historyData.points
+    const totalEarned = historyState.pointsData
         .filter(p => p.type === 'earn')
         .reduce((sum, p) => sum + (Number(p.points) || 0), 0);
     
-    const totalSpent = historyData.points
+    const totalSpent = historyState.pointsData
         .filter(p => p.type !== 'earn')
         .reduce((sum, p) => sum + Math.abs(Number(p.points) || 0), 0);
     
     const netPoints = totalEarned - totalSpent;
     
     // Calculate total score from quizzes
-    const totalScore = historyData.quiz.reduce((sum, q) => sum + (Number(q.score) || 0), 0);
+    const totalScore = historyState.quizData.reduce((sum, q) => sum + (Number(q.score) || 0), 0);
     
     // Update HTML
     statsGrid.innerHTML = `
@@ -218,7 +326,10 @@ function updateStats() {
     
     // Update record count
     const totalRecords = getFilteredData().length;
-    document.getElementById('recordCount').textContent = `${totalRecords} records`;
+    const recordCount = document.getElementById('recordCount');
+    if (recordCount) {
+        recordCount.textContent = `${totalRecords} records`;
+    }
 }
 
 // ========================================
@@ -226,131 +337,130 @@ function updateStats() {
 // ========================================
 
 function getFilteredData() {
-    let allActivities = [];
+    const activities = [];
     
-    // Format quiz data
-    const quizActivities = historyData.quiz.map(q => ({
-        id: `quiz-${q.quiz_date}-${Math.random()}`,
-        type: 'quiz',
-        date: q.created_at || q.quiz_date,
-        category: 'quiz',
-        title: 'Quiz Attempt',
-        description: `Score: ${q.score} points`,
-        points: Number(q.score) || 0,
-        details: {
-            week: q.quiz_date || 'Week',
-            score: q.score || 0
-        },
-        status: 'completed'
-    }));
+    // Add quiz activities
+    historyState.quizData.forEach(q => {
+        activities.push({
+            id: `quiz-${q.quiz_date}-${Date.now()}-${Math.random()}`,
+            type: 'quiz',
+            category: 'quiz',
+            date: q.created_at || q.quiz_date,
+            title: 'Quiz Attempt',
+            description: `Score: ${q.score} points`,
+            points: Number(q.score) || 0,
+            details: { week: q.quiz_date, score: q.score }
+        });
+    });
     
-    // Format purchase data
-    const purchaseActivities = historyData.purchases.map(p => ({
-        id: `purchase-${p.invoice_id}`,
-        type: 'purchase',
-        date: p.created_at,
-        category: 'purchase',
-        title: p.item || 'Purchase',
-        description: `₹${p.amount} • ${p.points} points`,
-        points: Number(p.points) || 0,
-        details: {
-            invoiceId: p.invoice_id,
-            item: p.item,
-            amount: p.amount,
-            stamp: p.stamp
-        },
-        status: 'completed'
-    }));
+    // Add purchase activities
+    historyState.purchaseData.forEach(p => {
+        activities.push({
+            id: `purchase-${p.invoice_id || Date.now()}`,
+            type: 'purchase',
+            category: 'purchase',
+            date: p.created_at,
+            title: p.item || 'Purchase',
+            description: `₹${p.amount} • ${p.points} points`,
+            points: Number(p.points) || 0,
+            details: {
+                invoiceId: p.invoice_id,
+                item: p.item,
+                amount: p.amount,
+                stamp: p.stamp
+            }
+        });
+    });
     
-    // Format points data
-    const pointActivities = historyData.points.map(p => {
+    // Add points activities
+    historyState.pointsData.forEach(p => {
         const points = Number(p.points) || 0;
-        return {
+        activities.push({
             id: `points-${p.created_at}-${Math.random()}`,
             type: 'points',
-            date: p.created_at,
             category: 'points',
+            date: p.created_at,
             title: p.type === 'earn' ? '✨ Points Earned' : '💸 Points Used',
             description: p.description || 'Transaction',
             points: p.type === 'earn' ? points : -points,
-            details: {
-                type: p.type,
-                description: p.description
-            },
-            status: 'completed'
-        };
+            details: { type: p.type, description: p.description }
+        });
     });
     
-    // Combine all
-    allActivities = [...quizActivities, ...purchaseActivities, ...pointActivities];
-    
     // Filter by category
-    if (currentFilter !== 'all') {
-        allActivities = allActivities.filter(a => a.category === currentFilter);
+    let filtered = activities;
+    if (historyState.currentFilter !== 'all') {
+        filtered = activities.filter(a => a.category === historyState.currentFilter);
     }
     
     // Sort by date (newest first)
-    allActivities.sort((a, b) => {
+    filtered.sort((a, b) => {
         const dateA = a.date ? new Date(a.date).getTime() : 0;
         const dateB = b.date ? new Date(b.date).getTime() : 0;
         return dateB - dateA;
     });
     
-    return allActivities;
+    return filtered;
 }
 
 // ========================================
-// RENDERING
+// TABLE RENDERING
 // ========================================
 
-function renderHistory() {
+function renderHistoryTable() {
     const tbody = document.getElementById('tableBody');
     const tableHeader = document.getElementById('tableHeader');
     const loadMoreContainer = document.getElementById('loadMoreContainer');
     
-    if (!tbody || !tableHeader) return;
+    if (!tbody || !tableHeader) {
+        console.error('❌ Table elements not found');
+        return;
+    }
     
     const filteredData = getFilteredData();
-    const headers = getHeaders();
+    const headers = getTableHeaders();
     
     // Update headers
-    updateHeaders(tableHeader, headers);
+    updateTableHeaders(tableHeader, headers);
     
     if (filteredData.length === 0) {
         showEmptyState(tbody, headers.length);
-        loadMoreContainer.style.display = 'none';
+        if (loadMoreContainer) loadMoreContainer.style.display = 'none';
         return;
     }
     
     // Paginate
-    const start = 0;
-    const end = currentPage * pageSize;
+    const end = historyState.currentPage * historyState.pageSize;
     const paginatedData = filteredData.slice(0, end);
     
     // Generate rows
-    tbody.innerHTML = paginatedData.map(item => generateRow(item)).join('');
+    tbody.innerHTML = paginatedData.map(item => generateTableRow(item)).join('');
     
     // Show/hide load more
-    if (end < filteredData.length) {
-        loadMoreContainer.style.display = 'block';
-        document.getElementById('remainingCount').textContent = 
-            `+${filteredData.length - end} more`;
-    } else {
-        loadMoreContainer.style.display = 'none';
+    if (loadMoreContainer) {
+        if (end < filteredData.length) {
+            loadMoreContainer.style.display = 'block';
+            const remaining = document.getElementById('remainingCount');
+            if (remaining) {
+                remaining.textContent = `+${filteredData.length - end} more`;
+            }
+        } else {
+            loadMoreContainer.style.display = 'none';
+        }
     }
 }
 
-function getHeaders() {
+function getTableHeaders() {
     const headers = {
         all: ['Date & Time', 'Activity', 'Details', 'Points', 'Status'],
         quiz: ['Date & Time', 'Quiz', 'Week', 'Score', 'Status'],
         purchase: ['Date & Time', 'Item', 'Amount', 'Points', 'Stamp', 'Invoice'],
         points: ['Date & Time', 'Type', 'Description', 'Points', 'Status']
     };
-    return headers[currentFilter] || headers.all;
+    return headers[historyState.currentFilter] || headers.all;
 }
 
-function updateHeaders(headerElement, headers) {
+function updateTableHeaders(headerElement, headers) {
     headerElement.innerHTML = `
         <tr>
             ${headers.map(h => `<th>${h}</th>`).join('')}
@@ -358,16 +468,16 @@ function updateHeaders(headerElement, headers) {
     `;
 }
 
-function generateRow(item) {
+function generateTableRow(item) {
     const date = formatDate(item.date);
     
-    switch (currentFilter) {
+    switch (historyState.currentFilter) {
         case 'quiz':
             return `
                 <tr class="type-quiz">
                     <td>${date}</td>
                     <td><strong>Quiz Attempt</strong></td>
-                    <td>Week ${item.details.week}</td>
+                    <td>Week ${item.details.week || '-'}</td>
                     <td class="points-positive">+${item.points}</td>
                     <td><span class="status-badge status-completed">Completed</span></td>
                 </tr>
@@ -377,8 +487,8 @@ function generateRow(item) {
             return `
                 <tr class="type-purchase">
                     <td>${date}</td>
-                    <td><strong>${item.details.item}</strong></td>
-                    <td>₹${item.details.amount}</td>
+                    <td><strong>${item.details.item || 'Item'}</strong></td>
+                    <td>₹${item.details.amount || 0}</td>
                     <td class="points-positive">+${item.points}</td>
                     <td>
                         <span class="status-badge ${item.details.stamp === 'Yes' ? 'status-completed' : 'status-pending'}">
@@ -408,7 +518,7 @@ function generateRow(item) {
                 </tr>
             `;
             
-        default: // all activities
+        default:
             return `
                 <tr class="type-${item.category}">
                     <td>${date}</td>
@@ -417,7 +527,7 @@ function generateRow(item) {
                     <td class="${item.points > 0 ? 'points-positive' : item.points < 0 ? 'points-negative' : ''}">
                         ${item.points > 0 ? '+' : ''}${item.points}
                     </td>
-                    <td><span class="status-badge status-completed">${item.status}</span></td>
+                    <td><span class="status-badge status-completed">Completed</span></td>
                 </tr>
             `;
     }
@@ -427,9 +537,9 @@ function generateRow(item) {
 // LOAD MORE
 // ========================================
 
-function loadMore() {
-    currentPage++;
-    renderHistory();
+function loadMoreHistory() {
+    historyState.currentPage++;
+    renderHistoryTable();
 }
 
 // ========================================
@@ -440,10 +550,12 @@ async function openInvoice(invoiceId) {
     const modal = document.getElementById('invoiceModal');
     const content = document.getElementById('invoiceContent');
     
-    if (!modal || !content) return;
+    if (!modal || !content) {
+        console.error('❌ Modal elements not found');
+        return;
+    }
     
-    // Show modal with loading
-    modal.classList.add('active');
+    modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
     
     content.innerHTML = `
@@ -455,7 +567,7 @@ async function openInvoice(invoiceId) {
     
     try {
         const response = await fetch(
-            `${CONFIG.WORKER_URL}/api/user/invoice?invoice=${invoiceId}`,
+            `${window.CONFIG?.WORKER_URL || ''}/api/user/invoice?invoice=${invoiceId}`,
             {
                 credentials: 'include',
                 headers: { 'X-Client-Host': window.location.host }
@@ -465,10 +577,9 @@ async function openInvoice(invoiceId) {
         const data = await response.json();
         
         if (!data.success) {
-            throw new Error('Invoice not found');
+            throw new Error(data.error || 'Invoice not found');
         }
         
-        // Render invoice
         content.innerHTML = generateInvoiceHTML(data.invoice);
         
     } catch (error) {
@@ -476,7 +587,8 @@ async function openInvoice(invoiceId) {
         content.innerHTML = `
             <div class="error-state">
                 <i class="fas fa-exclamation-circle"></i>
-                <p>Failed to load invoice. Please try again.</p>
+                <p>Failed to load invoice</p>
+                <button onclick="window.closeInvoice()" class="close-error-btn">Close</button>
             </div>
         `;
     }
@@ -485,7 +597,7 @@ async function openInvoice(invoiceId) {
 function closeInvoice() {
     const modal = document.getElementById('invoiceModal');
     if (modal) {
-        modal.classList.remove('active');
+        modal.style.display = 'none';
         document.body.style.overflow = '';
     }
 }
@@ -506,11 +618,10 @@ function generateInvoiceHTML(invoice) {
     
     return `
         <div class="invoice-header">
-            <img src="/assets/images/AGTechScript.webp" alt="AG TechScript" class="invoice-logo">
             <h2>AG Electronics</h2>
             <p class="invoice-subtitle">A Unit of AG TechScript™</p>
-            <p class="invoice-address">Baba Jaharveer Mandir, Kisrauli, Kasganj UP 207124</p>
-            <p class="invoice-contact">📞 6397563847 | GSTIN: 09JYTPK4090Q1Z3</p>
+            <p>Baba Jaharveer Mandir, Kisrauli, Kasganj UP 207124</p>
+            <p>📞 6397563847 | GSTIN: 09JYTPK4090Q1Z3</p>
         </div>
         
         <div class="invoice-body">
@@ -524,46 +635,36 @@ function generateInvoiceHTML(invoice) {
                 <p><strong>User ID:</strong> ${user.user_id}</p>
                 <p><strong>Name:</strong> ${user.name || 'N/A'}</p>
                 <p><strong>Phone:</strong> ${user.phone || 'N/A'}</p>
-                <p><strong>Address:</strong> ${user.address || 'N/A'}</p>
             </div>
             
-            <div class="invoice-items">
-                <h3>Item Details</h3>
-                <table class="invoice-table">
-                    <thead>
-                        <tr>
-                            <th>S No.</th>
-                            <th>Item</th>
-                            <th>Rate</th>
-                            <th>Qty</th>
-                            <th>Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${itemsHTML}
-                    </tbody>
-                    <tfoot>
-                        <tr>
-                            <td colspan="4" style="text-align:right;"><strong>Total Amount:</strong></td>
-                            <td><strong>₹${invoice.total_amount}</strong></td>
-                        </tr>
-                        <tr>
-                            <td colspan="4" style="text-align:right;"><strong>Points Earned:</strong></td>
-                            <td><strong>${invoice.total_points} Points</strong></td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-            
-            <div class="invoice-footer">
-                <p class="tax-note">Composition taxable person, not eligible to collect tax on supplies.</p>
-                <p class="return-policy">*No return. 7 days replacement applicable only for manufacturing defects.</p>
-                <p class="signature">Authorised Signatory</p>
-            </div>
+            <table class="invoice-table">
+                <thead>
+                    <tr>
+                        <th>S No.</th>
+                        <th>Item</th>
+                        <th>Rate</th>
+                        <th>Qty</th>
+                        <th>Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${itemsHTML}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="4" style="text-align:right;"><strong>Total:</strong></td>
+                        <td><strong>₹${invoice.total_amount}</strong></td>
+                    </tr>
+                    <tr>
+                        <td colspan="4" style="text-align:right;"><strong>Points Earned:</strong></td>
+                        <td><strong>${invoice.total_points}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
             
             <div class="invoice-actions">
-                <button onclick="window.print()" class="invoice-print-btn">
-                    <i class="fas fa-print"></i> Print Invoice
+                <button onclick="window.print()" class="print-btn">
+                    <i class="fas fa-print"></i> Print
                 </button>
             </div>
         </div>
@@ -576,22 +677,21 @@ function generateInvoiceHTML(invoice) {
 
 function formatDate(dateString) {
     if (!dateString) return '-';
-    
     try {
         const date = new Date(dateString);
         if (isNaN(date.getTime())) return dateString;
-        
         return date.toLocaleString('en-IN', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit', hour12: true
         });
     } catch {
         return dateString;
     }
+}
+
+function showToast(message, type = 'info') {
+    console.log(`Toast [${type}]: ${message}`);
+    // Implement toast if you have a toast system
 }
 
 // ========================================
@@ -604,35 +704,16 @@ function showSkeletonLoading() {
     
     if (statsGrid) {
         statsGrid.innerHTML = `
-            <div class="stat-card skeleton">
-                <div class="stat-icon"></div>
-                <div class="stat-info"></div>
-            </div>
-            <div class="stat-card skeleton">
-                <div class="stat-icon"></div>
-                <div class="stat-info"></div>
-            </div>
-            <div class="stat-card skeleton">
-                <div class="stat-icon"></div>
-                <div class="stat-info"></div>
-            </div>
-            <div class="stat-card skeleton">
-                <div class="stat-icon"></div>
-                <div class="stat-info"></div>
-            </div>
+            <div class="stat-card skeleton"><div class="stat-icon"></div><div class="stat-info"></div></div>
+            <div class="stat-card skeleton"><div class="stat-icon"></div><div class="stat-info"></div></div>
+            <div class="stat-card skeleton"><div class="stat-icon"></div><div class="stat-info"></div></div>
+            <div class="stat-card skeleton"><div class="stat-icon"></div><div class="stat-info"></div></div>
         `;
     }
     
     if (tbody) {
         tbody.innerHTML = `
-            <tr class="skeleton-row">
-                <td colspan="5">
-                    <div class="skeleton-line"></div>
-                    <div class="skeleton-line"></div>
-                    <div class="skeleton-line"></div>
-                    <div class="skeleton-line"></div>
-                </td>
-            </tr>
+            <tr><td colspan="5"><div class="skeleton-line"></div><div class="skeleton-line"></div></td></tr>
         `;
     }
 }
@@ -643,22 +724,19 @@ function showEmptyState(tbody, colspan) {
             <td colspan="${colspan}" class="empty-state">
                 <i class="fas fa-inbox"></i>
                 <p>No activities found</p>
-                <small>Your history will appear here</small>
             </td>
         </tr>
     `;
 }
 
-function showError() {
+function showErrorState(message) {
     const tbody = document.getElementById('tableBody');
-    const statsGrid = document.getElementById('statsGrid');
-    
     if (tbody) {
         tbody.innerHTML = `
             <tr>
                 <td colspan="5" class="empty-state error">
                     <i class="fas fa-exclamation-triangle"></i>
-                    <p>Failed to load history</p>
+                    <p>${message || 'Failed to load'}</p>
                     <button onclick="window.location.reload()" class="retry-btn">
                         <i class="fas fa-redo"></i> Retry
                     </button>
@@ -668,10 +746,17 @@ function showError() {
     }
 }
 
-function updateActiveFilter() {
-    const filter = document.getElementById('historyFilter');
-    if (filter) {
-        filter.value = currentFilter;
+function showFatalError() {
+    const container = document.querySelector('.history-container');
+    if (container) {
+        container.innerHTML = `
+            <div class="fatal-error">
+                <i class="fas fa-exclamation-circle"></i>
+                <h2>Something went wrong</h2>
+                <p>Please refresh the page or try again later.</p>
+                <button onclick="window.location.reload()">Refresh Page</button>
+            </div>
+        `;
     }
 }
 
@@ -680,15 +765,13 @@ function updateActiveFilter() {
 // ========================================
 
 function startAutoRefresh() {
-    // Clear existing interval
-    if (refreshInterval) {
-        clearInterval(refreshInterval);
+    if (historyState.refreshInterval) {
+        clearInterval(historyState.refreshInterval);
     }
     
-    // Set new interval (60 seconds)
-    refreshInterval = setInterval(async () => {
-        console.log('🔄 Auto-refreshing history...');
-        await loadHistoryData();
+    historyState.refreshInterval = setInterval(() => {
+        console.log('🔄 Auto-refreshing...');
+        loadHistoryData();
     }, 60000);
 }
 
@@ -697,8 +780,8 @@ function startAutoRefresh() {
 // ========================================
 
 window.addEventListener('beforeunload', () => {
-    if (refreshInterval) {
-        clearInterval(refreshInterval);
+    if (historyState.refreshInterval) {
+        clearInterval(historyState.refreshInterval);
     }
 });
 
@@ -708,4 +791,4 @@ window.addEventListener('beforeunload', () => {
 
 window.openInvoice = openInvoice;
 window.closeInvoice = closeInvoice;
-window.loadMore = loadMore;
+window.loadMoreHistory = loadMoreHistory;
