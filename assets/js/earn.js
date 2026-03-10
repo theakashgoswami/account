@@ -12,7 +12,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     showLoading();
     await loadHeader();
     await loadQuiz();
-    hideLoading();
+    // No need to call hideLoading() as render functions replace content
 });
 
 /* ===========================================
@@ -29,10 +29,6 @@ function showLoading() {
             </div>
         `;
     }
-}
-
-function hideLoading() {
-    // Loading removed by render functions
 }
 
 /* ===========================================
@@ -123,6 +119,9 @@ function renderQuiz() {
         return;
     }
 
+    // Reset selections for new quiz
+    selected = {};
+
     requestAnimationFrame(() => {
         container.innerHTML = `
             <div class="prepare-wrapper">
@@ -131,19 +130,37 @@ function renderQuiz() {
                 </a>
             </div>
 
-            ${quizData.map((q, index) => `
-                <div class="quiz-card" data-id="${q.qid}">
-                    <div class="question-number">Question ${index + 1}/${quizData.length}</div>
-                    <h3>${q.question}</h3>
+            ${quizData.map((q, index) => {
+                // Ensure option properties exist
+                const optA = q.option_a || 'Option A';
+                const optB = q.option_b || 'Option B';
+                const optC = q.option_c || 'Option C';
+                const optD = q.option_d || 'Option D';
+                
+                return `
+                    <div class="quiz-card" data-id="${q.qid}">
+                        <div class="question-number">Question ${index + 1}/${quizData.length}</div>
+                        <h3>${q.question}</h3>
 
-                    ${["A", "B", "C", "D"].map(opt => `
-                        <div class="option ${selected[q.qid] === opt ? 'selected' : ''}" 
-                             onclick="selectAnswer('${q.qid}', '${opt}', this)">
-                            ${opt}. ${q["option_" + opt.toLowerCase()]}
+                        <div class="option ${selected[q.qid] === 'A' ? 'selected' : ''}" 
+                             onclick="selectAnswer('${q.qid}', 'A', this)">
+                            A. ${optA}
                         </div>
-                    `).join("")}
-                </div>
-            `).join("")}
+                        <div class="option ${selected[q.qid] === 'B' ? 'selected' : ''}" 
+                             onclick="selectAnswer('${q.qid}', 'B', this)">
+                            B. ${optB}
+                        </div>
+                        <div class="option ${selected[q.qid] === 'C' ? 'selected' : ''}" 
+                             onclick="selectAnswer('${q.qid}', 'C', this)">
+                            C. ${optC}
+                        </div>
+                        <div class="option ${selected[q.qid] === 'D' ? 'selected' : ''}" 
+                             onclick="selectAnswer('${q.qid}', 'D', this)">
+                            D. ${optD}
+                        </div>
+                    </div>
+                `;
+            }).join("")}
 
             <button class="submit-btn" onclick="submitQuiz()">📤 Submit Quiz</button>
         `;
@@ -215,7 +232,7 @@ async function submitQuiz() {
         console.error("Submit error:", err);
         alert(`Error: ${err.message}`);
         btn.disabled = false;
-        btn.textContent = "📤 Submit Quiz";
+        btn.innerHTML = "📤 Submit Quiz";
     } finally {
         submitting = false;
     }
@@ -255,17 +272,19 @@ function showResult(score) {
 
     document.getElementById("resultModal").style.display = "flex";
     
-    // Auto-close after 5 seconds
+    // Auto-close after 5 seconds - but don't reload
     setTimeout(() => {
         if (document.getElementById("resultModal").style.display === "flex") {
-            closeResult();
+            closeResult(false); // Pass false to prevent reload
         }
     }, 5000);
 }
 
-function closeResult() {
+function closeResult(reload = true) {
     document.getElementById("resultModal").style.display = "none";
-    location.reload();
+    if (reload) {
+        location.reload();
+    }
 }
 
 window.closeResult = closeResult;
@@ -290,37 +309,82 @@ function viewMyAnswers() {
         quizData.forEach((q, index) => {
             const qid = q.qid;
             const selectedOpt = userSelections[qid] || '';
-            const correctOpt = q.correct_option || 'A'; // Fallback if not available
+            const correctOpt = q.correct_option || 'A';
 
             const card = document.createElement("div");
             card.className = "quiz-card view-mode";
 
+            // Ensure option properties exist
+            const optA = q.option_a || 'Option A';
+            const optB = q.option_b || 'Option B';
+            const optC = q.option_c || 'Option C';
+            const optD = q.option_d || 'Option D';
+
             let optionsHTML = "";
-            ["A", "B", "C", "D"].forEach(opt => {
-                let className = "option";
-                let indicator = "";
-
-                if (opt === correctOpt) {
-                    className += " correct-answer";
+            
+            // Option A
+            let classA = "option";
+            let indicatorA = "";
+            if ('A' === correctOpt) classA += " correct-answer";
+            if ('A' === selectedOpt) {
+                classA += " selected";
+                if ('A' === correctOpt) {
+                    indicatorA = " ✓";
+                    classA += " correct-selected";
+                } else {
+                    indicatorA = " ✗";
+                    classA += " wrong-answer";
                 }
-
-                if (opt === selectedOpt) {
-                    className += " selected";
-                    if (opt === correctOpt) {
-                        indicator = " ✓";
-                        className += " correct-selected";
-                    } else {
-                        indicator = " ✗";
-                        className += " wrong-answer";
-                    }
+            }
+            optionsHTML += `<div class="${classA}">A. ${optA} ${indicatorA}</div>`;
+            
+            // Option B
+            let classB = "option";
+            let indicatorB = "";
+            if ('B' === correctOpt) classB += " correct-answer";
+            if ('B' === selectedOpt) {
+                classB += " selected";
+                if ('B' === correctOpt) {
+                    indicatorB = " ✓";
+                    classB += " correct-selected";
+                } else {
+                    indicatorB = " ✗";
+                    classB += " wrong-answer";
                 }
-
-                optionsHTML += `
-                    <div class="${className}">
-                        ${opt}. ${q["option_" + opt.toLowerCase()]} ${indicator}
-                    </div>
-                `;
-            });
+            }
+            optionsHTML += `<div class="${classB}">B. ${optB} ${indicatorB}</div>`;
+            
+            // Option C
+            let classC = "option";
+            let indicatorC = "";
+            if ('C' === correctOpt) classC += " correct-answer";
+            if ('C' === selectedOpt) {
+                classC += " selected";
+                if ('C' === correctOpt) {
+                    indicatorC = " ✓";
+                    classC += " correct-selected";
+                } else {
+                    indicatorC = " ✗";
+                    classC += " wrong-answer";
+                }
+            }
+            optionsHTML += `<div class="${classC}">C. ${optC} ${indicatorC}</div>`;
+            
+            // Option D
+            let classD = "option";
+            let indicatorD = "";
+            if ('D' === correctOpt) classD += " correct-answer";
+            if ('D' === selectedOpt) {
+                classD += " selected";
+                if ('D' === correctOpt) {
+                    indicatorD = " ✓";
+                    classD += " correct-selected";
+                } else {
+                    indicatorD = " ✗";
+                    classD += " wrong-answer";
+                }
+            }
+            optionsHTML += `<div class="${classD}">D. ${optD} ${indicatorD}</div>`;
 
             const isCorrect = selectedOpt === correctOpt;
 
@@ -360,6 +424,8 @@ LEADERBOARD
 async function openLeaderboard() {
     const modal = document.getElementById("leaderboardModal");
     const list = document.getElementById("leaderboardList");
+
+    if (!modal || !list) return;
 
     modal.style.display = "flex";
     list.innerHTML = '<div class="loading-container"><div class="spinner"></div><p>Loading leaderboard...</p></div>';
@@ -406,10 +472,15 @@ async function openLeaderboard() {
                 rankClass = 'bronze';
             }
 
+            // Truncate user ID for privacy
+            const displayName = user.user_id.length > 8 
+                ? user.user_id.substring(0, 6) + '...' 
+                : user.user_id;
+
             return `
                 <div class="leaderboard-row ${rankClass}">
                     <span class="rank">${rankBadge}</span>
-                    <span class="user">${user.user_id.substring(0, 8)}...</span>
+                    <span class="user">${displayName}</span>
                     <span class="score">${user.score}</span>
                 </div>
             `;
@@ -422,9 +493,16 @@ async function openLeaderboard() {
 }
 
 function closeLeaderboard() {
-    document.getElementById("leaderboardModal").style.display = "none";
+    const modal = document.getElementById("leaderboardModal");
+    if (modal) {
+        modal.style.display = "none";
+    }
 }
 
+// Make functions globally available
 window.openLeaderboard = openLeaderboard;
 window.closeLeaderboard = closeLeaderboard;
 window.viewMyAnswers = viewMyAnswers;
+window.selectAnswer = selectAnswer;
+window.submitQuiz = submitQuiz;
+window.closeResult = closeResult;
