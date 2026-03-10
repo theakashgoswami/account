@@ -3,17 +3,17 @@ let selected = {};
 let submitted = false;
 let submitting = false;
 let userSelections = {};
-
+let correctAnswers = {};
 /* ===========================================
 INIT
 =========================================== */
 
 document.addEventListener("DOMContentLoaded", async () => {
     showLoading();
-    Promise.all([
-loadHeader(),
-loadQuiz()
-])
+    await Promise.all([
+        loadHeader(),
+        loadQuiz()
+    ]);
     
     // No need to call hideLoading() as render functions replace content
 });
@@ -242,9 +242,15 @@ async function submitQuiz() {
         btn.innerHTML = "📤 Submit Quiz";
     } finally {
         submitting = false;
-    }
-}
+    
 
+if (data.correctAnswers) {
+    data.correctAnswers.forEach(q=>{
+        correctAnswers[q.qid] = q.correct_option;
+    });
+}
+}
+}
 window.submitQuiz = submitQuiz;
 
 /* ===========================================
@@ -301,6 +307,7 @@ VIEW ANSWERS
 =========================================== */
 
 function viewMyAnswers() {
+
     const container = document.getElementById("quizContainer");
 
     if (!quizData || !quizData.length) {
@@ -308,119 +315,100 @@ function viewMyAnswers() {
         return;
     }
 
-    container.innerHTML = '<div class="loading-container"><div class="spinner"></div><p>Loading answers...</p></div>';
+    container.innerHTML =
+        '<div class="loading-container"><div class="spinner"></div><p>Loading answers...</p></div>';
 
     setTimeout(() => {
+
         const fragment = document.createDocumentFragment();
 
         quizData.forEach((q, index) => {
-            const qid = q.qid;
-const selectedOpt = userSelections[String(qid)] || '';
-const correctOpt = (q.correct_option || 'A').toUpperCase();
 
-            const card = document.createElement("div");
-            card.className = "quiz-card view-mode";
+            const qid = String(q.qid);
 
-            // Ensure option properties exist
+            const selectedOpt = userSelections[qid] || '';
+            const correctOpt = (correctAnswers[qid] || '').toUpperCase();
+
             const optA = q.option_a || 'Option A';
             const optB = q.option_b || 'Option B';
             const optC = q.option_c || 'Option C';
             const optD = q.option_d || 'Option D';
 
+            const options = {
+                A: optA,
+                B: optB,
+                C: optC,
+                D: optD
+            };
+
+            const card = document.createElement("div");
+            card.className = "quiz-card view-mode";
+
             let optionsHTML = "";
-            
-            // Option A
-            let classA = "option";
-            let indicatorA = "";
-            if ('A' === correctOpt) classA += " correct-answer";
-            if ('A' === selectedOpt) {
-                classA += " selected";
-                if ('A' === correctOpt) {
-                    indicatorA = " ✓";
-                    classA += " correct-selected";
-                } else {
-                    indicatorA = " ✗";
-                    classA += " wrong-answer";
+
+            Object.entries(options).forEach(([key, text]) => {
+
+                let className = "option";
+                let indicator = "";
+
+                if (key === correctOpt) className += " correct-answer";
+
+                if (key === selectedOpt) {
+                    className += " selected";
+
+                    if (key === correctOpt) {
+                        className += " correct-selected";
+                        indicator = " ✓";
+                    } else {
+                        className += " wrong-answer";
+                        indicator = " ✗";
+                    }
                 }
-            }
-            optionsHTML += `<div class="${classA}">A. ${optA} ${indicatorA}</div>`;
-            
-            // Option B
-            let classB = "option";
-            let indicatorB = "";
-            if ('B' === correctOpt) classB += " correct-answer";
-            if ('B' === selectedOpt) {
-                classB += " selected";
-                if ('B' === correctOpt) {
-                    indicatorB = " ✓";
-                    classB += " correct-selected";
-                } else {
-                    indicatorB = " ✗";
-                    classB += " wrong-answer";
-                }
-            }
-            optionsHTML += `<div class="${classB}">B. ${optB} ${indicatorB}</div>`;
-            
-            // Option C
-            let classC = "option";
-            let indicatorC = "";
-            if ('C' === correctOpt) classC += " correct-answer";
-            if ('C' === selectedOpt) {
-                classC += " selected";
-                if ('C' === correctOpt) {
-                    indicatorC = " ✓";
-                    classC += " correct-selected";
-                } else {
-                    indicatorC = " ✗";
-                    classC += " wrong-answer";
-                }
-            }
-            optionsHTML += `<div class="${classC}">C. ${optC} ${indicatorC}</div>`;
-            
-            // Option D
-            let classD = "option";
-            let indicatorD = "";
-            if ('D' === correctOpt) classD += " correct-answer";
-            if ('D' === selectedOpt) {
-                classD += " selected";
-                if ('D' === correctOpt) {
-                    indicatorD = " ✓";
-                    classD += " correct-selected";
-                } else {
-                    indicatorD = " ✗";
-                    classD += " wrong-answer";
-                }
-            }
-            optionsHTML += `<div class="${classD}">D. ${optD} ${indicatorD}</div>`;
+
+                optionsHTML += `
+                    <div class="${className}">
+                        ${key}. ${text} ${indicator}
+                    </div>
+                `;
+            });
 
             const isCorrect = selectedOpt === correctOpt;
 
             card.innerHTML = `
-                <div class="question-number">Question ${index + 1}/${quizData.length}</div>
+                <div class="question-number">
+                    Question ${index + 1}/${quizData.length}
+                </div>
+
                 <h3>${q.question}</h3>
+
                 ${optionsHTML}
-                <div class="answer-feedback" style="margin-top:15px;padding:12px;border-radius:8px; 
-                    ${isCorrect 
-                        ? "background:#d4edda;color:#155724;border-left:4px solid #28a745;" 
+
+                <div class="answer-feedback"
+                     style="margin-top:15px;padding:12px;border-radius:8px;
+                     ${isCorrect
+                        ? "background:#d4edda;color:#155724;border-left:4px solid #28a745;"
                         : "background:#f8d7da;color:#721c24;border-left:4px solid #dc3545;"}">
-                    ${isCorrect 
-                        ? "✅ Correct answer! Well done." 
+
+                    ${isCorrect
+                        ? "✅ Correct answer! Well done."
                         : `❌ Your answer: ${selectedOpt || 'Not answered'} | Correct answer: ${correctOpt}`}
                 </div>
             `;
 
             fragment.appendChild(card);
+
         });
 
-        // Add back button
         const backBtn = document.createElement("button");
         backBtn.className = "back-to-quiz-btn";
         backBtn.innerHTML = "← Back to Quiz";
         backBtn.onclick = () => location.reload();
+
         fragment.appendChild(backBtn);
 
         container.innerHTML = "";
         container.appendChild(fragment);
+
     }, 300);
 }
 
