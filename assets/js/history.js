@@ -112,24 +112,12 @@ function showError() {
 // LOAD HISTORY - WITH CACHE CHECK
 // ------------------------------------------------
 async function loadAllHistory() {
+
     if (isLoading) return;
     isLoading = true;
 
     try {
-        // Check session storage cache (2 minutes)
-        const cached = sessionStorage.getItem('history_cache');
-        const cacheTime = sessionStorage.getItem('history_cache_time');
-        
-        if (cached && cacheTime && (Date.now() - Number(cacheTime) < 120000)) {
-            // Use cached data
-            allHistoryData = JSON.parse(cached);
-            updateSummaryStats();
-            renderHistory();
-            isLoading = false;
-            return;
-        }
 
-        // Fetch fresh data
         const res = await fetch(
             `${CONFIG.WORKER_URL}/api/user/full-history`,
             {
@@ -142,15 +130,9 @@ async function loadAllHistory() {
 
         if (!data.success) throw new Error("API failed");
 
-        allHistoryData = {
-            quiz: Array.isArray(data.quiz) ? data.quiz : [],
-            purchases: Array.isArray(data.purchases) ? data.purchases : [],
-            points: Array.isArray(data.points) ? data.points : []
-        };
-
-        // Store in session storage
-        sessionStorage.setItem('history_cache', JSON.stringify(allHistoryData));
-        sessionStorage.setItem('history_cache_time', Date.now());
+        allHistoryData.quiz = data.quiz || [];
+        allHistoryData.purchases = data.purchases || [];
+        allHistoryData.points = data.points || [];
 
         updateSummaryStats();
         renderHistory();
@@ -158,9 +140,9 @@ async function loadAllHistory() {
     } catch (err) {
         console.error("History load error:", err);
         showError();
-    } finally {
-        isLoading = false;
     }
+
+    isLoading = false;
 }
 
 // ------------------------------------------------
@@ -396,47 +378,79 @@ function loadMore() {
 // FORMATTERS
 // ------------------------------------------------
 function formatQuiz() {
+
     return allHistoryData.quiz.map(q => ({
+
         category: 'quiz',
-        date: q.timestamp || q.created_at,
-        week: q.week || '-',
+        date: q.created_at || q.quiz_date,
+        week: q.quiz_date || '-',
         score: Number(q.score) || 0,
+
         activity: 'Quiz Attempt',
-        details: `Week ${q.week} | Score: ${q.score}/40`,
+        details: `Score: ${q.score}`,
+
         points: Number(q.score) || 0,
         status: 'completed'
+
     }));
 }
 
 function formatPurchase() {
-    return (allHistoryData.purchases || []).map(p => ({
+
+    return allHistoryData.purchases.map(p => ({
+
         category: 'purchase',
-        invoiceId: p.invoice || p.invoiceNo || '',
-        date: p.date || p.created_at,
+
+        invoiceId: p.invoice_id || '',
+
+        date: p.created_at,
+
         item: p.item || 'Item',
+
         amount: Number(p.amount) || 0,
+
         points: Number(p.points) || 0,
+
         stamp: p.stamp || 'No',
+
         activity: 'Purchase',
-        details: `${p.item || 'Item'} - ₹${p.amount || 0}`,
+
+        details: `${p.item} - ₹${p.amount}`,
+
         status: 'completed'
+
     }));
+
 }
 
 function formatPoints() {
+
     return allHistoryData.points.map(p => {
+
         const val = Number(p.points) || 0;
+
         return {
+
             category: 'points',
-            date: p.created_at || p.date,
+
+            date: p.created_at,
+
             typeLabel: p.type === 'earn' ? '✨ Earned' : '💸 Used',
-            description: p.description || p.reason || 'Transaction',
-            points: p.type === 'earn' ? Math.abs(val) : -Math.abs(val),
+
+            description: p.description || 'Transaction',
+
+            points: p.type === 'earn' ? val : -val,
+
             activity: p.type === 'earn' ? 'Points Earned' : 'Points Used',
-            details: p.description || p.reason || 'Transaction',
+
+            details: p.description || 'Transaction',
+
             status: 'completed'
+
         };
+
     });
+
 }
 
 // ------------------------------------------------
