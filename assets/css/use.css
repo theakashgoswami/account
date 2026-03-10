@@ -794,3 +794,193 @@
         width: 95%;
     }
 }
+/* Toast Notifications */
+.toast {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    padding: 15px 25px;
+    border-radius: 50px;
+    background: white;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transform: translateY(100px);
+    opacity: 0;
+    transition: all 0.3s ease;
+    z-index: 10001;
+}
+
+.toast.show {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.toast.success-toast {
+    background: linear-gradient(135deg, #4CAF50, #45a049);
+    color: white;
+}
+
+.toast.error-toast {
+    background: linear-gradient(135deg, #f44336, #d32f2f);
+    color: white;
+}
+
+.toast i {
+    font-size: 24px;
+}
+
+/* Reward Preview in Modal */
+.reward-preview {
+    text-align: center;
+    padding: 20px;
+    background: linear-gradient(135deg, #667eea10, #764ba210);
+    border-radius: 15px;
+    margin-bottom: 15px;
+}
+
+.reward-preview i {
+    color: #667eea;
+    margin-bottom: 10px;
+}
+
+.reward-preview h4 {
+    font-size: 20px;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.reward-preview .cost-display {
+    font-size: 18px;
+    font-weight: 600;
+    color: #667eea;
+}
+
+/* History Item Styling */
+.history-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+    background: white;
+    border-radius: 12px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    transition: transform 0.3s;
+}
+
+.history-item:hover {
+    transform: translateX(5px);
+    box-shadow: 0 5px 15px rgba(102,126,234,0.1);
+}
+
+.history-icon {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
+.history-details {
+    flex: 1;
+}
+
+.history-name {
+    font-weight: 600;
+    color: #333;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.history-date {
+    font-size: 12px;
+    color: #999;
+}
+
+.history-cost {
+    display: flex;
+    gap: 10px;
+}
+
+.points-used, .stamps-used {
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.points-used {
+    color: #667eea;
+}
+
+.stamps-used {
+    color: #ff9800;
+}
+
+.history-status {
+    padding: 4px 12px;
+    border-radius: 50px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.status-completed {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-pending {
+    background: #fff3cd;
+    color: #856404;
+}
+
+/* Disabled button state */
+.redeem-btn.disabled,
+.redeem-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #ccc !important;
+    pointer-events: none;
+}
+
+/* Loading State Enhancement */
+.loading-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #667eea;
+}
+
+.loading-state i {
+    font-size: 40px;
+    margin-bottom: 15px;
+}
+
+/* Empty State */
+.empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: #999;
+    font-size: 16px;
+}
+
+/* Responsive History */
+@media (max-width: 768px) {
+    .history-item {
+        flex-wrap: wrap;
+    }
+    
+    .history-cost {
+        width: 100%;
+        justify-content: flex-end;
+    }
+    
+    .toast {
+        left: 20px;
+        right: 20px;
+        bottom: 20px;
+        width: auto;
+    }
+}
