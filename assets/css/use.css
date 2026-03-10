@@ -1,4 +1,4 @@
-/* assets/css/use.css - Advanced Version */
+/* assets/css/use.css - Repaired & Optimized */
 
 /* Import Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap');
@@ -345,14 +345,16 @@
     box-shadow: 0 10px 20px rgba(102,126,234,0.3);
 }
 
-.redeem-btn:disabled {
+.redeem-btn:disabled,
+.redeem-btn.disabled {
     background: linear-gradient(135deg, #ccc 0%, #999 100%);
     cursor: not-allowed;
     opacity: 0.6;
+    pointer-events: none;
 }
 
 /* ============================================
-   HISTORY CONTAINER - ELEGANT TABLE
+   HISTORY CONTAINER - ELEGANT LIST
 ============================================ */
 .history-container {
     background: white;
@@ -362,61 +364,99 @@
     margin: 20px 0 40px;
 }
 
-.history-list {
-    width: 100%;
-}
-
+/* History Item Styling (Fixed) */
 .history-item {
-    display: grid;
-    grid-template-columns: 1fr 2fr 1fr 1fr;
+    display: flex;
     align-items: center;
+    gap: 15px;
     padding: 18px 25px;
+    background: white;
     border-bottom: 1px solid #f0f0f0;
-    transition: background 0.3s;
+    transition: all 0.3s;
 }
 
 .history-item:hover {
     background: #f8faff;
+    transform: translateX(5px);
 }
 
 .history-item:last-child {
     border-bottom: none;
 }
 
-.date {
-    color: #666;
-    font-size: 14px;
-    font-weight: 500;
+.history-icon {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    flex-shrink: 0;
 }
 
-.reason {
-    color: #333;
+.history-details {
+    flex: 1;
+    min-width: 0; /* Prevents overflow */
+}
+
+.history-name {
     font-weight: 600;
-    font-size: 15px;
+    color: #333;
+    display: block;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.points {
-    color: #f44336;
-    font-weight: 700;
-    font-size: 16px;
-    text-align: center;
+.history-date {
+    font-size: 12px;
+    color: #999;
+    display: block;
 }
 
-.status {
+.history-cost {
+    display: flex;
+    gap: 10px;
+    margin-right: 15px;
+    flex-shrink: 0;
+}
+
+.points-used, .stamps-used {
+    font-weight: 600;
+    font-size: 14px;
+    padding: 4px 8px;
+    border-radius: 20px;
+}
+
+.points-used {
+    color: #667eea;
+    background: rgba(102, 126, 234, 0.1);
+}
+
+.stamps-used {
+    color: #ff9800;
+    background: rgba(255, 152, 0, 0.1);
+}
+
+.history-status {
     padding: 6px 12px;
     border-radius: 50px;
     font-size: 12px;
     font-weight: 600;
     text-align: center;
-    width: fit-content;
+    flex-shrink: 0;
+    min-width: 80px;
 }
 
-.status:contains('completed') {
+.status-completed {
     background: #d4edda;
     color: #155724;
 }
 
-.status:contains('pending') {
+.status-pending {
     background: #fff3cd;
     color: #856404;
 }
@@ -452,6 +492,8 @@
     overflow: hidden;
     box-shadow: 0 30px 60px rgba(0,0,0,0.3);
     animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    z-index: 10001;
 }
 
 @keyframes slideUp {
@@ -484,6 +526,7 @@
     align-items: center;
     justify-content: center;
     font-size: 24px;
+    flex-shrink: 0;
 }
 
 .modal-header h3 {
@@ -506,6 +549,7 @@
     cursor: pointer;
     transition: all 0.3s;
     font-size: 18px;
+    flex-shrink: 0;
 }
 
 .modal-close:hover {
@@ -517,8 +561,10 @@
     padding: 30px;
 }
 
-.reward-preview-card {
-    background: #f8faff;
+/* Reward Preview (Consolidated) */
+.reward-preview-card,
+.reward-preview {
+    background: linear-gradient(135deg, #667eea10, #764ba210);
     border-radius: 16px;
     padding: 20px;
     text-align: center;
@@ -526,20 +572,28 @@
     border: 2px dashed #667eea;
 }
 
-.reward-preview-card p {
+.reward-preview-card p,
+.reward-preview p {
     margin: 8px 0;
 }
 
-.reward-preview-card p:first-child {
+.reward-preview-card p:first-child,
+.reward-preview h4 {
     font-size: 18px;
     font-weight: 700;
     color: #333;
 }
 
-.reward-preview-card p:last-child {
+.reward-preview-card p:last-child,
+.reward-preview .cost-display {
     color: #667eea;
     font-weight: 600;
     font-size: 16px;
+}
+
+.reward-preview i {
+    color: #667eea;
+    margin-bottom: 10px;
 }
 
 .warning-message {
@@ -557,6 +611,7 @@
 .warning-message i {
     font-size: 20px;
     color: #ffc107;
+    flex-shrink: 0;
 }
 
 .modal-footer {
@@ -596,42 +651,58 @@
     box-shadow: 0 10px 20px rgba(102,126,234,0.3);
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
     transform: translateY(-2px);
     box-shadow: 0 15px 30px rgba(102,126,234,0.4);
 }
 
+.btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 /* ============================================
-   TOAST NOTIFICATION
+   TOAST NOTIFICATION - FIXED
 ============================================ */
 .toast {
     position: fixed;
-    top: 20px;
-    right: 20px;
-    background: white;
-    border-radius: 12px;
+    bottom: 30px;
+    right: 30px;
     padding: 15px 25px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    border-radius: 50px;
+    background: white;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
     display: flex;
     align-items: center;
     gap: 12px;
+    transform: translateY(100px);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
     z-index: 10001;
-    transform: translateX(120%);
-    transition: transform 0.3s ease;
-    border-left: 4px solid #4CAF50;
+    pointer-events: none; /* PREVENTS CLICK BLOCKING WHEN HIDDEN */
 }
 
 .toast.show {
-    transform: translateX(0);
+    transform: translateY(0);
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto; /* ENABLES CLICKS ONLY WHEN VISIBLE */
 }
 
 .toast.success-toast {
-    border-left-color: #4CAF50;
+    background: linear-gradient(135deg, #4CAF50, #45a049);
+    color: white;
+}
+
+.toast.error-toast {
+    background: linear-gradient(135deg, #f44336, #d32f2f);
+    color: white;
 }
 
 .toast i {
-    font-size: 20px;
-    color: #4CAF50;
+    font-size: 24px;
+    flex-shrink: 0;
 }
 
 /* ============================================
@@ -670,41 +741,35 @@
 }
 
 /* ============================================
-   LOADING STATES
+   LOADING & EMPTY STATES
 ============================================ */
-.loading-state {
+.loading-state,
+.empty-state,
+.error-state,
+.empty {
     text-align: center;
-    padding: 60px;
-    color: #667eea;
+    padding: 60px 20px;
     background: white;
     border-radius: 20px;
     box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+    margin: 20px 0;
+}
+
+.loading-state i,
+.empty-state i,
+.error-state i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    display: block;
 }
 
 .loading-state i {
-    font-size: 40px;
-    margin-bottom: 15px;
+    color: #667eea;
+    animation: spin 1s linear infinite;
 }
 
-.loading-state p {
-    font-size: 16px;
-    color: #666;
-}
-
-.empty-state, .error-state {
-    text-align: center;
-    padding: 60px;
-    background: white;
-    border-radius: 20px;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.05);
-}
-
-.empty-state i, .error-state i {
-    font-size: 48px;
-    margin-bottom: 15px;
-}
-
-.empty-state i {
+.empty-state i,
+.empty i {
     color: #999;
 }
 
@@ -712,19 +777,32 @@
     color: #f44336;
 }
 
-.empty-state p, .error-state p {
+.loading-state p,
+.empty-state p,
+.error-state p,
+.empty p {
     font-size: 16px;
     color: #666;
+    margin: 0;
 }
 
 .error-state p {
     color: #f44336;
 }
 
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
 /* ============================================
    RESPONSIVE DESIGN
 ============================================ */
 @media (max-width: 768px) {
+    .use-container {
+        margin-top: 70px;
+    }
+    
     .redeem-hero {
         flex-direction: column;
         text-align: center;
@@ -752,12 +830,24 @@
     }
     
     .history-item {
-        gap: 8px;
-        text-align: left;
+        flex-wrap: wrap;
+        gap: 12px;
     }
     
-    .points, .status {
-        text-align: left;
+    .history-details {
+        width: 100%;
+        order: 1;
+    }
+    
+    .history-cost {
+        width: auto;
+        order: 2;
+        margin-right: 0;
+    }
+    
+    .history-status {
+        order: 3;
+        margin-left: auto;
     }
     
     .modal-footer {
@@ -770,6 +860,14 @@
         width: 40px;
         height: 40px;
         font-size: 16px;
+    }
+    
+    .toast {
+        left: 20px;
+        right: 20px;
+        bottom: 20px;
+        width: auto;
+        max-width: none;
     }
 }
 
@@ -790,197 +888,20 @@
         font-size: 20px;
     }
     
-    .modal-content {
-        width: 95%;
-    }
-}
-/* Toast Notifications */
-.toast {
-    position: fixed;
-    bottom: 30px;
-    right: 30px;
-    padding: 15px 25px;
-    border-radius: 50px;
-    background: white;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    transform: translateY(100px);
-    opacity: 0;
-    transition: all 0.3s ease;
-    z-index: 10001;
-}
-
-.toast.show {
-    transform: translateY(0);
-    opacity: 1;
-}
-
-.toast.success-toast {
-    background: linear-gradient(135deg, #4CAF50, #45a049);
-    color: white;
-}
-
-.toast.error-toast {
-    background: linear-gradient(135deg, #f44336, #d32f2f);
-    color: white;
-}
-
-.toast i {
-    font-size: 24px;
-}
-
-/* Reward Preview in Modal */
-.reward-preview {
-    text-align: center;
-    padding: 20px;
-    background: linear-gradient(135deg, #667eea10, #764ba210);
-    border-radius: 15px;
-    margin-bottom: 15px;
-}
-
-.reward-preview i {
-    color: #667eea;
-    margin-bottom: 10px;
-}
-
-.reward-preview h4 {
-    font-size: 20px;
-    margin-bottom: 10px;
-    color: #333;
-}
-
-.reward-preview .cost-display {
-    font-size: 18px;
-    font-weight: 600;
-    color: #667eea;
-}
-
-/* History Item Styling */
-.history-item {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    padding: 15px;
-    background: white;
-    border-radius: 12px;
-    margin-bottom: 10px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    transition: transform 0.3s;
-}
-
-.history-item:hover {
-    transform: translateX(5px);
-    box-shadow: 0 5px 15px rgba(102,126,234,0.1);
-}
-
-.history-icon {
-    width: 40px;
-    height: 40px;
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-}
-
-.history-details {
-    flex: 1;
-}
-
-.history-name {
-    font-weight: 600;
-    color: #333;
-    display: block;
-    margin-bottom: 4px;
-}
-
-.history-date {
-    font-size: 12px;
-    color: #999;
-}
-
-.history-cost {
-    display: flex;
-    gap: 10px;
-}
-
-.points-used, .stamps-used {
-    font-weight: 600;
-    font-size: 14px;
-}
-
-.points-used {
-    color: #667eea;
-}
-
-.stamps-used {
-    color: #ff9800;
-}
-
-.history-status {
-    padding: 4px 12px;
-    border-radius: 50px;
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.status-completed {
-    background: #d4edda;
-    color: #155724;
-}
-
-.status-pending {
-    background: #fff3cd;
-    color: #856404;
-}
-
-/* Disabled button state */
-.redeem-btn.disabled,
-.redeem-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    background: #ccc !important;
-    pointer-events: none;
-}
-
-/* Loading State Enhancement */
-.loading-state {
-    text-align: center;
-    padding: 60px 20px;
-    color: #667eea;
-}
-
-.loading-state i {
-    font-size: 40px;
-    margin-bottom: 15px;
-}
-
-/* Empty State */
-.empty {
-    text-align: center;
-    padding: 60px 20px;
-    color: #999;
-    font-size: 16px;
-}
-
-/* Responsive History */
-@media (max-width: 768px) {
     .history-item {
-        flex-wrap: wrap;
+        padding: 15px;
     }
     
     .history-cost {
-        width: 100%;
-        justify-content: flex-end;
+        flex-direction: column;
+        gap: 5px;
     }
     
-    .toast {
-        left: 20px;
-        right: 20px;
-        bottom: 20px;
-        width: auto;
+    .points-used, .stamps-used {
+        text-align: center;
+    }
+    
+    .modal-content {
+        width: 95%;
     }
 }
