@@ -636,42 +636,51 @@ async function loadRecentRedeems() {
 // ======================================================
 // LOAD REDEEM HISTORY
 // ======================================================
+// ======================================================
+// LOAD REDEEM HISTORY
+// ======================================================
 async function loadRedeemHistory() {
   try {
     console.log("📜 Loading redeem history...");
-    
+
     const res = await fetch(`${CONFIG.WORKER_URL}/api/user/redeem-history`, {
       credentials: 'include',
       headers: { 'X-Client-Host': window.location.host }
     });
-    
+
     const data = await res.json();
     const historyEl = document.getElementById('redeemHistory');
-    
+
     if (data.success && data.history?.length) {
+
       const html = data.history.map(h => {
-        const value = h.points > 0 ? h.points : h.stamps;
-        const type = h.points > 0 ? 'points' : 'stamps';
-        
+
+        const value = h.reward_value;
+        const type = h.reward_type;
+
         return `
           <div class="history-item">
-            <span class="history-date">${formatDate(h.date)}</span>
-            <span class="history-desc">${h.description}</span>
-            <span class="history-value ${type}">+${value} ${type}</span>
+            <span class="history-date">${formatDate(h.redeemed_at)}</span>
+            <span class="history-desc">Redeemed code: ${h.code}</span>
+            <span class="history-value ${type}">
+              +${value} ${type}
+            </span>
           </div>
         `;
+
       }).join('');
-      
+
       historyEl.innerHTML = html;
+
     } else {
       historyEl.innerHTML = '<div class="empty">No redeem history yet</div>';
     }
+
   } catch (err) {
     console.error("❌ History error:", err);
     document.getElementById('redeemHistory').innerHTML = '<div class="error">Failed to load</div>';
   }
 }
-
 // ======================================================
 // HELPER FUNCTIONS
 // ======================================================
