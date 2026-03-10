@@ -10,8 +10,11 @@ INIT
 
 document.addEventListener("DOMContentLoaded", async () => {
     showLoading();
-    await loadHeader();
-    await loadQuiz();
+    Promise.all([
+loadHeader(),
+loadQuiz()
+])
+    
     // No need to call hideLoading() as render functions replace content
 });
 
@@ -37,7 +40,6 @@ LOAD QUIZ
 
 async function loadQuiz() {
     const container = document.getElementById("quizContainer");
-
     try {
         const res = await fetch(
             `${CONFIG.WORKER_URL}/api/user/earn`,
@@ -57,7 +59,7 @@ async function loadQuiz() {
             container.innerHTML = `<p class="error-message">Error loading quiz: ${data.error || 'Unknown error'}</p>`;
             return;
         }
-
+        quizData = Array.isArray(data.earn) ? data.earn : [];
         /* ===============================
            ALREADY SUBMITTED
         =============================== */
@@ -79,7 +81,7 @@ async function loadQuiz() {
             }
 
             if (data.earn) {
-                quizData = data.earn;
+                quizData = Array.isArray(data.earn) ? data.earn : [];
             }
 
             container.innerHTML = `
@@ -98,7 +100,7 @@ async function loadQuiz() {
             return;
         }
 
-        quizData = data.earn;
+        quizData = Array.isArray(data.earn) ? data.earn : [];
         renderQuiz();
 
     } catch (err) {
@@ -162,7 +164,9 @@ function renderQuiz() {
                 `;
             }).join("")}
 
-            <button class="submit-btn" onclick="submitQuiz()">📤 Submit Quiz</button>
+           <button id="submitQuizBtn" class="submit-btn" onclick="submitQuiz()">
+📤 Submit Quiz
+</button>
         `;
     });
 }
@@ -178,7 +182,7 @@ function selectAnswer(qid, opt, el) {
     const card = el.closest(".quiz-card");
     card.querySelectorAll(".option").forEach(o => o.classList.remove("selected"));
     el.classList.add("selected");
-    
+    el.scrollIntoView({block:"nearest"});
     // Optional: Add haptic feedback for mobile
     if (window.navigator && window.navigator.vibrate) {
         window.navigator.vibrate(10);
@@ -200,7 +204,7 @@ async function submitQuiz() {
     }
 
     submitting = true;
-    const btn = document.querySelector(".submit-btn");
+   const btn = document.getElementById("submitQuizBtn")
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-small"></span> Submitting...';
 
