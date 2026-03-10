@@ -176,13 +176,7 @@
     line-height: 1.5;
 }
 
-/* Prepare Link */
-.prepare-wrapper {
-    position: sticky;
-    top: 80px;
-    z-index: 10;
-    margin-bottom: 20px;
-}
+
 
 .prepare-link {
     display: inline-block;

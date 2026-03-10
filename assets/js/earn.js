@@ -109,10 +109,6 @@ async function loadQuiz() {
     }
 }
 
-/* ===========================================
-RENDER QUIZ
-=========================================== */
-
 function renderQuiz() {
     const container = document.getElementById("quizContainer");
 
@@ -121,52 +117,59 @@ function renderQuiz() {
         return;
     }
 
-    // Reset selections for new quiz
     selected = {};
 
     requestAnimationFrame(() => {
         container.innerHTML = `
-            <div class="prepare-wrapper">
-                <a href="${quizData[0]?.prepare_link || '#'}" target="_blank" class="prepare-link">
-                    📘 Prepare for these questions
-                </a>
-            </div>
-
             ${quizData.map((q, index) => {
-                // Ensure option properties exist
+
                 const optA = q.option_a || 'Option A';
                 const optB = q.option_b || 'Option B';
                 const optC = q.option_c || 'Option C';
                 const optD = q.option_d || 'Option D';
-                
+
                 return `
                     <div class="quiz-card" data-id="${q.qid}">
-                        <div class="question-number">Question ${index + 1}/${quizData.length}</div>
+
+                        <div class="prepare-wrapper">
+                            <a href="${q.prepare_link || '#'}" target="_blank" class="prepare-link">
+                                📘 Prepare this question
+                            </a>
+                        </div>
+
+                        <div class="question-number">
+                            Question ${index + 1}/${quizData.length}
+                        </div>
+
                         <h3>${q.question}</h3>
 
-                        <div class="option ${selected[q.qid] === 'A' ? 'selected' : ''}" 
+                        <div class="option ${selected[q.qid] === 'A' ? 'selected' : ''}"
                              onclick="selectAnswer('${q.qid}', 'A', this)">
                             A. ${optA}
                         </div>
-                        <div class="option ${selected[q.qid] === 'B' ? 'selected' : ''}" 
+
+                        <div class="option ${selected[q.qid] === 'B' ? 'selected' : ''}"
                              onclick="selectAnswer('${q.qid}', 'B', this)">
                             B. ${optB}
                         </div>
-                        <div class="option ${selected[q.qid] === 'C' ? 'selected' : ''}" 
+
+                        <div class="option ${selected[q.qid] === 'C' ? 'selected' : ''}"
                              onclick="selectAnswer('${q.qid}', 'C', this)">
                             C. ${optC}
                         </div>
-                        <div class="option ${selected[q.qid] === 'D' ? 'selected' : ''}" 
+
+                        <div class="option ${selected[q.qid] === 'D' ? 'selected' : ''}"
                              onclick="selectAnswer('${q.qid}', 'D', this)">
                             D. ${optD}
                         </div>
+
                     </div>
                 `;
             }).join("")}
 
-           <button id="submitQuizBtn" class="submit-btn" onclick="submitQuiz()">
-📤 Submit Quiz
-</button>
+            <button id="submitQuizBtn" class="submit-btn" onclick="submitQuiz()">
+                📤 Submit Quiz
+            </button>
         `;
     });
 }
@@ -312,8 +315,8 @@ function viewMyAnswers() {
 
         quizData.forEach((q, index) => {
             const qid = q.qid;
-            const selectedOpt = userSelections[qid] || '';
-            const correctOpt = q.correct_option || 'A';
+const selectedOpt = userSelections[String(qid)] || '';
+const correctOpt = (q.correct_option || 'A').toUpperCase();
 
             const card = document.createElement("div");
             card.className = "quiz-card view-mode";
