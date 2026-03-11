@@ -26,6 +26,7 @@
     min-height: calc(100vh - 200px);
     background: linear-gradient(135deg, #667eea0a 0%, #764ba20a 100%);
     padding: 2rem 1rem;
+    margin-top: 80px;
 }
 
 .history-container {
