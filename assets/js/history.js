@@ -772,7 +772,7 @@ function startAutoRefresh() {
     historyState.refreshInterval = setInterval(() => {
         console.log('🔄 Auto-refreshing...');
         loadHistoryData();
-    }, 60000);
+    }, 1500000);
 }
 
 // ========================================
