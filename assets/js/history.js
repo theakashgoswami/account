@@ -603,9 +603,10 @@ function closeInvoice() {
 }
 
 function generateInvoiceHTML(invoice) {
+
     const items = invoice.items || [];
     const user = invoice.user || {};
-    
+
     const itemsHTML = items.map((item, index) => `
         <tr>
             <td>${index + 1}</td>
@@ -615,60 +616,166 @@ function generateInvoiceHTML(invoice) {
             <td>₹${item.amount || 0}</td>
         </tr>
     `).join('');
-    
+
     return `
-        <div class="invoice-header">
+
+<div class="invoice-wrapper">
+
+<!-- WATERMARK -->
+<div class="invoice-watermark">AG</div>
+
+<!-- HEADER -->
+<div class="invoice-header">
+
+    <div class="invoice-company">
+
+        <img src="/assets/images/AGTechScript.webp" class="invoice-logo">
+
+        <div>
             <h2>AG Electronics</h2>
             <p class="invoice-subtitle">A Unit of AG TechScript™</p>
             <p>Baba Jaharveer Mandir, Kisrauli, Kasganj UP 207124</p>
             <p>📞 6397563847 | GSTIN: 09JYTPK4090Q1Z3</p>
         </div>
-        
-        <div class="invoice-body">
-            <div class="invoice-details">
-                <p><strong>Invoice No:</strong> ${invoice.invoice_id}</p>
-                <p><strong>Date:</strong> ${formatDate(invoice.date)}</p>
-            </div>
-            
-            <div class="customer-details">
-                <h3>Customer Details</h3>
-                <p><strong>User ID:</strong> ${user.user_id}</p>
-                <p><strong>Name:</strong> ${user.name || 'N/A'}</p>
-                <p><strong>Phone:</strong> ${user.phone || 'N/A'}</p>
-            </div>
-            
-            <table class="invoice-table">
-                <thead>
-                    <tr>
-                        <th>S No.</th>
-                        <th>Item</th>
-                        <th>Rate</th>
-                        <th>Qty</th>
-                        <th>Amount</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${itemsHTML}
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td colspan="4" style="text-align:right;"><strong>Total:</strong></td>
-                        <td><strong>₹${invoice.total_amount}</strong></td>
-                    </tr>
-                    <tr>
-                        <td colspan="4" style="text-align:right;"><strong>Points Earned:</strong></td>
-                        <td><strong>${invoice.total_points}</strong></td>
-                    </tr>
-                </tfoot>
-            </table>
-            
-            <div class="invoice-actions">
-                <button onclick="window.print()" class="print-btn">
-                    <i class="fas fa-print"></i> Print
-                </button>
-            </div>
+
+    </div>
+
+    <div class="invoice-badge">
+        INVOICE
+    </div>
+
+</div>
+
+<!-- META INFO -->
+<div class="invoice-meta">
+
+    <div class="meta-box">
+        <span>Invoice No</span>
+        <strong>${invoice.invoice_id}</strong>
+    </div>
+
+    <div class="meta-box">
+        <span>Date</span>
+        <strong>${formatDate(invoice.date)}</strong>
+    </div>
+
+    <div class="meta-box">
+        <span>Status</span>
+        <strong class="paid">PAID</strong>
+    </div>
+
+</div>
+
+<!-- CUSTOMER -->
+<div class="customer-card">
+
+    <h3>Customer Details</h3>
+
+    <div class="customer-grid">
+
+        <div>
+            <span>User ID</span>
+            <strong>${user.user_id}</strong>
         </div>
-    `;
+
+        <div>
+            <span>Name</span>
+            <strong>${user.name || 'N/A'}</strong>
+        </div>
+
+        <div>
+            <span>Phone</span>
+            <strong>${user.phone || 'N/A'}</strong>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- ITEMS TABLE -->
+<table class="invoice-table">
+
+<thead>
+<tr>
+<th>S No.</th>
+<th>Item</th>
+<th>Rate</th>
+<th>Qty</th>
+<th>Amount</th>
+</tr>
+</thead>
+
+<tbody>
+${itemsHTML}
+</tbody>
+
+<tfoot>
+
+<tr>
+<td colspan="4" style="text-align:right;">Subtotal</td>
+<td>₹${invoice.total_amount}</td>
+</tr>
+
+<tr>
+<td colspan="4" style="text-align:right;">Points Earned</td>
+<td>${invoice.total_points}</td>
+</tr>
+
+<tr class="total-row">
+<td colspan="4" style="text-align:right;">Total</td>
+<td>₹${invoice.total_amount}</td>
+</tr>
+
+</tfoot>
+
+</table>
+
+<!-- PAYMENT -->
+<div class="invoice-payment">
+
+<div class="payment-left">
+
+<h4>Payment Information</h4>
+
+<p>Mode: Cash / UPI</p>
+<p>UPI ID: agtechscript@upi</p>
+
+</div>
+
+<div class="payment-right">
+
+<img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=upi://pay?pa=agtechscript@upi&pn=AG%20Electronics" class="qr-code">
+
+<p>Scan to Pay</p>
+
+</div>
+
+</div>
+
+<!-- FOOTER -->
+<div class="invoice-footer">
+
+<p>Composition taxable person, not eligible to collect tax on supplies.</p>
+
+<div class="signature">
+
+<p>Authorized Signature</p>
+
+</div>
+
+</div>
+
+<!-- PRINT BUTTON -->
+<div class="invoice-actions">
+
+<button onclick="window.print()" class="print-btn">
+<i class="fas fa-print"></i> Print Invoice
+</button>
+
+</div>
+
+</div>
+`;
 }
 
 // ========================================
