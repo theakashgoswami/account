@@ -53,7 +53,7 @@ async function checkAuth() {
     try {
         console.log('🔐 Checking authentication...');
         
-        const response = await fetch(`${window.CONFIG?.WORKER_URL || ''}/api/auth/status`, {
+        const response = await fetch(`${CONFIG.WORKER_URL}/api/auth/status`, {
             credentials: 'include',
             headers: { 
                 'X-Client-Host': window.location.host,
@@ -219,7 +219,7 @@ async function loadHistoryData() {
     try {
         console.log('📡 Fetching history data...');
         
-        const response = await fetch(`${window.CONFIG?.WORKER_URL || ''}/api/user/full-history`, {
+        const response = await fetch(`${CONFIG.WORKER_URL}/api/user/full-history`, {
             credentials: 'include',
             headers: { 
                 'X-Client-Host': window.location.host,
@@ -567,7 +567,7 @@ async function openInvoice(invoiceId) {
     
     try {
         const response = await fetch(
-            `${window.CONFIG?.WORKER_URL || ''}/api/user/invoice?invoice=${invoiceId}`,
+            `${CONFIG.WORKER_URL}/api/user/invoice?invoice=${invoiceId}`,
             {
                 credentials: 'include',
                 headers: { 'X-Client-Host': window.location.host }
