@@ -133,7 +133,7 @@ function renderQuiz() {
 
                         <div class="prepare-wrapper">
                             <a href="${q.prepare_link || '#'}" target="_blank" class="prepare-link">
-                                📘 Prepare this question
+                                📘 help
                             </a>
                         </div>
 
