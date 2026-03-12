@@ -278,41 +278,139 @@ async function loadHistoryData() {
         historyState.isLoading = false;
     }
 }
+// ========================================
+// DATA FILTERING - FINAL FIXED VERSION
+// ========================================
+
+function getFilteredData() {
+    const activities = [];
+    
+    // Add quiz activities
+    historyState.quizData.forEach(q => {
+        activities.push({
+            id: `quiz-${q.quiz_date}-${Date.now()}-${Math.random()}`,
+            type: 'quiz',
+            category: 'quiz',
+            date: q.created_at || q.quiz_date,
+            title: '📝 Quiz Attempt',
+            description: `Week ${q.quiz_date || '-'}`,
+            points: Number(q.score) || 0,  // Quiz scores are always positive
+            details: { week: q.quiz_date, score: q.score }
+        });
+    });
+    
+    // Add purchase activities
+    historyState.purchaseData.forEach(p => {
+        activities.push({
+            id: `purchase-${p.invoice_id || Date.now()}-${Math.random()}`,
+            type: 'purchase',
+            category: 'purchase',
+            date: p.created_at,
+            title: '🛍️ ' + (p.item || 'Purchase'),
+            description: `₹${p.amount || 0}`,
+            points: Number(p.points) || 0,  // Purchase points are always positive
+            details: {
+                invoiceId: p.invoice_id,
+                item: p.item,
+                amount: p.amount,
+                stamp: p.stamp
+            }
+        });
+    });
+    
+    // Add points activities - SMART VERSION
+    // Jo bhi database se aaye, automatically handle karega
+    historyState.pointsData.forEach(p => {
+        const points = Number(p.points) || 0;
+        
+        // RULE 1: Agar points positive hai → EARNED
+        // RULE 2: Agar points negative hai → USED/SPENT
+        // RULE 3: Already customer ke profile ke saath aaya hai
+        
+        let title;
+        let displayPoints;
+        
+        if (points > 0) {
+            title = '✨ Points Earned';
+            displayPoints = points;  // Positive rahega
+        } else if (points < 0) {
+            title = '💸 Points Used';
+            displayPoints = points;  // Negative rahega (already negative hai)
+        } else {
+            title = '🔄 Points Transaction';
+            displayPoints = 0;
+        }
+        
+        // Extra safety: Agar type field di hai to usko bhi respect karo
+        if (p.type === 'earn' && points > 0) {
+            title = '✨ Points Earned';
+            displayPoints = points;
+        } else if ((p.type === 'used' || p.type === 'spend') && points < 0) {
+            title = '💸 Points Used';
+            displayPoints = points;
+        }
+        
+        activities.push({
+            id: `points-${p.created_at}-${Math.random()}`,
+            type: 'points',
+            category: 'points',
+            date: p.created_at,
+            title: title,
+            description: p.description || 'Points transaction',
+            points: displayPoints,  // Yahan sign already correct hai
+            details: { 
+                type: p.type, 
+                description: p.description,
+                rawPoints: p.points,
+                calculatedSign: points > 0 ? 'earned' : (points < 0 ? 'used' : 'zero')
+            }
+        });
+    });
+    
+    // Filter by category
+    let filtered = activities;
+    if (historyState.currentFilter !== 'all') {
+        filtered = activities.filter(a => a.category === historyState.currentFilter);
+    }
+    
+    // Sort by date (newest first)
+    filtered.sort((a, b) => {
+        const dateA = a.date ? new Date(a.date).getTime() : 0;
+        const dateB = b.date ? new Date(b.date).getTime() : 0;
+        return dateB - dateA;
+    });
+    
+    return filtered;
+}
 
 // ========================================
-// STATS CARDS
+// STATS CARDS - FIXED CALCULATION
 // ========================================
 
 function updateStatsCards() {
     const statsGrid = document.getElementById('statsGrid');
-    if (!statsGrid) {
-        console.warn('⚠️ Stats grid not found');
-        return;
-    }
+    if (!statsGrid) return;
     
-    // Calculate stats
+    // Quiz count
     const totalQuiz = historyState.quizData.length;
+    
+    // Purchase count
     const totalPurchases = historyState.purchaseData.length;
     
-    // Calculate net points with proper type checking
-    let totalEarned = 0;
-    let totalSpent = 0;
+    // NET POINTS CALCULATION - Simple formula:
+    // Positive points = Earned
+    // Negative points = Used/Spent
+    // Net = Sum of all points (positive + negative)
     
+    let netPoints = 0;
     historyState.pointsData.forEach(p => {
-        const points = Number(p.points) || 0;
-        if (p.type === 'earn') {
-            totalEarned += points;
-        } else if (p.type === 'used' || p.type === 'spend') {
-            totalSpent += points;
-        }
+        netPoints += Number(p.points) || 0;
     });
     
-    const netPoints = totalEarned - totalSpent;
-    
-    // Calculate total score from quizzes
+    // Total score from quizzes
     const totalScore = historyState.quizData.reduce((sum, q) => sum + (Number(q.score) || 0), 0);
     
-    // Update HTML
+    // Update stats
     statsGrid.innerHTML = `
         <div class="stat-card">
             <div class="stat-icon">🧠</div>
@@ -355,105 +453,123 @@ function updateStatsCards() {
 }
 
 // ========================================
-// DATA FILTERING (FIXED POINTS HANDLING)
+// TABLE ROW GENERATION - FIXED
 // ========================================
 
-function getFilteredData() {
-    const activities = [];
+function generateTableRow(item) {
+    const date = formatDate(item.date);
     
-    // Add quiz activities
-    historyState.quizData.forEach(q => {
-        activities.push({
-            id: `quiz-${q.quiz_date}-${Date.now()}-${Math.random()}`,
-            type: 'quiz',
-            category: 'quiz',
-            date: q.created_at || q.quiz_date,
-            title: '📝 Quiz Attempt',
-            description: `Week ${q.quiz_date || '-'}`,
-            points: Number(q.score) || 0,
-            details: { week: q.quiz_date, score: q.score }
-        });
-    });
-    
-    // Add purchase activities
-    historyState.purchaseData.forEach(p => {
-        activities.push({
-            id: `purchase-${p.invoice_id || Date.now()}-${Math.random()}`,
-            type: 'purchase',
-            category: 'purchase',
-            date: p.created_at,
-            title: '🛍️ ' + (p.item || 'Purchase'),
-            description: `₹${p.amount || 0}`,
-            points: Number(p.points) || 0,
-            details: {
-                invoiceId: p.invoice_id,
-                item: p.item,
-                amount: p.amount,
-                stamp: p.stamp
-            }
-        });
-    });
-    
-    // Add points activities - FIXED VERSION
-    historyState.pointsData.forEach(p => {
-        const points = Number(p.points) || 0;
-        const pointsType = p.type ? p.type.toLowerCase() : '';
-        
-        // Determine points sign and title
-        let displayPoints;
-        let title;
-        
-        if (pointsType === 'earn') {
-            displayPoints = points;  // Positive for earned
-            title = '✨ Points Earned';
-        } else if (pointsType === 'used' || pointsType === 'spend' || pointsType === 'spent') {
-            displayPoints = -points;  // Negative for used/spent
-            title = '💸 Points Used';
+    // Common function for points display
+    const getPointsDisplay = (points) => {
+        if (points > 0) {
+            return `<span class="points-positive">+${points}</span>`;
+        } else if (points < 0) {
+            return `<span class="points-negative">${points}</span>`;
         } else {
-            // Unknown type - check if points are negative in database
-            if (points < 0) {
-                displayPoints = points;  // Already negative
-                title = '💸 Points Used';
-            } else {
-                displayPoints = points;  // Assume earned
-                title = '🔄 Points Transaction';
-            }
+            return `<span>0</span>`;
         }
-        
-        console.log(`Points activity: type=${p.type}, raw=${p.points}, display=${displayPoints}`);
-        
-        activities.push({
-            id: `points-${p.created_at}-${Math.random()}`,
-            type: 'points',
-            category: 'points',
-            date: p.created_at,
-            title: title,
-            description: p.description || 'Points transaction',
-            points: displayPoints,
-            details: { 
-                type: p.type, 
-                description: p.description,
-                rawPoints: p.points 
-            }
-        });
-    });
+    };
     
-    // Filter by category
-    let filtered = activities;
-    if (historyState.currentFilter !== 'all') {
-        filtered = activities.filter(a => a.category === historyState.currentFilter);
+    switch (historyState.currentFilter) {
+        case 'quiz':
+            return `
+                <tr class="type-quiz">
+                    <td>${date}</td>
+                    <td><strong>${item.title}</strong></td>
+                    <td>Week ${item.details.week || '-'}</td>
+                    <td class="points-positive">+${item.points}</td>
+                    <td><span class="status-badge status-completed">✓ Completed</span></td>
+                </tr>
+            `;
+            
+        case 'purchase':
+            return `
+                <tr class="type-purchase">
+                    <td>${date}</td>
+                    <td><strong>${item.details.item || 'Item'}</strong></td>
+                    <td>₹${item.details.amount || 0}</td>
+                    <td class="points-positive">+${item.points}</td>
+                    <td>
+                        <span class="status-badge ${item.details.stamp === 'Yes' ? 'status-completed' : 'status-pending'}">
+                            ${item.details.stamp === 'Yes' ? '✅ Stamp' : '⏳ Pending'}
+                        </span>
+                    </td>
+                    <td>
+                        ${item.details.invoiceId ? `
+                            <button class="invoice-btn" onclick="openInvoice('${item.details.invoiceId}')">
+                                <i class="fas fa-file-invoice"></i> View
+                            </button>
+                        ` : '—'}
+                    </td>
+                </tr>
+            `;
+            
+        case 'points':
+            return `
+                <tr class="type-points">
+                    <td>${date}</td>
+                    <td><span class="${item.points > 0 ? 'points-positive' : 'points-negative'}">${item.title}</span></td>
+                    <td>${item.description}</td>
+                    <td>${getPointsDisplay(item.points)}</td>
+                    <td><span class="status-badge status-completed">✓ Completed</span></td>
+                </tr>
+            `;
+            
+        default: // 'all' view
+            return `
+                <tr class="type-${item.category}">
+                    <td>${date}</td>
+                    <td><strong>${item.title}</strong></td>
+                    <td>${item.description}</td>
+                    <td>${getPointsDisplay(item.points)}</td>
+                    <td><span class="status-badge status-completed">✓ Completed</span></td>
+                </tr>
+            `;
     }
-    
-    // Sort by date (newest first)
-    filtered.sort((a, b) => {
-        const dateA = a.date ? new Date(a.date).getTime() : 0;
-        const dateB = b.date ? new Date(b.date).getTime() : 0;
-        return dateB - dateA;
-    });
-    
-    return filtered;
 }
 
+// ========================================
+// DEBUG FUNCTION - Check Database Values
+// ========================================
+
+function checkPointsData() {
+    console.log('🔍 POINTS DATA CHECK');
+    console.log('===================');
+    
+    let totalEarned = 0;
+    let totalUsed = 0;
+    let netPoints = 0;
+    
+    historyState.pointsData.forEach((p, i) => {
+        const points = Number(p.points) || 0;
+        netPoints += points;
+        
+        if (points > 0) {
+            totalEarned += points;
+            console.log(`✅ Earned: +${points} | ${p.description || 'No desc'}`);
+        } else if (points < 0) {
+            totalUsed += Math.abs(points);
+            console.log(`❌ Used: ${points} | ${p.description || 'No desc'}`);
+        } else {
+            console.log(`⚪ Zero: 0 | ${p.description || 'No desc'}`);
+        }
+    });
+    
+    console.log('📊 SUMMARY:');
+    console.log(`   Total Earned: +${totalEarned}`);
+    console.log(`   Total Used: -${totalUsed}`);
+    console.log(`   Net Points: ${netPoints >= 0 ? '+' : ''}${netPoints}`);
+    console.log(`   Customer Profile Balance: ${netPoints}`);
+    
+    return {
+        earned: totalEarned,
+        used: totalUsed,
+        net: netPoints
+    };
+}
+
+// Call this function to verify
+window.checkPointsData = checkPointsData;
 // ========================================
 // TABLE RENDERING
 // ========================================
@@ -519,81 +635,6 @@ function updateTableHeaders(headerElement, headers) {
     `;
 }
 
-function generateTableRow(item) {
-    const date = formatDate(item.date);
-    
-    switch (historyState.currentFilter) {
-        case 'quiz':
-            return `
-                <tr class="type-quiz">
-                    <td>${date}</td>
-                    <td><strong>${item.title}</strong></td>
-                    <td>Week ${item.details.week || '-'}</td>
-                    <td class="points-positive">+${item.points}</td>
-                    <td><span class="status-badge status-completed">✓ Completed</span></td>
-                </tr>
-            `;
-            
-        case 'purchase':
-            return `
-                <tr class="type-purchase">
-                    <td>${date}</td>
-                    <td><strong>${item.details.item || 'Item'}</strong></td>
-                    <td>₹${item.details.amount || 0}</td>
-                    <td class="points-positive">+${item.points}</td>
-                    <td>
-                        <span class="status-badge ${item.details.stamp === 'Yes' ? 'status-completed' : 'status-pending'}">
-                            ${item.details.stamp === 'Yes' ? '✅ Stamp' : '⏳ Pending'}
-                        </span>
-                    </td>
-                    <td>
-                        ${item.details.invoiceId ? `
-                            <button class="invoice-btn" onclick="openInvoice('${item.details.invoiceId}')">
-                                <i class="fas fa-file-invoice"></i> View
-                            </button>
-                        ` : '—'}
-                    </td>
-                </tr>
-            `;
-            
-        case 'points':
-            return `
-                <tr class="type-points">
-                    <td>${date}</td>
-                    <td><span class="${item.points > 0 ? 'points-positive' : 'points-negative'}">${item.title}</span></td>
-                    <td>${item.description}</td>
-                    <td class="${item.points > 0 ? 'points-positive' : item.points < 0 ? 'points-negative' : ''}">
-                        ${item.points > 0 ? '+' : ''}${item.points}
-                    </td>
-                    <td><span class="status-badge status-completed">✓ Completed</span></td>
-                </tr>
-            `;
-            
-        default: // 'all' view
-            let pointsClass = '';
-            let pointsDisplay = '';
-            
-            if (item.points > 0) {
-                pointsClass = 'points-positive';
-                pointsDisplay = `+${item.points}`;
-            } else if (item.points < 0) {
-                pointsClass = 'points-negative';
-                pointsDisplay = item.points;
-            } else {
-                pointsDisplay = '0';
-            }
-            
-            return `
-                <tr class="type-${item.category}">
-                    <td>${date}</td>
-                    <td><strong>${item.title}</strong></td>
-                    <td>${item.description}</td>
-                    <td class="${pointsClass}">${pointsDisplay}</td>
-                    <td><span class="status-badge status-completed">✓ Completed</span></td>
-                </tr>
-            `;
-    }
-}
 
 // ========================================
 // LOAD MORE
