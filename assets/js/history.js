@@ -1,5 +1,5 @@
 // ========================================
-// HISTORY PAGE - MAIN CONTROLLER
+// HISTORY PAGE - MAIN CONTROLLER (FIXED)
 // ========================================
 
 // Wait for DOM to load
@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ========================================
-// STATE MANAGEMENT (using different variable names)
+// STATE MANAGEMENT
 // ========================================
 
 let historyState = {
@@ -201,6 +201,21 @@ function initEventListeners() {
             loadMoreHistory();
         }
     });
+    
+    // Close modal when clicking outside
+    window.addEventListener('click', (e) => {
+        const modal = document.getElementById('invoiceModal');
+        if (e.target === modal) {
+            closeInvoice();
+        }
+    });
+    
+    // Close modal with Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeInvoice();
+        }
+    });
 }
 
 // ========================================
@@ -238,16 +253,19 @@ async function loadHistoryData() {
             throw new Error(data.error || 'Failed to load history');
         }
         
-        // Update state
-        historyState.quizData = data.quiz || [];
-        historyState.purchaseData = data.purchases || [];
-        historyState.pointsData = data.points || [];
+        // Update state with proper data validation
+        historyState.quizData = Array.isArray(data.quiz) ? data.quiz : [];
+        historyState.purchaseData = Array.isArray(data.purchases) ? data.purchases : [];
+        historyState.pointsData = Array.isArray(data.points) ? data.points : [];
         
         console.log('✅ History loaded:', {
             quiz: historyState.quizData.length,
             purchases: historyState.purchaseData.length,
             points: historyState.pointsData.length
         });
+        
+        // Log points data for debugging
+        console.log('💰 Points data sample:', historyState.pointsData.slice(0, 3));
         
         // Update UI
         updateStatsCards();
@@ -276,14 +294,18 @@ function updateStatsCards() {
     const totalQuiz = historyState.quizData.length;
     const totalPurchases = historyState.purchaseData.length;
     
-    // Calculate net points
-    const totalEarned = historyState.pointsData
-        .filter(p => p.type === 'earn')
-        .reduce((sum, p) => sum + (Number(p.points) || 0), 0);
+    // Calculate net points with proper type checking
+    let totalEarned = 0;
+    let totalSpent = 0;
     
-    const totalSpent = historyState.pointsData
-        .filter(p => p.type !== 'earn')
-        .reduce((sum, p) => sum + Math.abs(Number(p.points) || 0), 0);
+    historyState.pointsData.forEach(p => {
+        const points = Number(p.points) || 0;
+        if (p.type === 'earn') {
+            totalEarned += points;
+        } else if (p.type === 'used' || p.type === 'spend') {
+            totalSpent += points;
+        }
+    });
     
     const netPoints = totalEarned - totalSpent;
     
@@ -333,7 +355,7 @@ function updateStatsCards() {
 }
 
 // ========================================
-// DATA FILTERING
+// DATA FILTERING (FIXED POINTS HANDLING)
 // ========================================
 
 function getFilteredData() {
@@ -346,8 +368,8 @@ function getFilteredData() {
             type: 'quiz',
             category: 'quiz',
             date: q.created_at || q.quiz_date,
-            title: 'Quiz Attempt',
-            description: `Score: ${q.score} points`,
+            title: '📝 Quiz Attempt',
+            description: `Week ${q.quiz_date || '-'}`,
             points: Number(q.score) || 0,
             details: { week: q.quiz_date, score: q.score }
         });
@@ -356,12 +378,12 @@ function getFilteredData() {
     // Add purchase activities
     historyState.purchaseData.forEach(p => {
         activities.push({
-            id: `purchase-${p.invoice_id || Date.now()}`,
+            id: `purchase-${p.invoice_id || Date.now()}-${Math.random()}`,
             type: 'purchase',
             category: 'purchase',
             date: p.created_at,
-            title: p.item || 'Purchase',
-            description: `₹${p.amount} • ${p.points} points`,
+            title: '🛍️ ' + (p.item || 'Purchase'),
+            description: `₹${p.amount || 0}`,
             points: Number(p.points) || 0,
             details: {
                 invoiceId: p.invoice_id,
@@ -372,32 +394,50 @@ function getFilteredData() {
         });
     });
     
-  // Add points activities
-historyState.pointsData.forEach(p => {
-    const points = Number(p.points) || 0;
-    
-    // Ensure we're handling both 'earn' and 'spend' types correctly
-    let displayPoints;
-    if (p.type === 'earn') {
-        displayPoints = points;  // Positive for earned
-    } else if (p.type === 'used' || p.type === 'spend') {
-        displayPoints = -points;  // Negative for used/spent
-    } else {
-        displayPoints = 0;  // Default case
-    }
-    
-    activities.push({
-        id: `points-${p.created_at}-${Math.random()}`,
-        type: 'points',
-        category: 'points',
-        date: p.created_at,
-        title: p.type === 'earn' ? '✨ Points Earned' : 
-               (p.type === 'used' || p.type === 'spend') ? '💸 Points Used' : '🔄 Points Transaction',
-        description: p.description || 'Transaction',
-        points: displayPoints,
-        details: { type: p.type, description: p.description }
+    // Add points activities - FIXED VERSION
+    historyState.pointsData.forEach(p => {
+        const points = Number(p.points) || 0;
+        const pointsType = p.type ? p.type.toLowerCase() : '';
+        
+        // Determine points sign and title
+        let displayPoints;
+        let title;
+        
+        if (pointsType === 'earn') {
+            displayPoints = points;  // Positive for earned
+            title = '✨ Points Earned';
+        } else if (pointsType === 'used' || pointsType === 'spend' || pointsType === 'spent') {
+            displayPoints = -points;  // Negative for used/spent
+            title = '💸 Points Used';
+        } else {
+            // Unknown type - check if points are negative in database
+            if (points < 0) {
+                displayPoints = points;  // Already negative
+                title = '💸 Points Used';
+            } else {
+                displayPoints = points;  // Assume earned
+                title = '🔄 Points Transaction';
+            }
+        }
+        
+        console.log(`Points activity: type=${p.type}, raw=${p.points}, display=${displayPoints}`);
+        
+        activities.push({
+            id: `points-${p.created_at}-${Math.random()}`,
+            type: 'points',
+            category: 'points',
+            date: p.created_at,
+            title: title,
+            description: p.description || 'Points transaction',
+            points: displayPoints,
+            details: { 
+                type: p.type, 
+                description: p.description,
+                rawPoints: p.points 
+            }
+        });
     });
-});
+    
     // Filter by category
     let filtered = activities;
     if (historyState.currentFilter !== 'all') {
@@ -463,8 +503,8 @@ function renderHistoryTable() {
 
 function getTableHeaders() {
     const headers = {
-        all: ['Date & Time', 'Activity', 'Details', 'Points', 'Status'],
-        quiz: ['Date & Time', 'Quiz', 'Week', 'Score', 'Status'],
+        all: ['Date & Time', 'Activity', 'Description', 'Points', 'Status'],
+        quiz: ['Date & Time', 'Activity', 'Week', 'Score', 'Status'],
         purchase: ['Date & Time', 'Item', 'Amount', 'Points', 'Stamp', 'Invoice'],
         points: ['Date & Time', 'Type', 'Description', 'Points', 'Status']
     };
@@ -487,10 +527,10 @@ function generateTableRow(item) {
             return `
                 <tr class="type-quiz">
                     <td>${date}</td>
-                    <td><strong>Quiz Attempt</strong></td>
+                    <td><strong>${item.title}</strong></td>
                     <td>Week ${item.details.week || '-'}</td>
                     <td class="points-positive">+${item.points}</td>
-                    <td><span class="status-badge status-completed">Completed</span></td>
+                    <td><span class="status-badge status-completed">✓ Completed</span></td>
                 </tr>
             `;
             
@@ -503,12 +543,12 @@ function generateTableRow(item) {
                     <td class="points-positive">+${item.points}</td>
                     <td>
                         <span class="status-badge ${item.details.stamp === 'Yes' ? 'status-completed' : 'status-pending'}">
-                            ${item.details.stamp === 'Yes' ? '✅ Stamp' : '—'}
+                            ${item.details.stamp === 'Yes' ? '✅ Stamp' : '⏳ Pending'}
                         </span>
                     </td>
                     <td>
                         ${item.details.invoiceId ? `
-                            <button class="invoice-btn" onclick="window.openInvoice('${item.details.invoiceId}')">
+                            <button class="invoice-btn" onclick="openInvoice('${item.details.invoiceId}')">
                                 <i class="fas fa-file-invoice"></i> View
                             </button>
                         ` : '—'}
@@ -522,23 +562,34 @@ function generateTableRow(item) {
                     <td>${date}</td>
                     <td><span class="${item.points > 0 ? 'points-positive' : 'points-negative'}">${item.title}</span></td>
                     <td>${item.description}</td>
-                    <td class="${item.points > 0 ? 'points-positive' : 'points-negative'}">
+                    <td class="${item.points > 0 ? 'points-positive' : item.points < 0 ? 'points-negative' : ''}">
                         ${item.points > 0 ? '+' : ''}${item.points}
                     </td>
-                    <td><span class="status-badge status-completed">Completed</span></td>
+                    <td><span class="status-badge status-completed">✓ Completed</span></td>
                 </tr>
             `;
             
-        default:
+        default: // 'all' view
+            let pointsClass = '';
+            let pointsDisplay = '';
+            
+            if (item.points > 0) {
+                pointsClass = 'points-positive';
+                pointsDisplay = `+${item.points}`;
+            } else if (item.points < 0) {
+                pointsClass = 'points-negative';
+                pointsDisplay = item.points;
+            } else {
+                pointsDisplay = '0';
+            }
+            
             return `
                 <tr class="type-${item.category}">
                     <td>${date}</td>
                     <td><strong>${item.title}</strong></td>
                     <td>${item.description}</td>
-                    <td class="${item.points > 0 ? 'points-positive' : item.points < 0 ? 'points-negative' : ''}">
-                        ${item.points > 0 ? '+' : ''}${item.points}
-                    </td>
-                    <td><span class="status-badge status-completed">Completed</span></td>
+                    <td class="${pointsClass}">${pointsDisplay}</td>
+                    <td><span class="status-badge status-completed">✓ Completed</span></td>
                 </tr>
             `;
     }
@@ -572,7 +623,7 @@ async function openInvoice(invoiceId) {
     content.innerHTML = `
         <div class="loading-spinner">
             <i class="fas fa-spinner fa-spin"></i>
-            Loading invoice...
+            <p>Loading invoice...</p>
         </div>
     `;
     
@@ -599,7 +650,8 @@ async function openInvoice(invoiceId) {
             <div class="error-state">
                 <i class="fas fa-exclamation-circle"></i>
                 <p>Failed to load invoice</p>
-                <button onclick="window.closeInvoice()" class="close-error-btn">Close</button>
+                <p class="error-detail">${error.message}</p>
+                <button onclick="closeInvoice()" class="close-error-btn">Close</button>
             </div>
         `;
     }
@@ -614,7 +666,6 @@ function closeInvoice() {
 }
 
 function generateInvoiceHTML(invoice) {
-
     const items = invoice.items || [];
     const user = invoice.user || {};
 
@@ -629,164 +680,119 @@ function generateInvoiceHTML(invoice) {
     `).join('');
 
     return `
+        <div class="invoice-wrapper">
+            <!-- WATERMARK -->
+            <div class="invoice-watermark">AG</div>
 
-<div class="invoice-wrapper">
+            <!-- HEADER -->
+            <div class="invoice-header">
+                <div class="invoice-company">
+                    <img src="/assets/images/AGTechScript.webp" class="invoice-logo" alt="AG TechScript">
+                    <div>
+                        <h2>AG Electronics</h2>
+                        <p class="invoice-subtitle">A Unit of AG TechScript™</p>
+                        <p>Baba Jaharveer Mandir, Kisrauli, Kasganj UP 207124</p>
+                        <p>📞 6397563847 | GSTIN: 09JYTPK4090Q1Z3</p>
+                    </div>
+                </div>
+                <div class="invoice-badge">INVOICE</div>
+            </div>
 
-<!-- WATERMARK -->
-<div class="invoice-watermark">AG</div>
+            <!-- META INFO -->
+            <div class="invoice-meta">
+                <div class="meta-box">
+                    <span>Invoice No</span>
+                    <strong>${invoice.invoice_id}</strong>
+                </div>
+                <div class="meta-box">
+                    <span>Date</span>
+                    <strong>${formatDate(invoice.date)}</strong>
+                </div>
+                <div class="meta-box">
+                    <span>Status</span>
+                    <strong class="paid">PAID</strong>
+                </div>
+            </div>
 
-<!-- HEADER -->
-<div class="invoice-header">
+            <!-- CUSTOMER -->
+            <div class="customer-card">
+                <h3>Customer Details</h3>
+                <div class="customer-grid">
+                    <div>
+                        <span>User ID</span>
+                        <strong>${user.user_id || 'N/A'}</strong>
+                    </div>
+                    <div>
+                        <span>Name</span>
+                        <strong>${user.name || 'N/A'}</strong>
+                    </div>
+                    <div>
+                        <span>Phone</span>
+                        <strong>${user.phone || 'N/A'}</strong>
+                    </div>
+                </div>
+            </div>
 
-    <div class="invoice-company">
+            <!-- ITEMS TABLE -->
+            <table class="invoice-table">
+                <thead>
+                    <tr>
+                        <th>S No.</th>
+                        <th>Item</th>
+                        <th>Rate</th>
+                        <th>Qty</th>
+                        <th>Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${itemsHTML || '<tr><td colspan="5" class="text-center">No items found</td></tr>'}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="4" style="text-align:right;">Subtotal</td>
+                        <td>₹${invoice.total_amount || 0}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="4" style="text-align:right;">Points Earned</td>
+                        <td>${invoice.total_points || 0}</td>
+                    </tr>
+                    <tr class="total-row">
+                        <td colspan="4" style="text-align:right;">Total</td>
+                        <td>₹${invoice.total_amount || 0}</td>
+                    </tr>
+                </tfoot>
+            </table>
 
-        <img src="/assets/images/AGTechScript.webp" class="invoice-logo">
+            <!-- PAYMENT -->
+            <div class="invoice-payment">
+                <div class="payment-left">
+                    <h4>Payment Information</h4>
+                    <p>Mode: Cash / UPI</p>
+                    <p>UPI ID: 7017094281-1@okbizaxis</p>
+                </div>
+                <div class="payment-right">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=upi://pay?pa=7017094281-1@okbizaxis&pn=AG%20Electronics" 
+                         class="qr-code" alt="QR Code">
+                    <p>Scan to Pay</p>
+                </div>
+            </div>
 
-        <div>
-            <h2>AG Electronics</h2>
-            <p class="invoice-subtitle">A Unit of AG TechScript™</p>
-            <p>Baba Jaharveer Mandir, Kisrauli, Kasganj UP 207124</p>
-            <p>📞 6397563847 | GSTIN: 09JYTPK4090Q1Z3</p>
+            <!-- FOOTER -->
+            <div class="invoice-footer">
+                <p>Composition taxable person, not eligible to collect tax on supplies.</p>
+                <div class="signature">
+                    <p>Authorized Signature</p>
+                </div>
+            </div>
+
+            <!-- PRINT BUTTON -->
+            <div class="invoice-actions">
+                <button onclick="window.print()" class="print-btn">
+                    <i class="fas fa-print"></i> Print Invoice
+                </button>
+            </div>
         </div>
-
-    </div>
-
-    <div class="invoice-badge">
-        INVOICE
-    </div>
-
-</div>
-
-<!-- META INFO -->
-<div class="invoice-meta">
-
-    <div class="meta-box">
-        <span>Invoice No</span>
-        <strong>${invoice.invoice_id}</strong>
-    </div>
-
-    <div class="meta-box">
-        <span>Date</span>
-        <strong>${formatDate(invoice.date)}</strong>
-    </div>
-
-    <div class="meta-box">
-        <span>Status</span>
-        <strong class="paid">PAID</strong>
-    </div>
-
-</div>
-
-<!-- CUSTOMER -->
-<div class="customer-card">
-
-    <h3>Customer Details</h3>
-
-    <div class="customer-grid">
-
-        <div>
-            <span>User ID</span>
-            <strong>${user.user_id}</strong>
-        </div>
-
-        <div>
-            <span>Name</span>
-            <strong>${user.name || 'N/A'}</strong>
-        </div>
-
-        <div>
-            <span>Phone</span>
-            <strong>${user.phone || 'N/A'}</strong>
-        </div>
-
-    </div>
-
-</div>
-
-<!-- ITEMS TABLE -->
-<table class="invoice-table">
-
-<thead>
-<tr>
-<th>S No.</th>
-<th>Item</th>
-<th>Rate</th>
-<th>Qty</th>
-<th>Amount</th>
-</tr>
-</thead>
-
-<tbody>
-${itemsHTML}
-</tbody>
-
-<tfoot>
-
-<tr>
-<td colspan="4" style="text-align:right;">Subtotal</td>
-<td>₹${invoice.total_amount}</td>
-</tr>
-
-<tr>
-<td colspan="4" style="text-align:right;">Points Earned</td>
-<td>${invoice.total_points}</td>
-</tr>
-
-<tr class="total-row">
-<td colspan="4" style="text-align:right;">Total</td>
-<td>₹${invoice.total_amount}</td>
-</tr>
-
-</tfoot>
-
-</table>
-
-<!-- PAYMENT -->
-<div class="invoice-payment">
-
-<div class="payment-left">
-
-<h4>Payment Information</h4>
-
-<p>Mode: Cash / UPI</p>
-<p>UPI ID: agtechscript@upi</p>
-
-</div>
-
-<div class="payment-right">
-
-<img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=upi://pay?pa=agtechscript@upi&pn=AG%20Electronics" class="qr-code">
-
-<p>Scan to Pay</p>
-
-</div>
-
-</div>
-
-<!-- FOOTER -->
-<div class="invoice-footer">
-
-<p>Composition taxable person, not eligible to collect tax on supplies.</p>
-
-<div class="signature">
-
-<p>Authorized Signature</p>
-
-</div>
-
-</div>
-
-<!-- PRINT BUTTON -->
-<div class="invoice-actions">
-
-<button onclick="window.print()" class="print-btn">
-<i class="fas fa-print"></i> Print Invoice
-</button>
-
-</div>
-
-</div>
-`;
+    `;
 }
 
 // ========================================
@@ -799,17 +805,52 @@ function formatDate(dateString) {
         const date = new Date(dateString);
         if (isNaN(date.getTime())) return dateString;
         return date.toLocaleString('en-IN', {
-            day: '2-digit', month: '2-digit', year: 'numeric',
-            hour: '2-digit', minute: '2-digit', hour12: true
-        });
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        }).replace(/\//g, '-');
     } catch {
         return dateString;
     }
 }
 
 function showToast(message, type = 'info') {
-    console.log(`Toast [${type}]: ${message}`);
-    // Implement toast if you have a toast system
+    // Check if toast container exists, if not create it
+    let toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toastContainer';
+        toastContainer.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+        `;
+        document.body.appendChild(toastContainer);
+    }
+    
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.style.cssText = `
+        background: ${type === 'error' ? '#f44336' : type === 'success' ? '#4caf50' : '#2196f3'};
+        color: white;
+        padding: 12px 24px;
+        border-radius: 4px;
+        margin-bottom: 10px;
+        animation: slideIn 0.3s ease;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    `;
+    toast.textContent = message;
+    
+    toastContainer.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
 
 // ========================================
@@ -822,16 +863,34 @@ function showSkeletonLoading() {
     
     if (statsGrid) {
         statsGrid.innerHTML = `
-            <div class="stat-card skeleton"><div class="stat-icon"></div><div class="stat-info"></div></div>
-            <div class="stat-card skeleton"><div class="stat-icon"></div><div class="stat-info"></div></div>
-            <div class="stat-card skeleton"><div class="stat-icon"></div><div class="stat-info"></div></div>
-            <div class="stat-card skeleton"><div class="stat-icon"></div><div class="stat-info"></div></div>
+            <div class="stat-card skeleton">
+                <div class="stat-icon"></div>
+                <div class="stat-info"></div>
+            </div>
+            <div class="stat-card skeleton">
+                <div class="stat-icon"></div>
+                <div class="stat-info"></div>
+            </div>
+            <div class="stat-card skeleton">
+                <div class="stat-icon"></div>
+                <div class="stat-info"></div>
+            </div>
+            <div class="stat-card skeleton">
+                <div class="stat-icon"></div>
+                <div class="stat-info"></div>
+            </div>
         `;
     }
     
     if (tbody) {
         tbody.innerHTML = `
-            <tr><td colspan="5"><div class="skeleton-line"></div><div class="skeleton-line"></div></td></tr>
+            <tr>
+                <td colspan="5">
+                    <div class="skeleton-line" style="height: 20px; margin: 10px 0;"></div>
+                    <div class="skeleton-line" style="height: 20px; margin: 10px 0;"></div>
+                    <div class="skeleton-line" style="height: 20px; margin: 10px 0;"></div>
+                </td>
+            </tr>
         `;
     }
 }
@@ -840,8 +899,9 @@ function showEmptyState(tbody, colspan) {
     tbody.innerHTML = `
         <tr>
             <td colspan="${colspan}" class="empty-state">
-                <i class="fas fa-inbox"></i>
+                <i class="fas fa-inbox" style="font-size: 48px; color: #ccc; margin-bottom: 10px;"></i>
                 <p>No activities found</p>
+                <p style="color: #999; font-size: 14px;">Try changing the filter or check back later</p>
             </td>
         </tr>
     `;
@@ -853,9 +913,10 @@ function showErrorState(message) {
         tbody.innerHTML = `
             <tr>
                 <td colspan="5" class="empty-state error">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <p>${message || 'Failed to load'}</p>
-                    <button onclick="window.location.reload()" class="retry-btn">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #f44336; margin-bottom: 10px;"></i>
+                    <p style="color: #f44336;">${message || 'Failed to load history'}</p>
+                    <button onclick="window.location.reload()" class="retry-btn" 
+                            style="margin-top: 15px; padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">
                         <i class="fas fa-redo"></i> Retry
                     </button>
                 </td>
@@ -868,11 +929,14 @@ function showFatalError() {
     const container = document.querySelector('.history-container');
     if (container) {
         container.innerHTML = `
-            <div class="fatal-error">
-                <i class="fas fa-exclamation-circle"></i>
-                <h2>Something went wrong</h2>
-                <p>Please refresh the page or try again later.</p>
-                <button onclick="window.location.reload()">Refresh Page</button>
+            <div class="fatal-error" style="text-align: center; padding: 50px;">
+                <i class="fas fa-exclamation-circle" style="font-size: 64px; color: #f44336; margin-bottom: 20px;"></i>
+                <h2 style="color: #333; margin-bottom: 10px;">Something went wrong</h2>
+                <p style="color: #666; margin-bottom: 20px;">Please refresh the page or try again later.</p>
+                <button onclick="window.location.reload()" 
+                        style="padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    Refresh Page
+                </button>
             </div>
         `;
     }
@@ -887,10 +951,46 @@ function startAutoRefresh() {
         clearInterval(historyState.refreshInterval);
     }
     
+    // Refresh every 15 minutes (900000 ms) instead of 1500000 (25 minutes)
     historyState.refreshInterval = setInterval(() => {
         console.log('🔄 Auto-refreshing...');
         loadHistoryData();
-    }, 1500000);
+    }, 900000); // 15 minutes
+}
+
+// ========================================
+// DEBUG FUNCTION
+// ========================================
+
+function debugPointsData() {
+    console.log('=== POINTS DATA DEBUG ===');
+    console.log('Raw points data:', historyState.pointsData);
+    
+    const activities = [];
+    historyState.pointsData.forEach(p => {
+        const points = Number(p.points) || 0;
+        console.log(`Processing: type=${p.type}, points=${points}`);
+        
+        let displayPoints;
+        if (p.type === 'earn') {
+            displayPoints = points;
+        } else if (p.type === 'used' || p.type === 'spend') {
+            displayPoints = -points;
+        } else {
+            displayPoints = points;
+        }
+        
+        activities.push({
+            type: p.type,
+            raw: points,
+            display: displayPoints,
+            correct: (p.type === 'earn' && displayPoints > 0) || 
+                    ((p.type === 'used' || p.type === 'spend') && displayPoints < 0)
+        });
+    });
+    
+    console.log('Processed activities:', activities);
+    console.log('========================');
 }
 
 // ========================================
@@ -910,3 +1010,58 @@ window.addEventListener('beforeunload', () => {
 window.openInvoice = openInvoice;
 window.closeInvoice = closeInvoice;
 window.loadMoreHistory = loadMoreHistory;
+window.debugPointsData = debugPointsData; // For debugging
+
+// Add CSS animations for toasts
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    
+    @keyframes slideOut {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(100%); opacity: 0; }
+    }
+    
+    .skeleton {
+        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background-size: 200% 100%;
+        animation: loading 1.5s infinite;
+    }
+    
+    @keyframes loading {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+    
+    .points-positive {
+        color: #4CAF50;
+        font-weight: bold;
+    }
+    
+    .points-negative {
+        color: #f44336;
+        font-weight: bold;
+    }
+    
+    .status-badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+    
+    .status-completed {
+        background: #e8f5e8;
+        color: #4CAF50;
+    }
+    
+    .status-pending {
+        background: #fff3e0;
+        color: #ff9800;
+    }
+`;
+
+document.head.appendChild(style);
