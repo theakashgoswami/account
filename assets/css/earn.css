@@ -285,31 +285,6 @@
     background: #ccc;
 }
 
-/* ============================================
-   ALREADY SUBMITTED CARD - PREMIUM DESIGN
-============================================ */
-.already-submitted-card {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 30px;
-    padding: 50px 40px;
-    text-align: center;
-    color: white;
-    margin: 20px 0;
-    box-shadow: 0 30px 60px rgba(102, 126, 234, 0.3);
-    position: relative;
-    overflow: hidden;
-}
-
-.already-submitted-card::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-    animation: rotate 20s linear infinite;
-}
 
 .submitted-icon {
     font-size: 80px;
