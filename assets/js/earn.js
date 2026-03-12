@@ -91,6 +91,10 @@ async function loadQuiz() {
                     <p class="submitted-score">
                         Your Score: ${userScore} / ${quizData.length * 10}
                     </p>
+                    <p class="submitted-message"> 🎉 Congratulations on completing the quiz!<br>
+                     Stay tuned for the results announcement this Sunday on 
+                     <a href="https://instagram.com/agtechscript" target="_blank">Instagram
+                     </a>. </p>
                     <div class="submitted-footer">
                         <button class="btn-view-answers" onclick="viewMyAnswers()">👁️ View My Answers</button>
                         <button class="btn-leaderboard" onclick="openLeaderboard()">🏆 Leaderboard</button>
