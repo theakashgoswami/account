@@ -372,21 +372,32 @@ function getFilteredData() {
         });
     });
     
-    // Add points activities
-    historyState.pointsData.forEach(p => {
-        const points = Number(p.points) || 0;
-        activities.push({
-            id: `points-${p.created_at}-${Math.random()}`,
-            type: 'points',
-            category: 'points',
-            date: p.created_at,
-            title: p.type === 'earn' ? '✨ Points Earned' : '💸 Points Used',
-            description: p.description || 'Transaction',
-            points: p.type === 'earn' ? points : -points,
-            details: { type: p.type, description: p.description }
-        });
-    });
+  // Add points activities
+historyState.pointsData.forEach(p => {
+    const points = Number(p.points) || 0;
     
+    // Ensure we're handling both 'earn' and 'spend' types correctly
+    let displayPoints;
+    if (p.type === 'earn') {
+        displayPoints = points;  // Positive for earned
+    } else if (p.type === 'used' || p.type === 'spend') {
+        displayPoints = -points;  // Negative for used/spent
+    } else {
+        displayPoints = 0;  // Default case
+    }
+    
+    activities.push({
+        id: `points-${p.created_at}-${Math.random()}`,
+        type: 'points',
+        category: 'points',
+        date: p.created_at,
+        title: p.type === 'earn' ? '✨ Points Earned' : 
+               (p.type === 'used' || p.type === 'spend') ? '💸 Points Used' : '🔄 Points Transaction',
+        description: p.description || 'Transaction',
+        points: displayPoints,
+        details: { type: p.type, description: p.description }
+    });
+});
     // Filter by category
     let filtered = activities;
     if (historyState.currentFilter !== 'all') {
