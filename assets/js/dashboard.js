@@ -25,6 +25,8 @@ async function initDashboard() {
         document.getElementById("dashboardContent").style.display = "block";
         document.getElementById("username").innerText =
             window.currentUser?.name || window.currentUser?.user_id;
+            document.getElementById("referralCode").innerText =
+    window.currentUser?.user_id;
 
     } catch (err) {
         console.error("Dashboard init error:", err);
@@ -42,7 +44,35 @@ async function waitForUser() {
 
     return window.currentUser || null;
 }
+function copyReferral(){
 
+const code = window.currentUser?.user_id;
+
+navigator.clipboard.writeText(code);
+
+alert("Referral code copied");
+
+}
+function shareReferral(){
+
+const code = window.currentUser?.user_id;
+
+const link = "https://agtechscript.in#login";
+
+const message =
+`Play Daily Quiz & Earn Rewards 🎁
+
+Join AG TechScript
+${link}
+
+Use my referral code: ${code}`;
+
+const url =
+`https://wa.me/?text=${encodeURIComponent(message)}`;
+
+window.open(url,"_blank");
+
+}
 /* ===============================
    LOAD PROFILE
 ================================ */

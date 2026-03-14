@@ -538,63 +538,102 @@ function closeRedeemModal() {
 // REDEEM CODE
 // ======================================================
 async function redeemCode() {
+
   const codeInput = document.getElementById('codeInput');
   const redeemBtn = document.getElementById('redeemBtn');
+
   const code = codeInput.value.trim().toUpperCase();
-  
+
   if (!code) {
     showMessage('Please enter a code', 'error');
     codeInput.focus();
     return;
   }
-  
+
   redeemBtn.disabled = true;
   showMessage('Processing...', 'info');
-  
-  try {    
-    const res = await fetch(`${CONFIG.WORKER_URL}/api/user/redeem-code`, {
+
+  try {
+
+    // Detect referral code (AGxxxx pattern)
+    const isReferral = /^AG\d+$/i.test(code);
+
+    const endpoint = isReferral
+      ? "/api/user/redeem-referral"
+      : "/api/user/redeem-code";
+
+    const bodyData = isReferral
+      ? { code: code }
+      : { code: code, week: currentWeek };
+
+    const res = await fetch(`${CONFIG.WORKER_URL}${endpoint}`, {
       method: 'POST',
       credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         'X-Client-Host': window.location.host
       },
-      body: JSON.stringify({
-        code: code,
-        week: currentWeek
-      })
+      body: JSON.stringify(bodyData)
     });
-    
+
     const data = await res.json();
+
     console.log("📦 Redeem response:", data);
-    
+
     if (data.success) {
-      showMessage(data.message || `🎉 You got ${data.reward_value} ${data.reward_type}!`, 'success');
+
+      if (isReferral) {
+
+        showMessage(
+          `🎉 Referral applied! You earned ${data.reward_value || 20} points`,
+          'success'
+        );
+
+      } else {
+
+        showMessage(
+          data.message || `🎉 You got ${data.reward_value} ${data.reward_type}!`,
+          'success'
+        );
+
+      }
+
       codeInput.value = '';
-      
-      // Update stats
-      document.getElementById('pointsValue').textContent = data.points;
-      document.getElementById('stampsValue').textContent = data.stamps;
-      
+
+      // Update stats if returned
+      if (data.points !== undefined)
+        document.getElementById('pointsValue').textContent = data.points;
+
+      if (data.stamps !== undefined)
+        document.getElementById('stampsValue').textContent = data.stamps;
+
       if (typeof updateAllStats === 'function') {
         updateAllStats(data.points, data.stamps);
       }
-      
+
       loadRecentRedeems();
       loadRedeemHistory();
-      
+
       setTimeout(() => closeRedeemModal(), 2000);
+
     } else {
+
       showMessage(data.error || 'Invalid code', 'error');
+
     }
+
   } catch (err) {
+
     console.error("❌ Redeem error:", err);
     showMessage('Network error. Please try again.', 'error');
-  } finally {
-    redeemBtn.disabled = false;
-  }
-}
 
+  } finally {
+
+    redeemBtn.disabled = false;
+
+  }
+
+}
 // ======================================================
 // LOAD RECENT REDEEMS
 // ======================================================
