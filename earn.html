@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Quiz Earn · AG TechScript</title>
+<title>Earn · AG TechScript</title>
 
 <link rel="stylesheet" href="/assets/css/style.css">
 <link rel="stylesheet" href="/assets/css/earn.css">
@@ -13,45 +13,528 @@
 <script src="/assets/js/header.js" defer></script>
 <script src="/assets/js/user-overlay.js" defer></script>
 <script src="/assets/js/footer.js" defer></script>
-</head>
 
+<style>
+/* ================================================
+   EARN PAGE — SPIN & STREAK STYLES
+   AG TechScript
+================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+.earn-page {
+  max-width: 580px;
+  margin: 0 auto;
+  padding: 14px 14px 80px;
+}
+
+/* ---- Weekly Score Bar ---- */
+.weekly-bar {
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  border-radius: 16px;
+  padding: 14px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  color: white;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+}
+.weekly-bar .wb-left .label {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+.weekly-bar .wb-left .score {
+  font-size: 26px;
+  font-weight: 900;
+  color: #fbbf24;
+  line-height: 1.1;
+}
+.weekly-bar .wb-right {
+  text-align: right;
+}
+.weekly-bar .wb-right .reset-label {
+  font-size: 11px;
+  color: #475569;
+}
+.weekly-bar .wb-right .countdown {
+  font-size: 13px;
+  font-weight: 700;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+.wb-scores {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.wb-chip {
+  flex: 1;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: #94a3b8;
+}
+.wb-chip strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+/* ---- Streak Section ---- */
+.streak-card {
+  background: white;
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 14px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.section-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 14px;
+}
+.streak-row {
+  display: flex;
+  gap: 5px;
+  justify-content: space-between;
+}
+.streak-day {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 2px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  border: 2px solid #e2e8f0;
+  transition: all .3s;
+  min-width: 0;
+}
+.streak-day.done {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border-color: #667eea;
+  color: white;
+}
+.streak-day.today {
+  background: #fffbeb;
+  border-color: #f59e0b;
+  animation: pulse-day 2s infinite;
+}
+.streak-day.mega {
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  border-color: #ef4444;
+  color: white;
+}
+.streak-day.mega.today {
+  animation: pulse-day 1s infinite;
+}
+@keyframes pulse-day {
+  0%,100% { transform: scale(1); box-shadow: none; }
+  50% { transform: scale(1.06); box-shadow: 0 4px 14px rgba(245,158,11,.35); }
+}
+.streak-day .s-icon { font-size: 17px; line-height: 1; }
+.streak-day .s-num  { font-size: 9px; font-weight: 700; opacity: .65; margin-top: 3px; }
+.streak-day .s-pts  { font-size: 11px; font-weight: 800; }
+.streak-msg {
+  margin-top: 12px;
+  text-align: center;
+  font-size: 13px;
+  color: #475569;
+}
+.streak-claim-btn {
+  display: inline-block;
+  margin-top: 8px;
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  color: white;
+  border: none;
+  padding: 10px 26px;
+  border-radius: 50px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform .2s, box-shadow .2s;
+  box-shadow: 0 4px 14px rgba(245,158,11,.35);
+}
+.streak-claim-btn:hover { transform: translateY(-1px); }
+.streak-claim-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+/* ---- Earn Cards ---- */
+.earn-card {
+  background: white;
+  border-radius: 18px;
+  padding: 18px;
+  margin-bottom: 14px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+  overflow: hidden;
+  position: relative;
+}
+.earn-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: 18px 18px 0 0;
+}
+.earn-card.free::before  { background: linear-gradient(90deg, #10b981, #3b82f6); }
+.earn-card.quiz::before  { background: linear-gradient(90deg, #667eea, #764ba2); }
+.earn-card.super::before { background: linear-gradient(90deg, #f59e0b, #ef4444); }
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.card-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.card-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 20px;
+  letter-spacing: .3px;
+}
+.badge-free  { background: #d1fae5; color: #065f46; }
+.badge-quiz  { background: #dbeafe; color: #1e3a8a; }
+.badge-super { background: #fef3c7; color: #92400e; }
+.badge-done  { background: #f1f5f9; color: #475569; }
+.badge-lock  { background: #fee2e2; color: #991b1b; }
+
+/* ---- Spin Container ---- */
+.spin-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.wheel-wrap {
+  position: relative;
+  line-height: 0;
+}
+.wheel-ptr {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0; height: 0;
+  border-left: 11px solid transparent;
+  border-right: 11px solid transparent;
+  border-top: 22px solid #ef4444;
+  z-index: 10;
+  filter: drop-shadow(0 3px 6px rgba(239,68,68,.5));
+}
+canvas.wheel {
+  border-radius: 50%;
+  box-shadow: 0 8px 32px rgba(0,0,0,.18);
+  display: block;
+  max-width: 100%;
+}
+
+/* ---- Spin Button ---- */
+.spin-btn {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  padding: 13px 38px;
+  border-radius: 50px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform .2s, box-shadow .2s, opacity .2s;
+  box-shadow: 0 4px 16px rgba(102,126,234,.4);
+  white-space: nowrap;
+}
+.spin-btn.free-col  { background: linear-gradient(135deg, #10b981, #3b82f6); box-shadow: 0 4px 16px rgba(16,185,129,.35); }
+.spin-btn.super-col { background: linear-gradient(135deg, #f59e0b, #ef4444); box-shadow: 0 4px 16px rgba(245,158,11,.4); }
+.spin-btn:hover:not(:disabled) { transform: translateY(-2px); }
+.spin-btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+
+/* ---- Done Overlay ---- */
+.done-overlay {
+  text-align: center;
+  padding: 22px 10px;
+}
+.done-overlay .d-icon { font-size: 46px; line-height: 1; }
+.done-overlay .d-score {
+  font-size: 30px;
+  font-weight: 900;
+  color: #667eea;
+  margin: 8px 0 4px;
+}
+.done-overlay .d-sub {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+}
+
+/* ---- Locked Overlay ---- */
+.locked-overlay {
+  text-align: center;
+  padding: 22px 10px;
+  color: #94a3b8;
+}
+.locked-overlay .l-icon { font-size: 40px; margin-bottom: 10px; filter: grayscale(1); }
+.locked-overlay p { font-size: 13px; margin: 4px 0; }
+
+/* ---- Segments Hint ---- */
+.seg-hint {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #475569;
+  flex-wrap: wrap;
+}
+.seg-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.seg-dot.on  { background: #22c55e; }
+.seg-dot.off { background: #e2e8f0; }
+
+/* ---- Quiz styles (keep existing) ---- */
+.quiz-cards-wrap { display: flex; flex-direction: column; gap: 12px; }
+
+/* ---- Ghost btn (view answers) ---- */
+.ghost-btn {
+  background: transparent;
+  border: 1.5px solid #cbd5e1;
+  color: #475569;
+  padding: 9px 20px;
+  border-radius: 50px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .2s;
+}
+.ghost-btn:hover { background: #f1f5f9; }
+
+/* ---- Toast ---- */
+#earnToast {
+  position: fixed;
+  bottom: 76px;
+  left: 50%;
+  transform: translateX(-50%) translateY(16px);
+  background: #1e293b;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 50px;
+  font-size: 14px;
+  font-weight: 700;
+  opacity: 0;
+  transition: opacity .35s, transform .35s;
+  z-index: 9999;
+  pointer-events: none;
+  white-space: nowrap;
+  max-width: 90vw;
+  text-align: center;
+}
+#earnToast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ---- Modals (keep existing) ---- */
+.result-modal {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.5);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+.result-box {
+  background: white;
+  border-radius: 18px;
+  padding: 32px 28px;
+  text-align: center;
+  max-width: 320px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0,0,0,.25);
+}
+.result-box h2 { margin: 0 0 12px; font-size: 22px; }
+.result-box p  { color: #475569; margin-bottom: 20px; }
+.result-box button {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white; border: none;
+  padding: 12px 32px; border-radius: 50px;
+  font-size: 15px; font-weight: 700; cursor: pointer;
+}
+
+.modal {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.5);
+  z-index: 1000; align-items: center; justify-content: center;
+}
+.modal.open { display: flex; }
+.modal-content {
+  background: white;
+  border-radius: 18px;
+  max-width: 420px; width: 92%;
+  max-height: 80vh; overflow-y: auto;
+}
+.modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 18px 20px; border-bottom: 1px solid #f1f5f9;
+  position: sticky; top: 0; background: white;
+}
+.modal-header h2 { margin: 0; font-size: 17px; }
+.close-btn {
+  cursor: pointer; font-size: 20px; color: #94a3b8;
+  line-height: 1; user-select: none;
+}
+#leaderboardList { padding: 12px; }
+.leaderboard-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 14px; border-radius: 10px;
+  margin-bottom: 6px; background: #f8fafc;
+  font-weight: 600;
+}
+.leaderboard-row.gold   { background: #fffbeb; }
+.leaderboard-row.silver { background: #f8fafc; }
+.leaderboard-row.bronze { background: #fff7ed; }
+.leaderboard-row .rank  { font-size: 18px; min-width: 28px; }
+.leaderboard-row .user  { flex: 1; color: #1e293b; }
+.leaderboard-row .score { color: #667eea; font-weight: 800; }
+
+/* Spinner */
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  margin: 20px auto 12px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Mobile */
+@media (max-width: 380px) {
+  canvas.wheel { width: 260px !important; height: 260px !important; }
+  .streak-day .s-icon { font-size: 14px; }
+  .streak-day .s-pts  { font-size: 10px; }
+}
+</style>
+</head>
 <body>
 
 <div id="header-container"></div>
-<div class="quiz-wrapper">
 
-    <!-- TOP BAR -->
-    <div class="quiz-topbar">
-        <div class="quiz-daily" id="quizdaily">Day</div>
+<main class="earn-page">
+
+  <!-- ========== WEEKLY SCORE BAR ========== -->
+  <div class="weekly-bar">
+    <div class="wb-left">
+      <div class="label">📊 Weekly Score</div>
+      <div class="score" id="weeklyTotal">— pts</div>
+    </div>
+    <div class="wb-right">
+      <div class="reset-label">Resets Sunday midnight</div>
+      <div class="countdown" id="resetCountdown">calculating…</div>
+    </div>
+  </div>
+  <div class="weekly-bar" style="padding:10px 14px;margin-top:-8px;margin-bottom:14px">
+    <div class="wb-scores" style="width:100%;margin:0">
+      <div class="wb-chip">Quiz Spin<strong id="quizSpinScore">—</strong></div>
+      <div class="wb-chip">Super Spin<strong id="superSpinScore">—</strong></div>
+    </div>
+  </div>
+
+  <!-- ========== STREAK ========== -->
+  <div class="streak-card">
+    <p class="section-title">🔥 Daily Login Streak</p>
+    <div class="streak-row" id="streakRow">
+      <div class="spinner"></div>
+    </div>
+    <div class="streak-msg" id="streakMsg"></div>
+  </div>
+
+  <!-- ========== FREE SPIN ========== -->
+  <div class="earn-card free">
+    <div class="card-head">
+      <div class="card-title">🎯 Daily Free Spin</div>
+      <span class="card-badge badge-free" id="freeSpinBadge">Daily</span>
+    </div>
+    <div id="freeSpinSection">
+      <div class="spinner"></div>
+    </div>
+  </div>
+
+  <!-- ========== QUIZ SPIN ========== -->
+  <div class="earn-card quiz">
+    <div class="card-head">
+      <div class="card-title">📝 Quiz Spin</div>
+      <span class="card-badge badge-quiz" id="quizSpinBadge">+10 pts/Q</span>
     </div>
 
-    <!-- PROGRESS -->
-    <div class="progress-container">
-        <div class="progress-bar" id="progressBar"></div>
+    <!-- Quiz top bar (reuse) -->
+    <div class="quiz-topbar" style="display:none">
+      <div class="quiz-daily" id="quizdaily">Day</div>
+    </div>
+    <div class="progress-container" id="quizProgress" style="display:none">
+      <div class="progress-bar" id="progressBar"></div>
     </div>
 
-    <!-- QUIZ -->
-    <div id="quizContainer" class="quiz-container"></div>
+    <div id="quizSection">
+      <div class="spinner"></div>
+    </div>
+  </div>
 
-</div>
+  <!-- ========== SUPER SPIN ========== -->
+  <div class="earn-card super">
+    <div class="card-head">
+      <div class="card-title">⚡ Super Spin</div>
+      <span class="card-badge badge-super" id="superSpinBadge">Weekly Bonus</span>
+    </div>
+    <div id="superSpinSection">
+      <div class="spinner"></div>
+    </div>
+  </div>
+
+</main>
 
 <!-- RESULT MODAL -->
 <div id="resultModal" class="result-modal">
-    <div class="result-box">
-        <h2 id="resultTitle">Quiz Completed</h2>
-        <p id="resultText"></p>
-        <button onclick="closeResult()">Continue</button>
-    </div>
+  <div class="result-box">
+    <h2 id="resultTitle">Quiz Complete</h2>
+    <p id="resultText"></p>
+    <button onclick="closeResult()">Continue</button>
+  </div>
 </div>
+
+<!-- LEADERBOARD MODAL -->
 <div id="leaderboardModal" class="modal">
-    <div class="modal-content leaderboard-modal">
-        <div class="modal-header">
-            <h2>🏆 Weekly Leaderboard</h2>
-            <span class="close-btn" onclick="closeLeaderboard()">✕</span>
-        </div>
-        <div id="leaderboardList"></div>
+  <div class="modal-content leaderboard-modal">
+    <div class="modal-header">
+      <h2>🏆 Weekly Leaderboard</h2>
+      <span class="close-btn" onclick="closeLeaderboard()">✕</span>
     </div>
+    <div id="leaderboardList"></div>
+  </div>
 </div>
+
+<!-- TOAST -->
+<div id="earnToast"></div>
+
 <div id="footer-container"></div>
 
 <script src="/assets/js/earn.js" defer></script>
