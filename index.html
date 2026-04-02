@@ -52,23 +52,114 @@
 <p>Purchases</p>
 </div>
 
-<div class="stat-card">
-<h3 id="referralCount">0</h3>
-<p>Referrals</p>
-</div>
-<div class="referral-card">
+<!-- =========================================== -->
+<!-- REFERRAL SECTION - ATTRACTIVE VERSION -->
+<!-- =========================================== -->
 
-<h3>Invite Friends 🎉</h3>
-
-<div class="ref-box">
-<span id="referralCode">...</span>
-<button onclick="copyReferral()">Copy</button>
-</div>
-
-<button onclick="shareReferral()" class="whatsapp-btn">
-Invite on WhatsApp
-</button>
-
+<div class="referral-wrapper">
+    
+    <!-- Stats Overview -->
+    <div class="referral-stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">👥</div>
+            <div class="stat-value" id="referralCount">0</div>
+            <div class="stat-label">Total Referrals</div>
+            <div class="stat-badge">Lifetime</div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">⭐</div>
+            <div class="stat-value" id="referralEarnings">0</div>
+            <div class="stat-label">Points Earned</div>
+            <div class="stat-badge">200 each</div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">🏆</div>
+            <div class="stat-value" id="referralRank">#1</div>
+            <div class="stat-label">Your Rank</div>
+            <div class="stat-badge">Top Referrer</div>
+        </div>
+    </div>
+    
+    <!-- Main Referral Card -->
+    <div class="referral-main-card">
+        <div class="card-header">
+            <div class="header-icon">🎁</div>
+            <h3>Invite Friends & Earn Rewards!</h3>
+            <p class="subtitle">Get <strong>200 points</strong> for each friend who joins</p>
+        </div>
+        
+        <!-- Progress Bar -->
+        <div class="referral-progress">
+            <div class="progress-label">
+                <span>🎯 Next Reward</span>
+                <span id="nextRewardText">100 points at 5 referrals</span>
+            </div>
+            <div class="progress-bar-container">
+                <div class="progress-bar-fill" id="referralProgress" style="width: 0%"></div>
+            </div>
+            <div class="progress-milestones">
+                <span>🎁 1</span>
+                <span>🏅 3</span>
+                <span>🏆 5</span>
+                <span>👑 10</span>
+            </div>
+        </div>
+        
+        <!-- Referral Code Box -->
+        <div class="ref-code-container">
+            <div class="code-label">Your Personal Referral Code</div>
+            <div class="ref-code-box" id="refCodeBox">
+                <span id="referralCode">AG1234</span>
+                <button onclick="copyReferralCode()" class="copy-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                    Copy
+                </button>
+            </div>
+            <div id="copyFeedback" class="copy-feedback">✓ Copied!</div>
+        </div>
+        
+        <!-- Share Buttons -->
+        <div class="share-buttons-group">
+            <button onclick="shareViaWhatsApp()" class="share-btn whatsapp">
+                <span>📱</span> WhatsApp
+            </button>
+            <button onclick="shareViaTelegram()" class="share-btn telegram">
+                <span>✈️</span> Telegram
+            </button>
+            <button onclick="shareViaTwitter()" class="share-btn twitter">
+                <span>🐦</span> Twitter
+            </button>
+            <button onclick="shareViaSMS()" class="share-btn sms">
+                <span>💬</span> SMS
+            </button>
+        </div>
+        
+        <!-- Bonus Tip -->
+        <div class="bonus-tip">
+            <span class="tip-icon">💡</span>
+            <span>Pro Tip: Share on WhatsApp groups for faster rewards!</span>
+        </div>
+    </div>
+    
+    <!-- Referral History -->
+    <div class="referral-history">
+        <div class="history-header">
+            <h4>📋 Recent Referrals</h4>
+            <span class="view-all" onclick="viewAllReferrals()">View All →</span>
+        </div>
+        <div id="referralList" class="history-list">
+            <div class="empty-state">
+                <span>👥</span>
+                <p>No referrals yet. Share your code!</p>
+            </div>
+        </div>
+    </div>
+    
 </div>
 </div>
         <h3 class="section-title">Notifications</h3>
