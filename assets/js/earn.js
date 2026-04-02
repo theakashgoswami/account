@@ -278,22 +278,32 @@ document.addEventListener("DOMContentLoaded", async () => {
       E.weeklySuperScore= spinStatus.weekly_super_score||0;
     }
 
-    // --- apply quiz data ---
+    // --- FIX: Apply quiz data with saved answers ---
     if (quizData.success) {
       E.quizData = quizData.earn || [];
       E.quizDone = quizData.submitted || false;
+      
+      // 🔥 CRITICAL FIX: Agar already submitted hai toh answers load karo
       if (quizData.submitted) {
+        // Parse selections agar string mein aaye toh
         E.quizSelections = typeof quizData.selections === "string"
           ? JSON.parse(quizData.selections)
           : (quizData.selections || {});
+        
+        // Store correct answers for reference
         E.quizData.forEach(q => {
-          if (q.correct_option) E.quizAnswers[String(q.qid)] = q.correct_option;
+          if (q.correct_option) {
+            E.quizAnswers[String(q.qid)] = q.correct_option;
+          }
         });
+        
+        // Calculate correct count
         E.quizCorrect = Object.keys(E.quizSelections).filter(
           qid => E.quizSelections[qid] === E.quizAnswers[qid]
         ).length;
       }
     }
+
 
     // --- try super questions ---
     try {
