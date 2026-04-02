@@ -13,6 +13,7 @@
     <link rel="preconnect" href="https://cdn.agtechscript.in">
     <link rel="dns-prefetch" href="//api.agtechscript.in">
     <link rel="dns-prefetch" href="//cdn.agtechscript.in">
+    
     <!-- CSS with cache busting -->
     <link rel="stylesheet" href="../assets/css/style.css?v=1.0.1">
     
@@ -22,153 +23,150 @@
     <script src="../assets/js/guard.js?v=1.0.0" defer></script>
     <script src="../assets/js/header.js?v=1.0.1" defer></script>
     <script src="../assets/js/user-overlay.js?v=1.0.0" defer></script>
-    <script src="../assets/js/dashboard.js?v=1.0.1" defer></script>
+    <script src="../assets/js/dashboard.js?v=1.0.2" defer></script>
     <script src="../assets/js/footer.js?v=1.0.0" defer></script>
 </head>
 <body>
     <!-- Header container -->
     <div id="header-container">
-        <!-- Fallback loading indicator -->
         <div style="height: 70px; background: linear-gradient(135deg,#0a0f2c,#0047ff);"></div>
     </div>
     
     <!-- Main dashboard content -->
     <div id="dashboardContent" style="display:none;">
-        <h2 class="welcome-text">Welcome <span id="username"></span> 👋</h2>
-        <div class="stats-grid">
-
-<div class="stat-card">
-<h3 id="quizPlayed">0</h3>
-<p>Quiz Played</p>
-</div>
-
-<div class="stat-card">
-<h3 id="quizScore">0</h3>
-<p>Total Score</p>
-</div>
-
-<div class="stat-card">
-<h3 id="purchaseCount">0</h3>
-<p>Purchases</p>
-</div>
-
-<!-- =========================================== -->
-<!-- REFERRAL SECTION - ATTRACTIVE VERSION -->
-<!-- =========================================== -->
-
-<div class="referral-wrapper">
-    
-    <!-- Stats Overview -->
-    <div class="referral-stats-grid">
-        <div class="stat-card">
-            <div class="stat-icon">👥</div>
-            <div class="stat-value" id="referralCount">0</div>
-            <div class="stat-label">Total Referrals</div>
-            <div class="stat-badge">Lifetime</div>
-        </div>
-        
-        <div class="stat-card">
-            <div class="stat-icon">⭐</div>
-            <div class="stat-value" id="referralEarnings">0</div>
-            <div class="stat-label">Points Earned</div>
-            <div class="stat-badge">200 each</div>
-        </div>
-        
-        <div class="stat-card">
-            <div class="stat-icon">🏆</div>
-            <div class="stat-value" id="referralRank">#1</div>
-            <div class="stat-label">Your Rank</div>
-            <div class="stat-badge">Top Referrer</div>
-        </div>
-    </div>
-    
-    <!-- Main Referral Card -->
-    <div class="referral-main-card">
-        <div class="card-header">
-            <div class="header-icon">🎁</div>
-            <h3>Invite Friends & Earn Rewards!</h3>
-            <p class="subtitle">Get <strong>200 points</strong> for each friend who joins</p>
-        </div>
-        
-        <!-- Progress Bar -->
-        <div class="referral-progress">
-            <div class="progress-label">
-                <span>🎯 Next Reward</span>
-                <span id="nextRewardText">100 points at 5 referrals</span>
+        <div class="dashboard-container">
+            <h2 class="welcome-text">Welcome <span id="username"></span> 👋</h2>
+            
+            <!-- Stats Grid - Fixed closing -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3 id="quizPlayed">0</h3>
+                    <p>Quiz Played</p>
+                </div>
+                <div class="stat-card">
+                    <h3 id="quizScore">0</h3>
+                    <p>Total Score</p>
+                </div>
+                <div class="stat-card">
+                    <h3 id="purchaseCount">0</h3>
+                    <p>Purchases</p>
+                </div>
+            </div> <!-- ✅ stats-grid closed properly -->
+            
+            <!-- Referral Section - Moved OUTSIDE stats-grid -->
+            <div class="referral-wrapper">
+                <!-- Stats Overview -->
+                <div class="referral-stats-grid">
+                    <div class="stat-card referral-stat">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-value" id="referralCount">0</div>
+                        <div class="stat-label">Total Referrals</div>
+                        <div class="stat-badge">Lifetime</div>
+                    </div>
+                    
+                    <div class="stat-card referral-stat">
+                        <div class="stat-icon">⭐</div>
+                        <div class="stat-value" id="referralEarnings">0</div>
+                        <div class="stat-label">Points Earned</div>
+                        <div class="stat-badge">2000 each</div>
+                    </div>
+                    
+                    <div class="stat-card referral-stat">
+                        <div class="stat-icon">🏆</div>
+                        <div class="stat-value" id="referralRank">#1</div>
+                        <div class="stat-label">Your Rank</div>
+                        <div class="stat-badge">Top Referrer</div>
+                    </div>
+                </div>
+                
+                <!-- Main Referral Card -->
+                <div class="referral-main-card">
+                    <div class="card-header">
+                        <div class="header-icon">🎁</div>
+                        <h3>Invite Friends & Earn Rewards!</h3>
+                        <p class="subtitle">Get <strong>2000 points</strong> for each friend who joins</p>
+                    </div>
+                    
+                    <!-- Progress Bar -->
+                    <div class="referral-progress">
+                        <div class="progress-label">
+                            <span>🎯 Next Reward</span>
+                            <span id="nextRewardText">1000 points at 5 referrals</span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar-fill" id="referralProgress" style="width: 0%"></div>
+                        </div>
+                        <div class="progress-milestones">
+                            <span>🎁 1</span>
+                            <span>🏅 3</span>
+                            <span>🏆 5</span>
+                            <span>👑 10</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Referral Code Box -->
+                    <div class="ref-code-container">
+                        <div class="code-label">Your Personal Referral Code</div>
+                        <div class="ref-code-box" id="refCodeBox">
+                            <span id="referralCode">AG1234</span>
+                            <button onclick="copyReferralCode()" class="copy-btn">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                                Copy
+                            </button>
+                        </div>
+                        <div id="copyFeedback" class="copy-feedback">✓ Copied!</div>
+                    </div>
+                    
+                    <!-- Share Buttons -->
+                    <div class="share-buttons-group">
+                        <button onclick="shareViaWhatsApp()" class="share-btn whatsapp">
+                            <span>📱</span> WhatsApp
+                        </button>
+                        <button onclick="shareViaTelegram()" class="share-btn telegram">
+                            <span>✈️</span> Telegram
+                        </button>
+                        <button onclick="shareViaTwitter()" class="share-btn twitter">
+                            <span>🐦</span> Twitter
+                        </button>
+                        <button onclick="shareViaSMS()" class="share-btn sms">
+                            <span>💬</span> SMS
+                        </button>
+                    </div>
+                    
+                    <!-- Bonus Tip -->
+                    <div class="bonus-tip">
+                        <span class="tip-icon">💡</span>
+                        <span>Pro Tip: Share on WhatsApp groups for faster rewards!</span>
+                    </div>
+                </div>
+                
+                <!-- Referral History -->
+                <div class="referral-history">
+                    <div class="history-header">
+                        <h4>📋 Recent Referrals</h4>
+                        <span class="view-all" onclick="viewAllReferrals()">View All →</span>
+                    </div>
+                    <div id="referralList" class="history-list">
+                        <div class="empty-state">
+                            <span>👥</span>
+                            <p>No referrals yet. Share your code!</p>
+                        </div>
+                    </div>
+                </div>
+            </div> <!-- ✅ referral-wrapper closed -->
+            
+            <!-- Notifications Section -->
+            <h3 class="section-title">Notifications</h3>
+            <div id="notifications">
+                <div class="note-card">Loading notifications...</div>
             </div>
-            <div class="progress-bar-container">
-                <div class="progress-bar-fill" id="referralProgress" style="width: 0%"></div>
-            </div>
-            <div class="progress-milestones">
-                <span>🎁 1</span>
-                <span>🏅 3</span>
-                <span>🏆 5</span>
-                <span>👑 10</span>
-            </div>
-        </div>
-        
-        <!-- Referral Code Box -->
-        <div class="ref-code-container">
-            <div class="code-label">Your Personal Referral Code</div>
-            <div class="ref-code-box" id="refCodeBox">
-                <span id="referralCode">AG1234</span>
-                <button onclick="copyReferralCode()" class="copy-btn">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                    </svg>
-                    Copy
-                </button>
-            </div>
-            <div id="copyFeedback" class="copy-feedback">✓ Copied!</div>
-        </div>
-        
-        <!-- Share Buttons -->
-        <div class="share-buttons-group">
-            <button onclick="shareViaWhatsApp()" class="share-btn whatsapp">
-                <span>📱</span> WhatsApp
-            </button>
-            <button onclick="shareViaTelegram()" class="share-btn telegram">
-                <span>✈️</span> Telegram
-            </button>
-            <button onclick="shareViaTwitter()" class="share-btn twitter">
-                <span>🐦</span> Twitter
-            </button>
-            <button onclick="shareViaSMS()" class="share-btn sms">
-                <span>💬</span> SMS
-            </button>
-        </div>
-        
-        <!-- Bonus Tip -->
-        <div class="bonus-tip">
-            <span class="tip-icon">💡</span>
-            <span>Pro Tip: Share on WhatsApp groups for faster rewards!</span>
-        </div>
-    </div>
+        </div> <!-- ✅ dashboard-container closed -->
+    </div> <!-- ✅ dashboardContent closed -->
     
-    <!-- Referral History -->
-    <div class="referral-history">
-        <div class="history-header">
-            <h4>📋 Recent Referrals</h4>
-            <span class="view-all" onclick="viewAllReferrals()">View All →</span>
-        </div>
-        <div id="referralList" class="history-list">
-            <div class="empty-state">
-                <span>👥</span>
-                <p>No referrals yet. Share your code!</p>
-            </div>
-        </div>
-    </div>
-    
-</div>
-</div>
-        <h3 class="section-title">Notifications</h3>
-        <div id="notifications">
-            <div class="note-card">Loading notifications...</div>
-        </div>
-    </div>
-    
-    <!-- Loading indicator for slow connections -->
+    <!-- Loading indicator -->
     <div id="loadingIndicator" style="display:none; text-align:center; padding:50px;">
         <div style="border:3px solid #f3f3f3; border-top:3px solid #0047ff; border-radius:50%; width:50px; height:50px; animation:spin 1s linear infinite; margin:0 auto;"></div>
         <p style="color:#0047ff; margin-top:20px;">Loading dashboard...</p>
@@ -179,23 +177,83 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        
+        /* Additional styles for better layout */
+        .dashboard-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        
+        .referral-stat {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .section-title {
+            font-size: 20px;
+            margin: 30px 0 15px 0;
+            color: #1e293b;
+        }
+        
+        .note-card {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard-container {
+                padding: 15px;
+            }
+            
+            .stats-grid {
+                gap: 12px;
+            }
+            
+            .referral-stats-grid {
+                gap: 10px;
+            }
+        }
     </style>
     
-<!-- Footer -->
+    <!-- Footer -->
     <div id="footer-container"></div>
+    
     <script>
-       
+        // Loading timeout fallback
         setTimeout(() => {
-            if (document.getElementById('dashboardContent').style.display === 'none') {
-                document.getElementById('loadingIndicator').style.display = 'block';
+            const dashboard = document.getElementById('dashboardContent');
+            const loading = document.getElementById('loadingIndicator');
+            if (dashboard && dashboard.style.display === 'none') {
+                if (loading) loading.style.display = 'block';
             }
         }, 2000);
         
-      
+        // Hide loading when page loads
         window.addEventListener('load', function() {
-            setTimeout(() => {
-                document.getElementById('loadingIndicator').style.display = 'none';
-            }, 500);
+            const loading = document.getElementById('loadingIndicator');
+            if (loading) {
+                setTimeout(() => {
+                    loading.style.display = 'none';
+                }, 500);
+            }
         });
     </script>
 </body>
