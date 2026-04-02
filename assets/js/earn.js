@@ -828,8 +828,8 @@ function renderSuperSpin() {
     el.innerHTML = `
       <div class="locked-overlay">
         <div class="l-icon">🔒</div>
-        <p style="font-weight:600;color:#64748b">Super Spin is not active this week.</p>
-        <p>It unlocks when special weekly questions are available. Check back next week!</p>
+        <p style="font-weight:600;color:#64748b">Super Spin is not active.</p>
+        <p>It unlocks when special questions are available. Check Regularly!</p>
       </div>`;
     return;
   }
