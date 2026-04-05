@@ -1,4 +1,4 @@
-// dashboard.js - No import statements, use global supabase
+// dashboard.js - Fixed version without import
 
 document.addEventListener("DOMContentLoaded", initDashboard);
 
@@ -11,6 +11,10 @@ async function initDashboard() {
         }
 
         loadHeader();
+        
+        // Wait for Supabase session to be ready
+        await waitForSupabaseSession();
+        
         await loadDashboardStats();
         
         const [profileResult, notificationsResult] = await Promise.all([
@@ -21,6 +25,9 @@ async function initDashboard() {
         document.getElementById("dashboardContent").style.display = "block";
         document.getElementById("username").innerText = window.currentUser?.name || window.currentUser?.user_id;
         document.getElementById("referralCode").innerText = window.currentUser?.user_id;
+        
+        // Load referral stats
+        await loadReferralStats();
     } catch (err) {
         console.error("Dashboard init error:", err);
     }
@@ -35,8 +42,24 @@ async function waitForUser() {
     return window.currentUser || null;
 }
 
+async function waitForSupabaseSession() {
+    if (!window.supabase) return;
+    
+    let tries = 0;
+    while (tries < 30) {
+        const { data: { session } } = await window.supabase.auth.getSession();
+        if (session) {
+            console.log("✅ Supabase session ready");
+            return;
+        }
+        await new Promise(r => setTimeout(r, 100));
+        tries++;
+    }
+    console.warn("⚠️ Supabase session not ready, using fallback");
+}
+
 // ===========================================
-// NOTIFICATIONS - Direct Supabase (No Import)
+// NOTIFICATIONS - Use Worker Fallback
 // ===========================================
 async function loadNotifications() {
     const box = document.getElementById("notifications");
@@ -45,8 +68,24 @@ async function loadNotifications() {
     try {
         let notifications = [];
         
-        // Use global supabase (from supabase-client.js)
-        if (window.supabase) {
+        // Try worker first (since it's more reliable)
+        if (window.CONFIG) {
+            try {
+                const res = await fetch(`${window.CONFIG.WORKER_URL}/api/user/notifications`, {
+                    credentials: "include",
+                    headers: { "X-Client-Host": window.location.host }
+                });
+                const data = await res.json();
+                if (data.success && data.notifications) {
+                    notifications = data.notifications;
+                }
+            } catch (err) {
+                console.log("Worker notifications failed, trying Supabase");
+            }
+        }
+        
+        // Fallback to Supabase direct
+        if (notifications.length === 0 && window.supabase) {
             const { data, error } = await window.supabase
                 .from('notifications')
                 .select('*')
@@ -57,18 +96,6 @@ async function loadNotifications() {
                 notifications = data;
             }
         }
-        
-        // Fallback to worker
-        if (notifications.length === 0 && window.CONFIG) {
-            const res = await fetch(`${window.CONFIG.WORKER_URL}/api/user/notifications`, {
-                credentials: "include",
-                headers: { "X-Client-Host": window.location.host }
-            });
-            const data = await res.json();
-            if (data.success) {
-                notifications = data.notifications || [];
-            }
-        }
 
         if (!notifications.length) {
             box.innerHTML = "<div class='note-card'>No notifications</div>";
@@ -77,8 +104,8 @@ async function loadNotifications() {
 
         const html = notifications.map(n => `
             <div class="note-card">
-                <b>${n.title || 'Notification'}</b>
-                <p>${n.message || ''}</p>
+                <b>${escapeHtml(n.title || 'Notification')}</b>
+                <p>${escapeHtml(n.message || '')}</p>
                 <span class="note-time">${formatDate(n.created_at)}</span>
             </div>
         `).join("");
@@ -94,21 +121,8 @@ async function loadFullUserProfile() {
     try {
         let userData = null;
         
-        // Try Supabase direct first
-        if (window.supabase && window.currentUser?.user_id) {
-            const { data, error } = await window.supabase
-                .from('user_profiles')
-                .select('*')
-                .eq('user_id', window.currentUser.user_id)
-                .single();
-            
-            if (!error && data) {
-                userData = data;
-            }
-        }
-        
-        // Fallback to worker
-        if (!userData && window.CONFIG) {
+        // Try worker first
+        if (window.CONFIG && window.currentUser?.user_id) {
             const res = await fetch(`${window.CONFIG.WORKER_URL}/api/user/profile?user_id=${window.currentUser.user_id}`, {
                 credentials: "include",
                 headers: { "X-Client-Host": window.location.host }
@@ -116,10 +130,24 @@ async function loadFullUserProfile() {
             const data = await res.json();
             if (data.success) userData = data;
         }
+        
+        // Fallback to Supabase
+        if (!userData && window.supabase && window.currentUser?.user_id) {
+            const { data, error } = await window.supabase
+                .from('user_profiles')
+                .select('*')
+                .eq('user_id', window.currentUser.user_id)
+                .maybeSingle();
+            
+            if (!error && data) {
+                userData = data;
+            }
+        }
 
         if (userData) {
-            window.currentUser = userData;
-            document.getElementById("username").innerText = userData.name || userData.user_id;
+            window.currentUser = { ...window.currentUser, ...userData };
+            const usernameEl = document.getElementById("username");
+            if (usernameEl) usernameEl.innerText = userData.name || userData.user_id;
         }
         return userData;
     } catch (err) {
@@ -130,43 +158,37 @@ async function loadFullUserProfile() {
 
 async function loadDashboardStats() {
     try {
-        let stats = null;
-        
-        // Try Supabase direct
-        if (window.supabase && window.currentUser?.user_id) {
-            const [quizCount, purchaseCount, referralCount] = await Promise.all([
-                window.supabase.from('quiz_submissions').select('id', { count: 'exact', head: true }).eq('user_id', window.currentUser.user_id),
-                window.supabase.from('purchases').select('id', { count: 'exact', head: true }).eq('user_id', window.currentUser.user_id),
-                window.supabase.from('referrals').select('id', { count: 'exact', head: true }).eq('referrer_id', window.currentUser.user_id)
-            ]);
-            
-            stats = {
-                quizPlayed: quizCount.count || 0,
-                purchases: purchaseCount.count || 0,
-                referrals: referralCount.count || 0,
-                quizScore: 0
-            };
-        }
-        
-        // Fallback to worker
-        if (!stats && window.CONFIG) {
+        // Use worker for stats (more reliable)
+        if (window.CONFIG) {
             const res = await fetch(`${window.CONFIG.WORKER_URL}/api/user/dashboard-stats`, {
                 credentials: "include",
                 headers: { "X-Client-Host": window.location.host }
             });
             const data = await res.json();
-            if (data.success) stats = data;
+            if (data.success) {
+                document.getElementById("quizPlayed").innerText = data.quizPlayed || 0;
+                document.getElementById("quizScore").innerText = data.quizScore || 0;
+                document.getElementById("purchaseCount").innerText = data.purchases || 0;
+                document.getElementById("referralCount").innerText = data.referrals || 0;
+                return;
+            }
         }
-
-        if (stats) {
-            document.getElementById("quizPlayed").innerText = stats.quizPlayed || 0;
-            document.getElementById("quizScore").innerText = stats.quizScore || 0;
-            document.getElementById("purchaseCount").innerText = stats.purchases || 0;
-            document.getElementById("referralCount").innerText = stats.referrals || 0;
-        }
+        
+        // Fallback: use defaults
+        document.getElementById("quizPlayed").innerText = "0";
+        document.getElementById("quizScore").innerText = "0";
+        document.getElementById("purchaseCount").innerText = "0";
+        document.getElementById("referralCount").innerText = "0";
     } catch (err) {
         console.error("Stats error:", err);
     }
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 function formatDate(timestamp) {
@@ -175,7 +197,7 @@ function formatDate(timestamp) {
 }
 
 // ===========================================
-// REFERRAL SYSTEM
+// REFERRAL SYSTEM (Keep as is, but add error handling)
 // ===========================================
 let referralData = {
     count: 0,
@@ -196,38 +218,17 @@ const MILESTONE_REWARDS = {
 
 async function loadReferralStats() {
     try {
-        let stats = null;
-        
-        // Try Supabase direct
-        if (window.supabase && window.currentUser?.user_id) {
-            const { data: referrals, error } = await window.supabase
-                .from('referrals')
-                .select('referred_user_id, created_at')
-                .eq('referrer_id', window.currentUser.user_id)
-                .order('created_at', { ascending: false });
-            
-            if (!error) {
-                stats = {
-                    success: true,
-                    count: referrals?.length || 0,
-                    earnings: (referrals?.length || 0) * 2000,
-                    referrals: referrals || []
-                };
-            }
-        }
-        
-        // Fallback to worker
-        if (!stats && window.CONFIG) {
+        if (window.CONFIG) {
             const response = await fetch(`${window.CONFIG.WORKER_URL}/api/user/referral-stats`, {
                 credentials: "include",
                 headers: { "X-Client-Host": window.location.host }
             });
-            stats = await response.json();
-        }
-        
-        if (stats && stats.success) {
-            referralData = stats;
-            updateReferralUI();
+            const data = await response.json();
+            
+            if (data.success) {
+                referralData = data;
+                updateReferralUI();
+            }
         }
     } catch (err) {
         console.error("Failed to load referral stats:", err);
@@ -235,11 +236,14 @@ async function loadReferralStats() {
 }
 
 function updateReferralUI() {
-    document.getElementById('referralCount').innerText = referralData.count || 0;
-    document.getElementById('referralEarnings').innerText = referralData.earnings || 0;
-    document.getElementById('referralRank').innerHTML = `#${referralData.rank || 1}`;
-    
+    const countEl = document.getElementById('referralCount');
+    const earningsEl = document.getElementById('referralEarnings');
+    const rankEl = document.getElementById('referralRank');
     const codeSpan = document.getElementById('referralCode');
+    
+    if (countEl) countEl.innerText = referralData.count || 0;
+    if (earningsEl) earningsEl.innerText = referralData.earnings || 0;
+    if (rankEl) rankEl.innerHTML = `#${referralData.rank || 1}`;
     if (codeSpan && window.currentUser?.user_id) {
         codeSpan.innerText = window.currentUser.user_id;
     }
@@ -259,15 +263,17 @@ function updateReferralUI() {
         }
     }
     
-    const progressPercent = Math.min((count / nextMilestone) * 100, 100);
-    document.getElementById('referralProgress').style.width = `${progressPercent}%`;
+    const progressBar = document.getElementById('referralProgress');
+    if (progressBar) {
+        const progressPercent = Math.min((count / nextMilestone) * 100, 100);
+        progressBar.style.width = `${progressPercent}%`;
+    }
     
+    const nextRewardText = document.getElementById('nextRewardText');
     const nextReward = MILESTONE_REWARDS[nextMilestone];
-    if (nextReward) {
+    if (nextRewardText && nextReward) {
         const remaining = nextMilestone - count;
-        document.getElementById('nextRewardText').innerHTML = `${nextReward.badge}: ${nextReward.points} points at ${nextMilestone} referrals (${remaining} more)`;
-    } else {
-        document.getElementById('nextRewardText').innerHTML = "🏆 You're a legend! Keep sharing!";
+        nextRewardText.innerHTML = `${nextReward.badge}: ${nextReward.points} points at ${nextMilestone} referrals (${remaining} more)`;
     }
     
     updateReferralList();
@@ -287,7 +293,7 @@ function updateReferralList() {
             <div class="referral-user">
                 <div class="user-avatar">${ref.name ? ref.name.charAt(0) : '👤'}</div>
                 <div class="user-info">
-                    <div class="user-name">${ref.name || ref.user_id || 'New User'}</div>
+                    <div class="user-name">${escapeHtml(ref.name || ref.user_id || 'New User')}</div>
                     <div class="user-date">Joined ${formatDate(ref.joined_at)}</div>
                 </div>
             </div>
@@ -319,36 +325,35 @@ async function copyReferralCode() {
 function shareViaWhatsApp() {
     const code = window.currentUser?.user_id;
     if (!code) return;
-    const link = "https://agtechscript.in/register";
-    const message = `🎁 *Join AG TechScript & Earn Rewards!* 🎁\n\n📝 Daily Quiz → Win Points\n🎰 Spin Wheel → Get Bonuses\n🏆 Leaderboard → Top Rewards\n\n✨ Use my referral code: *${code}*\n🔗 Register here: ${link}\n\nEarn 2000 points when you join! 🚀`;
+    const message = `🎁 Join AG TechScript & Earn Rewards! 🎁\n\nUse my referral code: ${code}\nhttps://agtechscript.in/register`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
 }
 
 function shareViaTelegram() {
     const code = window.currentUser?.user_id;
     if (!code) return;
-    const message = `🎁 Join AG TechScript and earn rewards!\n\nUse my referral code: ${code}\nhttps://agtechscript.in/register`;
+    const message = `🎁 Join AG TechScript!\nReferral code: ${code}\nhttps://agtechscript.in/register`;
     window.open(`https://t.me/share/url?url=${encodeURIComponent('https://agtechscript.in/register')}&text=${encodeURIComponent(message)}`, "_blank");
 }
 
 function shareViaTwitter() {
     const code = window.currentUser?.user_id;
     if (!code) return;
-    const text = `🎁 Join AG TechScript and earn rewards! Use my referral code: ${code}\n\nhttps://agtechscript.in/register`;
+    const text = `Join AG TechScript! Use my referral code: ${code}\nhttps://agtechscript.in/register`;
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, "_blank");
 }
 
 function shareViaSMS() {
     const code = window.currentUser?.user_id;
     if (!code) return;
-    const message = `Join AG TechScript and earn rewards! Use my referral code: ${code}. Register at https://agtechscript.in/register`;
+    const message = `Join AG TechScript! Referral code: ${code}. Register at https://agtechscript.in/register`;
     window.open(`sms:?body=${encodeURIComponent(message)}`, "_blank");
 }
 
 function viewAllReferrals() {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
-    modal.innerHTML = `<div class="modal-content"><div class="modal-header"><h3>📋 All Referrals (${referralData.count || 0})</h3><span class="close-modal" onclick="this.closest('.modal-overlay').remove()">✕</span></div><div id="allReferralsList">${referralData.referrals?.map(ref => `<div class="referral-item"><div class="referral-user"><div class="user-avatar">${ref.name?.charAt(0) || '👤'}</div><div><div><strong>${ref.name || ref.user_id}</strong></div><small>${formatDate(ref.joined_at)}</small></div></div><div class="referral-badge">+2000</div></div>`).join('') || '<div class="empty-state">No referrals yet</div>'}</div></div>`;
+    modal.innerHTML = `<div class="modal-content"><div class="modal-header"><h3>📋 All Referrals (${referralData.count || 0})</h3><span class="close-modal" onclick="this.closest('.modal-overlay').remove()">✕</span></div><div id="allReferralsList">${referralData.referrals?.map(ref => `<div class="referral-item"><div class="referral-user"><div class="user-avatar">${ref.name?.charAt(0) || '👤'}</div><div><div><strong>${escapeHtml(ref.name || ref.user_id)}</strong></div><small>${formatDate(ref.joined_at)}</small></div></div><div class="referral-badge">+2000</div></div>`).join('') || '<div class="empty-state">No referrals yet</div>'}</div></div>`;
     document.body.appendChild(modal);
     setTimeout(() => modal.classList.add('open'), 10);
     modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
@@ -369,10 +374,3 @@ window.shareViaTelegram = shareViaTelegram;
 window.shareViaTwitter = shareViaTwitter;
 window.shareViaSMS = shareViaSMS;
 window.viewAllReferrals = viewAllReferrals;
-
-// Load referral stats on DOM load
-document.addEventListener("DOMContentLoaded", async () => {
-    if (window.currentUser?.user_id) {
-        await loadReferralStats();
-    }
-});
