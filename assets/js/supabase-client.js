@@ -1,12 +1,7 @@
 // supabase-client.js
-// Requires: config.js loaded first, Supabase CDN loaded (supabase.createClient available)
-// Requires: guard.js loaded first (waitForUser)
-
 (function () {
   if (window._supabaseReady) return;
 
-  // The CDN exposes window.supabase = { createClient, ... }
-  // We create our initialized client as window.supabaseClient
   async function initSupabaseClient() {
     try {
       if (typeof window.supabase?.createClient !== "function") {
@@ -15,55 +10,47 @@
         return;
       }
 
-      // Create client — will use its own session for OAuth flows
+      // ✅ Create client (ANON MODE ONLY)
       window.supabaseClient = window.supabase.createClient(
         window.CONFIG.SUPABASE_URL,
-        window.CONFIG.SUPABASE_ANON_KEY,
-        {
-          auth: {
-            autoRefreshToken: true,
-            persistSession: true,
-            detectSessionInUrl: true, // needed for PKCE callback
-          },
-        }
+        window.CONFIG.SUPABASE_ANON_KEY
       );
 
-      // Try to inject session from worker auth (so RLS queries work)
+      // ✅ Wait for user (optional, no session injection)
       const user = await window.waitForUser(5000);
-      if (user?.supabase_token) {
-        // Set session — Supabase JS will use this access_token for REST calls
-        const { error } = await window.supabaseClient.auth.setSession({
-          access_token: user.supabase_token,
-          refresh_token: "", // no refresh token from our worker JWT
-        });
 
-        if (error) {
-          console.warn("Could not inject Supabase session:", error.message);
-          window._supabaseReady = false;
-        } else {
-          console.log("✅ Supabase client ready with user session");
-          window._supabaseReady = true;
-        }
+      if (user) {
+        console.log("✅ Supabase ready (user:", user.user_id, ")");
       } else {
-        // Anonymous mode — can still read public/RLS-open tables
-        console.log("ℹ️ Supabase client ready (anon mode)");
-        window._supabaseReady = !!window.supabaseClient;
+        console.log("ℹ️ Supabase ready (anon)");
       }
+
+      window._supabaseReady = true;
     } catch (err) {
       console.warn("Supabase init error:", err.message);
       window._supabaseReady = false;
     }
   }
 
-  // ─── Convenience: query with automatic fallback to worker ──
-  // Usage: const rows = await sbQuery("user_profiles", "select=*&user_id=eq.AG0001");
-  window.sbQuery = async function (table, qs = "") {
+  // 🔥 Clean query helper (no weird select bug)
+  window.sbQuery = async function (table, query = {}) {
     if (!window._supabaseReady || !window.supabaseClient) return null;
+
     try {
-      const { data, error } = await window.supabaseClient
-        .from(table)
-        .select(qs || "*");
+      let q = window.supabaseClient.from(table).select(query.select || "*");
+
+      // apply filters
+      if (query.eq) {
+        for (const [key, value] of Object.entries(query.eq)) {
+          q = q.eq(key, value);
+        }
+      }
+
+      if (query.limit) q = q.limit(query.limit);
+
+      const { data, error } = await q;
       if (error) throw error;
+
       return data;
     } catch (err) {
       console.warn(`sbQuery(${table}) error:`, err.message);
