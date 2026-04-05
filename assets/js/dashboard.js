@@ -9,7 +9,7 @@ async function initDashboard() {
         const user = await waitForUser();
         if (!user) {
             console.error("User not loaded - auth failed");
-            window.location.href = "https://agtechscript.in";
+            window.location.href = "https://agtechscript.in#login";
             return;
         }
 
@@ -18,7 +18,18 @@ async function initDashboard() {
             await loadHeader();
         }
         
-        // Load dashboard data (worker-only approach for reliability)
+        // 🔥 Wait for Supabase session (optional, don't block)
+        if (typeof waitForSupabase === 'function') {
+            waitForSupabase(3000).then(ready => {
+                if (ready) {
+                    console.log("✅ Supabase ready, using direct reads");
+                } else {
+                    console.log("ℹ️ Using worker-only mode");
+                }
+            });
+        }
+        
+        // Load dashboard data
         await loadDashboardStats();
         await loadFullUserProfile();
         await loadNotifications();
@@ -38,7 +49,7 @@ async function initDashboard() {
         console.error("Dashboard init error:", err);
         showDashboardError();
     }
-}
+}                   
 
 async function waitForUser() {
     let tries = 0;
