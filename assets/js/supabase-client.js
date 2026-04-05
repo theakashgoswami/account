@@ -1,6 +1,64 @@
 // supabase-client.js - Direct Supabase Access
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+window.supabase = createClient(
+    window.CONFIG.SUPABASE_URL,
+    window.CONFIG.SUPABASE_ANON_KEY,
+    {
+        auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: true,
+            storage: localStorage
+        }
+    }
+);
+
+// IMPORTANT: Sync session from worker cookie to Supabase
+async function initSupabaseSession() {
+    try {
+        // Get current session from worker via status endpoint
+        const res = await fetch(`${window.CONFIG.WORKER_URL}/api/auth/status`, {
+            credentials: 'include',
+            headers: { 'X-Client-Host': window.location.host }
+        });
+        const data = await res.json();
+        
+        if (data.authenticated && data.supabase_token) {
+            // Set Supabase session
+            await window.supabase.auth.setSession({
+                access_token: data.supabase_token,
+                refresh_token: data.refresh_token
+            });
+        } else if (data.authenticated && data.user_id) {
+            // Try to get session from cookie
+            const { data: { session } } = await window.supabase.auth.getSession();
+            if (!session) {
+                console.warn("No Supabase session found, some features may not work");
+            }
+        }
+    } catch (err) {
+        console.error("Failed to init Supabase session:", err);
+    }
+}
+
+// Initialize session when script loads
+initSupabaseSession();
+
+// Helper function to get current user profile
+window.getCurrentUserProfile = async function() {
+    const { data: { user } } = await window.supabase.auth.getUser();
+    if (!user) return null;
+    
+    const { data, error } = await window.supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('supabase_uid', user.id)
+        .single();
+    
+    if (error) throw error;
+    return data;
+};
 // Initialize Supabase client
 window.supabase = createClient(
     window.CONFIG.SUPABASE_URL,
