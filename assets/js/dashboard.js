@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", initDashboard);
-
+import { supabase, getNotifications, getCurrentUserProfile } from './supabase-client.js';
 async function initDashboard() {
 
     try {
@@ -371,43 +371,51 @@ document.getElementById("referralCount").innerText = data.referrals;
    LOAD NOTIFICATIONS
 ================================ */
 async function loadNotifications() {
-
     const box = document.getElementById("notifications");
+    if (!box) return;
 
     try {
+        // DIRECT SUPABASE READ - NO WORKER
+        let notifications = [];
+        
+        if (window.supabase) {
+            const { data, error } = await window.supabase
+                .from('notifications')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(10);
+            
+            if (!error && data) {
+                notifications = data;
+            }
+        }
+        
+        // Fallback to worker if Supabase fails
+        if (notifications.length === 0) {
+            const result = await getNotifications();
+            if (result?.success) {
+                notifications = result.notifications || [];
+            }
+        }
 
-        const result = await getNotifications();
-
-        if (!result || !result.success) {
+        if (!notifications.length) {
             box.innerHTML = "<div class='note-card'>No notifications</div>";
             return;
         }
 
-        const notifications = result.notifications || [];
-
-        if (!notifications.length) {
-            box.innerHTML = "<div class='note-card'>No notifications found.</div>";
-            return;
-        }
-
-        // single DOM update (FAST)
         const html = notifications.map(n => `
             <div class="note-card">
                 <b>${n.title || 'Notification'}</b>
-<p>${n.message || ''}</p>
-<span class="note-time">${formatDate(n.created_at)}</span>
+                <p>${n.message || ''}</p>
+                <span class="note-time">${formatDate(n.created_at)}</span>
             </div>
         `).join("");
 
         box.innerHTML = html;
 
     } catch (error) {
-
         console.error("Error loading notifications:", error);
-
-        box.innerHTML =
-            "<div class='note-card error'>Failed to load notifications</div>";
-
+        box.innerHTML = "<div class='note-card error'>Failed to load notifications</div>";
     }
 }
 

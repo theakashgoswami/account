@@ -1,24 +1,21 @@
-// assets/js/guard.js - FINAL VERSION
+// assets/js/guard.js - FINAL VERSION (Simplified)
 async function requireAuth() {
-    const clientHost = window.location.host;
-
     try {
         const res = await fetch(`${CONFIG.WORKER_URL}/api/auth/status`, {
             credentials: "include",
-            headers: { "X-Client-Host": clientHost }
+            headers: { "X-Client-Host": window.location.host }
         });
 
         const data = await res.json();
 
-        // Sirf error case mein log karo
-        if (data.error === "Unauthorized Subdomain") {
-            console.warn("Subdomain mismatch:", data);
-            showSubdomainError(data.expected, data.current);
-            return false;
-        }
-
         if (data.authenticated) {
             window.currentUser = data;
+            
+            // Also set Supabase session if available
+            if (window.supabase && data.supabase_token) {
+                await window.supabase.auth.setSession(data.supabase_token);
+            }
+            
             return true;
         } else {
             window.location.href = "https://agtechscript.in";
@@ -26,35 +23,14 @@ async function requireAuth() {
         }
     } catch (error) {
         console.error("Auth check failed:", error);
-        showUnauthorized();
+        window.location.href = "https://agtechscript.in";
         return false;
     }
 }
 
-
-function showSubdomainError(expected, current) {
-    document.body.innerHTML = `
-    <div style="padding:40px;color:white;text-align:center">
-        <h1>⚠️ Wrong Subdomain</h1>
-        <p>You are on <strong>${current}.agtechscript.in</strong></p>
-        <p>This dashboard requires <strong>${expected}.agtechscript.in</strong></p>
-        <a href="https://agtechscript.in" 
-           style="padding:10px 20px;background:#00d1ff;color:black;border-radius:8px;">
-           Go to Login
-        </a>
-    </div>`;
+// Auto-initialize
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', requireAuth);
+} else {
+    requireAuth();
 }
-
-function showUnauthorized() {
-    document.body.innerHTML = `
-    <div style="padding:40px;color:red;text-align:center">
-        <h1>❌ Unauthorized Access</h1>
-        <p>Please login to continue.</p>
-        <a href="https://agtechscript.in" 
-           style="padding:10px 20px;background:#00d1ff;color:black;border-radius:8px;">
-           Go to Login
-        </a>
-    </div>`;
-}
-
-window.addEventListener("DOMContentLoaded", requireAuth);

@@ -4,11 +4,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>REDEEM-CODES · AG TechScript</title>
 <link rel="stylesheet" href="/assets/css/style.css">
-<script src="/assets/js/config.js" defer></script>
-<script src="/assets/js/guard.js" defer></script>
-<script src="/assets/js/header.js" defer></script>
-<script src="/assets/js/user-overlay.js" defer></script>
-<script src="/assets/js/footer.js" defer></script>
+<!-- Load in THIS EXACT ORDER -->
+<script src="assets/js/config.js"></script>
+<script src="assets/js/supabase-client.js" type="module"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/guard.js"></script>
+<script src="assets/js/header.js"></script>
+<script src="assets/js/user-overlay.js"></script>
+<script src="assets/js/footer.js"></script>
 </head>
 
 <body>
@@ -439,7 +442,6 @@
 // ======================================================
 // CONFIGURATION
 // ======================================================
-// Get current week from your existing function
 function getCurrentISOWeek() {
   const date = new Date();
   const target = new Date(date.valueOf());
@@ -454,96 +456,204 @@ function getCurrentISOWeek() {
 const currentWeek = getCurrentISOWeek();
 
 // ======================================================
-// WAIT FOR HEADER.JS
+// WAIT FOR DEPENDENCIES
 // ======================================================
-function waitForHeaderJS() {
+function waitForDependencies() {
   return new Promise(resolve => {
-    if (typeof loadUserStats === 'function') {
-      resolve();
-    } else {
-      const checkInterval = setInterval(() => {
-        if (typeof loadUserStats === 'function') {
-          clearInterval(checkInterval);
-          resolve();
-        }
-      }, 100);
-    }
+    let ready = false;
+    const checkInterval = setInterval(() => {
+      if (typeof loadHeader === 'function' && window.CONFIG) {
+        ready = true;
+        clearInterval(checkInterval);
+        resolve();
+      }
+    }, 100);
+    
+    // Timeout after 5 seconds
+    setTimeout(() => {
+      if (!ready) {
+        clearInterval(checkInterval);
+        console.warn("⚠️ Dependencies timeout, continuing anyway");
+        resolve();
+      }
+    }, 5000);
   });
 }
 
 // ======================================================
-// FALLBACK STATS FETCH
+// STATS FETCH - Supabase First, Worker Fallback
 // ======================================================
 async function fetchUserStats() {
   try {
     console.log("📊 Fetching user stats...");
+    
+    // Try Supabase direct first
+    if (window.supabase && window.currentUser?.user_id) {
+      const { data, error } = await window.supabase
+        .from('user_profiles')
+        .select('points, stamps')
+        .eq('user_id', window.currentUser.user_id)
+        .single();
+      
+      if (!error && data) {
+        updateStatsDisplay(data.points, data.stamps);
+        return;
+      }
+    }
+    
+    // Fallback to worker
     const res = await fetch(`${CONFIG.WORKER_URL}/api/user/stats`, {
       credentials: 'include',
       headers: { 'X-Client-Host': window.location.host }
     });
     const data = await res.json();
     if (data.success) {
-      document.getElementById('pointsValue').textContent = data.points;
-      document.getElementById('stampsValue').textContent = data.stamps;
-      console.log(`✅ Stats: ${data.points} points, ${data.stamps} stamps`);
+      updateStatsDisplay(data.points, data.stamps);
     }
   } catch (err) {
     console.error("❌ Stats fetch error:", err);
   }
 }
 
-document.addEventListener("DOMContentLoaded", async () => {
-
-  console.log("🚀 Page loaded");
-
-  await waitForHeaderJS();
-
-  // load header
-  if (typeof loadHeader === "function") {
-    await loadHeader();
+function updateStatsDisplay(points, stamps) {
+  const pointsEl = document.getElementById('pointsValue');
+  const stampsEl = document.getElementById('stampsValue');
+  if (pointsEl) pointsEl.textContent = points || 0;
+  if (stampsEl) stampsEl.textContent = stamps || 0;
+  
+  // Also update global stats if function exists
+  if (typeof updateAllStats === 'function') {
+    updateAllStats(points, stamps);
   }
-Promise.all([
-  loadHeader(),
-  loadUserStats()
-]);
-  // load stats
-  if (typeof loadUserStats === "function") {
-    loadUserStats();
-  } else {
-    fetchUserStats();
-  }
-
-  // load history
-  loadRedeemHistory();
-
-});
-// ======================================================
-// MODAL FUNCTIONS
-// ======================================================
-function openRedeemModal() {
-  console.log("📱 Opening redeem modal");
-  document.getElementById('redeemModal').style.display = 'flex';
-  document.getElementById('codeInput').value = '';
-  document.getElementById('codeInput').focus();
-  document.getElementById('messageBox').style.display = 'none';
-  loadRecentRedeems();
-}
-
-function closeRedeemModal() {
-  console.log("📱 Closing redeem modal");
-  document.getElementById('redeemModal').style.display = 'none';
 }
 
 // ======================================================
-// REDEEM CODE
+// LOAD RECENT REDEEMS - Supabase Direct
+// ======================================================
+async function loadRecentRedeems() {
+  const recentList = document.getElementById('recentList');
+  if (!recentList) return;
+  
+  try {
+    console.log("🔥 Loading recent redeems...");
+    
+    let redeems = [];
+    
+    // Try Supabase direct first
+    if (window.supabase) {
+      const { data, error } = await window.supabase
+        .from('redeem_history')
+        .select('user_id, reward_value, reward_type, redeemed_at')
+        .order('redeemed_at', { ascending: false })
+        .limit(10);
+      
+      if (!error && data) {
+        redeems = data;
+      }
+    }
+    
+    // Fallback to worker
+    if (redeems.length === 0) {
+      const res = await fetch(`${CONFIG.WORKER_URL}/api/user/recent-redeems`, {
+        credentials: 'include',
+        headers: { 'X-Client-Host': window.location.host }
+      });
+      const data = await res.json();
+      if (data.success && data.redeems) {
+        redeems = data.redeems;
+      }
+    }
+    
+    if (redeems.length) {
+      const html = redeems.map(r => `
+        <div class="recent-item">
+          <span class="recent-user">${escapeHtml(r.user_id)}</span>
+          <span class="recent-reward">+${r.reward_value} ${r.reward_type}</span>
+          <span class="recent-date">${formatDate(r.redeemed_at)}</span>
+        </div>
+      `).join('');
+      recentList.innerHTML = html;
+    } else {
+      recentList.innerHTML = '<div class="empty">No recent redeems</div>';
+    }
+  } catch (err) {
+    console.error("❌ Recent redeems error:", err);
+    recentList.innerHTML = '<div class="error">Failed to load</div>';
+  }
+}
+
+// ======================================================
+// LOAD REDEEM HISTORY - Supabase Direct
+// ======================================================
+async function loadRedeemHistory() {
+  const historyEl = document.getElementById('redeemHistory');
+  if (!historyEl) return;
+  
+  try {
+    console.log("📜 Loading redeem history...");
+    
+    let history = [];
+    
+    // Try Supabase direct first
+    if (window.supabase && window.currentUser?.user_id) {
+      const { data, error } = await window.supabase
+        .from('redeem_history')
+        .select('*')
+        .eq('user_id', window.currentUser.user_id)
+        .order('redeemed_at', { ascending: false })
+        .limit(50);
+      
+      if (!error && data) {
+        history = data;
+      }
+    }
+    
+    // Fallback to worker
+    if (history.length === 0) {
+      const res = await fetch(`${CONFIG.WORKER_URL}/api/user/redeem-history`, {
+        credentials: 'include',
+        headers: { 'X-Client-Host': window.location.host }
+      });
+      const data = await res.json();
+      if (data.success && data.history) {
+        history = data.history;
+      }
+    }
+
+    if (history.length) {
+      const html = history.map(h => {
+        const value = h.reward_value;
+        const type = h.reward_type;
+        return `
+          <div class="history-item">
+            <span class="history-date">${formatDate(h.redeemed_at)}</span>
+            <span class="history-desc">Redeemed code: ${escapeHtml(h.code)}</span>
+            <span class="history-value ${type}">
+              +${value} ${type}
+            </span>
+          </div>
+        `;
+      }).join('');
+      historyEl.innerHTML = html;
+    } else {
+      historyEl.innerHTML = '<div class="empty">No redeem history yet</div>';
+    }
+
+  } catch (err) {
+    console.error("❌ History error:", err);
+    historyEl.innerHTML = '<div class="error">Failed to load</div>';
+  }
+}
+
+// ======================================================
+// REDEEM CODE (WRITE - Worker Only)
 // ======================================================
 async function redeemCode() {
-
   const codeInput = document.getElementById('codeInput');
   const redeemBtn = document.getElementById('redeemBtn');
+  if (!codeInput || !redeemBtn) return;
 
   const code = codeInput.value.trim().toUpperCase();
-
   if (!code) {
     showMessage('Please enter a code', 'error');
     codeInput.focus();
@@ -554,15 +664,9 @@ async function redeemCode() {
   showMessage('Processing...', 'info');
 
   try {
-
-    // Detect referral code (AGxxxx pattern)
     const isReferral = /^AG\d+$/i.test(code);
-
-    const endpoint = isReferral
-      ? "/api/user/redeem-referral"
-      : "/api/user/redeem-code";
-
-    const bodyData = isReferral
+    const endpoint = isReferral ? "/api/user/redeem-referral" : "/api/user/redeem-code";
+    const bodyData = isReferral 
       ? { code: code }
       : { code: code, week: currentWeek };
 
@@ -578,156 +682,84 @@ async function redeemCode() {
 
     const data = await res.json();
 
-    console.log("📦 Redeem response:", data);
-
     if (data.success) {
-
-      if (isReferral) {
-
-        showMessage(
-          `🎉 Referral applied! You earned ${data.reward_value || 20} points`,
-          'success'
-        );
-
-      } else {
-
-        showMessage(
-          data.message || `🎉 You got ${data.reward_value} ${data.reward_type}!`,
-          'success'
-        );
-
-      }
-
+      const msg = isReferral 
+        ? `🎉 Referral applied! You earned ${data.reward_value || 20} points`
+        : (data.message || `🎉 You got ${data.reward_value} ${data.reward_type}!`);
+      
+      showMessage(msg, 'success');
       codeInput.value = '';
 
-      // Update stats if returned
-      if (data.points !== undefined)
-        document.getElementById('pointsValue').textContent = data.points;
-
-      if (data.stamps !== undefined)
-        document.getElementById('stampsValue').textContent = data.stamps;
-
-      if (typeof updateAllStats === 'function') {
-        updateAllStats(data.points, data.stamps);
+      // Update stats display
+      if (data.points !== undefined || data.stamps !== undefined) {
+        updateStatsDisplay(data.points, data.stamps);
       }
 
+      // Refresh lists
       loadRecentRedeems();
       loadRedeemHistory();
 
       setTimeout(() => closeRedeemModal(), 2000);
-
     } else {
-
       showMessage(data.error || 'Invalid code', 'error');
-
     }
 
   } catch (err) {
-
     console.error("❌ Redeem error:", err);
     showMessage('Network error. Please try again.', 'error');
-
   } finally {
-
     redeemBtn.disabled = false;
-
-  }
-
-}
-// ======================================================
-// LOAD RECENT REDEEMS
-// ======================================================
-async function loadRecentRedeems() {
-  try {
-    console.log("🔥 Loading recent redeems...");
-    
-    const res = await fetch(`${CONFIG.WORKER_URL}/api/user/recent-redeems`, {
-      credentials: 'include',
-      headers: { 'X-Client-Host': window.location.host }
-    });
-    
-    const data = await res.json();
-    const recentList = document.getElementById('recentList');
-    
-    if (data.success && data.redeems?.length) {
-      const html = data.redeems.map(r => `
-        <div class="recent-item">
-          <span class="recent-user">${r.user_id}</span>
-          <span class="recent-reward">+${r.reward_value} ${r.reward_type}</span>
-          <span class="recent-date">${formatDate(r.redeemed_at)}</span>
-        </div>
-      `).join('');
-      
-      recentList.innerHTML = html;
-    } else {
-      recentList.innerHTML = '<div class="empty">No recent redeems</div>';
-    }
-  } catch (err) {
-    console.error("❌ Recent redeems error:", err);
-    document.getElementById('recentList').innerHTML = '<div class="error">Failed to load</div>';
   }
 }
 
 // ======================================================
-// LOAD REDEEM HISTORY
+// MODAL FUNCTIONS
 // ======================================================
-// ======================================================
-// LOAD REDEEM HISTORY
-// ======================================================
-async function loadRedeemHistory() {
-  try {
-    console.log("📜 Loading redeem history...");
-
-    const res = await fetch(`${CONFIG.WORKER_URL}/api/user/redeem-history`, {
-      credentials: 'include',
-      headers: { 'X-Client-Host': window.location.host }
-    });
-
-    const data = await res.json();
-    const historyEl = document.getElementById('redeemHistory');
-
-    if (data.success && data.history?.length) {
-
-      const html = data.history.map(h => {
-
-        const value = h.reward_value;
-        const type = h.reward_type;
-
-        return `
-          <div class="history-item">
-            <span class="history-date">${formatDate(h.redeemed_at)}</span>
-            <span class="history-desc">Redeemed code: ${h.code}</span>
-            <span class="history-value ${type}">
-              +${value} ${type}
-            </span>
-          </div>
-        `;
-
-      }).join('');
-
-      historyEl.innerHTML = html;
-
-    } else {
-      historyEl.innerHTML = '<div class="empty">No redeem history yet</div>';
-    }
-
-  } catch (err) {
-    console.error("❌ History error:", err);
-    document.getElementById('redeemHistory').innerHTML = '<div class="error">Failed to load</div>';
+function openRedeemModal() {
+  console.log("📱 Opening redeem modal");
+  const modal = document.getElementById('redeemModal');
+  const codeInput = document.getElementById('codeInput');
+  const messageBox = document.getElementById('messageBox');
+  
+  if (modal) modal.style.display = 'flex';
+  if (codeInput) {
+    codeInput.value = '';
+    codeInput.focus();
   }
+  if (messageBox) messageBox.style.display = 'none';
+  
+  loadRecentRedeems();
 }
+
+function closeRedeemModal() {
+  console.log("📱 Closing redeem modal");
+  const modal = document.getElementById('redeemModal');
+  if (modal) modal.style.display = 'none';
+}
+
 // ======================================================
 // HELPER FUNCTIONS
 // ======================================================
 function showMessage(msg, type) {
   const box = document.getElementById('messageBox');
+  if (!box) return;
+  
   box.textContent = msg;
   box.className = `message-box ${type}`;
   box.style.display = 'block';
   
   if (type !== 'info') {
-    setTimeout(() => box.style.display = 'none', 3000);
+    setTimeout(() => {
+      if (box) box.style.display = 'none';
+    }, 3000);
   }
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 function formatDate(dateStr) {
@@ -748,21 +780,46 @@ function formatDate(dateStr) {
 }
 
 // ======================================================
+// INITIALIZATION (FIXED - No Duplicate Calls)
+// ======================================================
+document.addEventListener("DOMContentLoaded", async () => {
+  console.log("🚀 Redeem page loaded");
+
+  await waitForDependencies();
+
+  // Load header once
+  if (typeof loadHeader === "function") {
+    await loadHeader();
+  }
+
+  // Load stats once
+  if (typeof loadUserStats === "function") {
+    loadUserStats();
+  } else {
+    fetchUserStats();
+  }
+
+  // Load history data
+  loadRedeemHistory();
+  loadRecentRedeems();
+});
+
+// ======================================================
 // KEYBOARD SHORTCUTS
 // ======================================================
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'r' && !e.ctrlKey && !e.metaKey) {
-    const modal = document.getElementById('redeemModal');
-    if (modal.style.display !== 'flex') {
-      openRedeemModal();
-    }
+  const modal = document.getElementById('redeemModal');
+  if (!modal) return;
+  
+  if (e.key === 'r' && !e.ctrlKey && !e.metaKey && modal.style.display !== 'flex') {
+    openRedeemModal();
   }
   
-  if (e.key === 'Escape') {
+  if (e.key === 'Escape' && modal.style.display === 'flex') {
     closeRedeemModal();
   }
   
-  if (e.key === 'Enter' && document.getElementById('redeemModal').style.display === 'flex') {
+  if (e.key === 'Enter' && modal.style.display === 'flex') {
     const input = document.getElementById('codeInput');
     if (document.activeElement === input) {
       redeemCode();
@@ -771,7 +828,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ======================================================
-// EXPORT FOR GLOBAL USE
+// GLOBAL EXPORTS
 // ======================================================
 window.openRedeemModal = openRedeemModal;
 window.closeRedeemModal = closeRedeemModal;

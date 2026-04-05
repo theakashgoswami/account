@@ -91,26 +91,41 @@ function toggleUserOverlay() {
     }   
 }
 
-// ====================================================================
-// LOAD USER DATA
-// ====================================================================
 async function loadUserData() {
     if (!window.currentUser?.user_id) return;
 
     try {
-        const response = await fetch(
-            `${CONFIG.WORKER_URL}/api/user/profile?user_id=${window.currentUser.user_id}`,
-            {
-                credentials: 'include',
-                headers: { 'X-Client-Host': window.location.host }
+        let userData = null;
+        
+        // Try Supabase direct first
+        if (window.supabase) {
+            const { data, error } = await window.supabase
+                .from('user_profiles')
+                .select('*')
+                .eq('user_id', window.currentUser.user_id)
+                .single();
+            
+            if (!error && data) {
+                userData = data;
             }
-        );
+        }
+        
+        // Fallback to worker
+        if (!userData) {
+            const response = await fetch(
+                `${CONFIG.WORKER_URL}/api/user/profile?user_id=${window.currentUser.user_id}`,
+                {
+                    credentials: 'include',
+                    headers: { 'X-Client-Host': window.location.host }
+                }
+            );
+            const data = await response.json();
+            if (data.success) userData = data;
+        }
 
-        const data = await response.json();
-
-        if (data.success) {
-            currentUser = data;
-            window.currentUser = data;
+        if (userData) {
+            currentUser = userData;
+            window.currentUser = { ...window.currentUser, ...userData };
             updateOverlayUI();
         }
         

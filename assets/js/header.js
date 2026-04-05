@@ -174,16 +174,31 @@ window.updateAllStats = function(points, stamps) {
     if (pointsValue) pointsValue.textContent = points;
     if (stampsValue) stampsValue.textContent = stamps;
 };
-// ✅ FIX: Add loadUserStats function
+// ✅ FIXED: loadUserStats from Supabase direct
 async function loadUserStats() {
     try {
+        // Try Supabase direct first
+        if (window.supabase && window.currentUser?.user_id) {
+            const { data, error } = await window.supabase
+                .from('user_profiles')
+                .select('points, stamps')
+                .eq('user_id', window.currentUser.user_id)
+                .single();
+            
+            if (!error && data) {
+                updateAllStats(data.points, data.stamps);
+                return;
+            }
+        }
+        
+        // Fallback to worker
         const res = await fetch(`${CONFIG.WORKER_URL}/api/user/stats`, {
             credentials: 'include',
             headers: { 'X-Client-Host': window.location.host }
         });
         const data = await res.json();
         if (data.success) {
-           updateAllStats(data.points, data.stamps);
+            updateAllStats(data.points, data.stamps);
         }
     } catch (err) {
         console.error("Stats error:", err);
