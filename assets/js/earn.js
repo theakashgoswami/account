@@ -198,7 +198,64 @@ function toast(msg, color = "#1e293b") {
   clearTimeout(el._t);
   el._t = setTimeout(() => el.classList.remove("show"), 3200);
 }
-
+   async function loadHeader() {
+    try {
+        console.log('📋 Loading header...');
+        
+        // Try multiple possible paths for header
+        const possiblePaths = [
+            '/partials/header.html',
+            '../partials/header.html',
+            'partials/header.html',
+            '/assets/partials/header.html'
+        ];
+        
+        let headerHtml = null;
+        let successPath = null;
+        
+        for (const path of possiblePaths) {
+            try {
+                const response = await fetch(path);
+                if (response.ok) {
+                    headerHtml = await response.text();
+                    successPath = path;
+                    break;
+                }
+            } catch (e) {
+                // Continue to next path
+            }
+        }
+        
+        if (!headerHtml) {
+            console.warn('⚠️ Header not found, using fallback');
+            headerHtml = getFallbackHeader();
+        } else {
+            console.log(`✅ Header loaded from: ${successPath}`);
+        }
+        
+        const headerContainer = document.getElementById('header-container');
+        if (headerContainer) {
+            headerContainer.innerHTML = headerHtml;
+            
+            // Initialize header components
+            if (typeof window.initHeader === 'function') {
+                setTimeout(() => window.initHeader(), 100);
+            }
+            
+            // Load user profile icon if available
+            if (historyState.user?.user_id && typeof window.loadUserProfileIcon === 'function') {
+                setTimeout(() => window.loadUserProfileIcon(historyState.user.user_id), 200);
+            }
+        } else {
+            console.error('❌ Header container not found');
+        }
+        
+    } catch (error) {
+        console.error('❌ Header load failed:', error);
+        // Still continue, page might work without header
+    }
+}
+await loadHeader();
 // WRITE OPERATIONS ONLY - Worker API
 async function apiWrite(path, body) {
   const opts = {
