@@ -1,7 +1,7 @@
 /* ============================================================
-   EARN.JS — AG TechScript (OPTIMIZED VERSION)
-   - READ operations: Direct Supabase (FAST)
-   - WRITE operations: Worker API (SECURE)
+   EARN.JS — AG TechScript
+   READ  → Supabase direct (window.supabaseClient)
+   WRITE → Worker API (secure, cookie-based)
    ============================================================ */
 
 "use strict";
@@ -189,8 +189,10 @@ class SpinWheel {
 // ============================================================
 // HELPERS
 // ============================================================
+function qs(id) { return document.getElementById(id); }
+
 function toast(msg, color = "#1e293b") {
-  const el = document.getElementById("earnToast");
+  const el = qs("earnToast");
   if (!el) return;
   el.textContent = msg;
   el.style.background = color;
@@ -198,287 +200,246 @@ function toast(msg, color = "#1e293b") {
   clearTimeout(el._t);
   el._t = setTimeout(() => el.classList.remove("show"), 3200);
 }
-   async function loadHeader() {
+
+// ── Header loader (no recursion, no historyState) ───────────
+async function loadHeader() {
+  const container = qs("header-container");
+  if (!container) return;
+
+  const paths = [
+    "/partials/header.html",
+    "../partials/header.html",
+    "partials/header.html",
+    "/assets/partials/header.html",
+  ];
+
+  let html = null;
+  for (const p of paths) {
     try {
-        console.log('📋 Loading header...');
-        
-        // Try multiple possible paths for header
-        const possiblePaths = [
-            '/partials/header.html',
-            '../partials/header.html',
-            'partials/header.html',
-            '/assets/partials/header.html'
-        ];
-        
-        let headerHtml = null;
-        let successPath = null;
-        
-        for (const path of possiblePaths) {
-            try {
-                const response = await fetch(path);
-                if (response.ok) {
-                    headerHtml = await response.text();
-                    successPath = path;
-                    break;
-                }
-            } catch (e) {
-                // Continue to next path
-            }
-        }
-        
-        if (!headerHtml) {
-            console.warn('⚠️ Header not found, using fallback');
-            headerHtml = getFallbackHeader();
-        } else {
-            console.log(`✅ Header loaded from: ${successPath}`);
-        }
-        
-        const headerContainer = document.getElementById('header-container');
-        if (headerContainer) {
-            headerContainer.innerHTML = headerHtml;
-            
-            // Initialize header components
-            if (typeof window.initHeader === 'function') {
-                setTimeout(() => window.initHeader(), 100);
-            }
-            
-            // Load user profile icon if available
-            if (historyState.user?.user_id && typeof window.loadUserProfileIcon === 'function') {
-                setTimeout(() => window.loadUserProfileIcon(historyState.user.user_id), 200);
-            }
-        } else {
-            console.error('❌ Header container not found');
-        }
-        
-    } catch (error) {
-        console.error('❌ Header load failed:', error);
-        // Still continue, page might work without header
-    }
-    await loadHeader();
+      const r = await fetch(p);
+      if (r.ok) { html = await r.text(); break; }
+    } catch { /* try next */ }
+  }
+
+  if (!html) {
+    console.warn("Header not found — skipping");
+    return;
+  }
+
+  container.innerHTML = html;
+
+  if (typeof window.initHeader === "function") {
+    setTimeout(() => window.initHeader(), 100);
+  }
+
+  // Use window.currentUser (set by guard.js), NOT historyState
+  const uid = window.currentUser?.user_id;
+  if (uid && typeof window.loadUserProfileIcon === "function") {
+    setTimeout(() => window.loadUserProfileIcon(uid), 200);
+  }
+  // NOTE: no recursive call here — that was the infinite loop bug
 }
 
-// WRITE OPERATIONS ONLY - Worker API
+// ── Worker write helper ──────────────────────────────────────
 async function apiWrite(path, body) {
-  const opts = {
+  const res = await fetch(`${window.CONFIG.WORKER_URL}${path}`, {
     method: "POST",
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      "X-Client-Host": window.location.host
+      "X-Client-Host": window.location.host,
     },
-    body: JSON.stringify(body)
-  };
-  const res = await fetch(`${CONFIG.WORKER_URL}${path}`, opts);
+    body: JSON.stringify(body),
+  });
   return res.json();
 }
 
-// READ OPERATIONS - Direct Supabase
+// ── Supabase client shorthand ────────────────────────────────
+// supabase-client.js exposes window.supabaseClient (initialized)
+// window.supabase is the CDN module ({createClient}) — NOT a client instance
+function getSB() {
+  return window._supabaseReady ? window.supabaseClient : null;
+}
+
+// ── Worker GET fallback ──────────────────────────────────────
+async function workerGet(path) {
+  const res = await fetch(`${window.CONFIG.WORKER_URL}${path}`, {
+    credentials: "include",
+    headers: { "X-Client-Host": window.location.host },
+  });
+  return res.json();
+}
+
+// ============================================================
+// DATA FETCHERS — Supabase direct first, worker fallback
+// ============================================================
 async function getSpinStatus() {
-  try {
-    // Try Supabase direct first
-    if (window.supabase && window.currentUser?.user_id) {
-      const today = new Date().toISOString().slice(0, 10);
-      
-      // Get streak
-      const { data: streakData } = await window.supabase
-        .from('streak_records')
-        .select('streak, last_date')
-        .eq('user_id', window.currentUser.user_id)
-        .single();
-      
-      // Get spin records
-      const { data: spinData } = await window.supabase
-        .from('spin_records')
-        .select('type, points')
-        .eq('user_id', window.currentUser.user_id)
-        .eq('spin_date', today);
-      
-      const freeSpin = spinData?.find(s => s.type === 'free');
-      const quizSpin = spinData?.find(s => s.type === 'quiz');
-      
+  const sb = getSB();
+  const uid = window.currentUser?.user_id;
+
+  if (sb && uid) {
+    try {
+      const today = getTodayIST();
+      const [{ data: streakData }, { data: spinData }] = await Promise.all([
+        sb.from("streak_records").select("streak,last_date").eq("user_id", uid).maybeSingle(),
+        sb.from("spin_records").select("type,points").eq("user_id", uid).eq("spin_date", today),
+      ]);
+
+      const freeSpin = spinData?.find(s => s.type === "free");
+      const quizSpin = spinData?.find(s => s.type === "quiz");
+      const superSpin = spinData?.find(s => s.type === "super");
+
       return {
         success: true,
-        streak: streakData?.streak || 0,
+        streak: streakData?.streak ?? 0,
         streak_claimed: streakData?.last_date === today,
-        free_spin_done: !!freeSpin,
-        free_spin_points: freeSpin?.points || 0,
-        quiz_spin_done: !!quizSpin,
-        quiz_spin_points: quizSpin?.points || 0,
-        super_spin_done: false,
-        super_spin_points: 0,
-        weekly_quiz_score: 0,
-        weekly_super_score: 0
+        free_spin_done: !!freeSpin,   free_spin_points: freeSpin?.points ?? 0,
+        quiz_spin_done: !!quizSpin,   quiz_spin_points: quizSpin?.points ?? 0,
+        super_spin_done: !!superSpin, super_spin_points: superSpin?.points ?? 0,
       };
+    } catch (e) {
+      console.warn("Supabase spin status failed, using worker:", e.message);
     }
-    
-    // Fallback to worker
-    const res = await fetch(`${CONFIG.WORKER_URL}/api/user/spin-status`, {
-      credentials: "include",
-      headers: { "X-Client-Host": window.location.host }
-    });
-    return res.json();
-  } catch (err) {
-    console.error("Spin status error:", err);
-    return { success: false };
   }
+
+  return workerGet("/api/user/spin-status");
 }
 
 async function getQuizQuestions() {
-  try {
-    // Try Supabase direct first (if not submitted today)
-    if (window.supabase && window.currentUser?.user_id) {
-      const today = new Date().toISOString().slice(0, 10);
-      
-      // Check if already submitted today
-      const { data: existing } = await window.supabase
-        .from('quiz_submissions')
-        .select('score, answers, questions')
-        .eq('user_id', window.currentUser.user_id)
-        .eq('quiz_date', today)
-        .single();
-      
+  const sb = getSB();
+  const uid = window.currentUser?.user_id;
+
+  if (sb && uid) {
+    try {
+      const today = getTodayIST();
+      const { data: existing } = await sb
+        .from("quiz_submissions")
+        .select("score,answers,questions")
+        .eq("user_id", uid)
+        .eq("quiz_date", today)
+        .maybeSingle();
+
       if (existing) {
-        // Already submitted, return with answers
         return {
-          success: true,
-          submitted: true,
-          score: existing.score,
+          success: true, submitted: true,
+          score: existing.score ?? 0,
           selections: existing.answers,
-          earn: []
+          earn: [],
         };
       }
-      
-      // Get random questions from Supabase
-      const { data: allQuestions } = await window.supabase
-        .from('quiz_questions')
-        .select('qid, question, option_a, option_b, option_c, option_d, prepare_link')
-        .eq('active', true);
-      
-      if (allQuestions && allQuestions.length >= 5) {
-        // Shuffle and pick 5
-        const shuffled = [...allQuestions];
-        for (let i = shuffled.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-        }
-        const questions = shuffled.slice(0, 5);
-        
-        return {
-          success: true,
-          submitted: false,
-          earn: questions,
-          score: 0
-        };
+
+      const { data: allQ } = await sb
+        .from("quiz_questions")
+        .select("qid,question,option_a,option_b,option_c,option_d,prepare_link")
+        .eq("active", true);
+
+      if (allQ?.length >= 5) {
+        const shuffled = [...allQ].sort(() => Math.random() - 0.5).slice(0, 5);
+        return { success: true, submitted: false, earn: shuffled, score: 0 };
       }
+    } catch (e) {
+      console.warn("Supabase quiz failed, using worker:", e.message);
     }
-    
-    // Fallback to worker
-    const res = await fetch(`${CONFIG.WORKER_URL}/api/user/earn`, {
-      credentials: "include",
-      headers: { "X-Client-Host": window.location.host }
-    });
-    return res.json();
-  } catch (err) {
-    console.error("Quiz questions error:", err);
-    return { success: false, earn: [] };
   }
+
+  return workerGet("/api/user/earn");
 }
 
 async function getSuperQuestions() {
-  try {
-    if (window.supabase && window.currentUser?.user_id) {
-      const week = getCurrentWeek();
-      
-      const { data: existing } = await window.supabase
-        .from('super_submissions')
-        .select('correct_count, answers')
-        .eq('user_id', window.currentUser.user_id)
-        .eq('week', week)
-        .single();
-      
+  const sb = getSB();
+  const uid = window.currentUser?.user_id;
+  const week = getWeekKey();
+
+  if (sb && uid) {
+    try {
+      const { data: existing } = await sb
+        .from("super_submissions")
+        .select("correct_count,answers")
+        .eq("user_id", uid)
+        .eq("week", week)
+        .maybeSingle();
+
       if (existing) {
         return {
-          success: true,
-          submitted: true,
-          correct_count: existing.correct_count,
-          selections: existing.answers
+          success: true, submitted: true,
+          correct_count: existing.correct_count ?? 0,
+          selections: existing.answers,
         };
       }
-      
-      const { data: questions } = await window.supabase
-        .from('super_questions')
-        .select('qid, question, option_a, option_b, option_c, option_d, prepare_link')
-        .eq('week', week)
-        .eq('active', true);
-      
-      return {
-        success: true,
-        submitted: false,
-        questions: questions || []
-      };
+
+      const { data: questions } = await sb
+        .from("super_questions")
+        .select("qid,question,option_a,option_b,option_c,option_d,prepare_link")
+        .eq("week", week)
+        .eq("active", true);
+
+      return { success: true, submitted: false, questions: questions ?? [] };
+    } catch (e) {
+      console.warn("Supabase super quiz failed, using worker:", e.message);
     }
-    
-    const res = await fetch(`${CONFIG.WORKER_URL}/api/user/super-questions`, {
-      credentials: "include",
-      headers: { "X-Client-Host": window.location.host }
-    });
-    return res.json();
-  } catch (err) {
-    return { success: false, questions: [] };
   }
+
+  return workerGet("/api/user/super-questions");
 }
 
-function getCurrentWeek() {
-  const date = new Date();
-  const target = new Date(date.valueOf());
-  const dayNr = (date.getDay() + 6) % 7;
-  target.setDate(target.getDate() - dayNr + 3);
-  const firstThursday = new Date(target.getFullYear(), 0, 4);
-  const diff = target - firstThursday;
-  const week = 1 + Math.round(diff / 604800000);
-  return target.getFullYear() + "-W" + String(week).padStart(2, "0");
+// ── Date utilities ───────────────────────────────────────────
+function getTodayIST() {
+  return new Date(
+    new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+  ).toISOString().slice(0, 10);
 }
 
-function qs(id) { return document.getElementById(id); }
+function getWeekKey(date = new Date()) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const year = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((d - year) / 86400000) + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+}
 
 // ============================================================
-// INIT - READ from Supabase Direct
+// INIT
 // ============================================================
 document.addEventListener("DOMContentLoaded", async () => {
   try {
+    // Wait for auth guard to resolve currentUser
+    if (typeof waitForUser === "function") await waitForUser(6000);
+
+    await loadHeader();
+
     const [spinStatus, quizData, superData] = await Promise.all([
       getSpinStatus(),
       getQuizQuestions(),
-      getSuperQuestions()
+      getSuperQuestions(),
     ]);
 
     if (spinStatus.success) {
-      E.streak = spinStatus.streak || 0;
-      E.streakClaimed = spinStatus.streak_claimed || false;
-      E.freeSpinDone = spinStatus.free_spin_done || false;
-      E.freeSpinPoints = spinStatus.free_spin_points || 0;
-      E.quizSpinDone = spinStatus.quiz_spin_done || false;
-      E.quizSpinPoints = spinStatus.quiz_spin_points || 0;
+      E.streak           = spinStatus.streak ?? 0;
+      E.streakClaimed    = spinStatus.streak_claimed ?? false;
+      E.freeSpinDone     = spinStatus.free_spin_done ?? false;
+      E.freeSpinPoints   = spinStatus.free_spin_points ?? 0;
+      E.quizSpinDone     = spinStatus.quiz_spin_done ?? false;
+      E.quizSpinPoints   = spinStatus.quiz_spin_points ?? 0;
+      E.superSpinDone    = spinStatus.super_spin_done ?? false;
+      E.superSpinPoints  = spinStatus.super_spin_points ?? 0;
     }
 
     if (quizData.success) {
-      E.quizData = quizData.earn || [];
-      E.quizDone = quizData.submitted || false;
-      
+      E.quizData = quizData.earn ?? [];
+      E.quizDone = quizData.submitted ?? false;
       if (quizData.submitted && quizData.selections) {
         E.quizSelections = typeof quizData.selections === "string"
-          ? JSON.parse(quizData.selections)
-          : (quizData.selections || {});
+          ? JSON.parse(quizData.selections) : (quizData.selections ?? {});
       }
     }
 
     if (superData.success && superData.questions?.length) {
       E.superAvailable = true;
-      E.superData = superData.questions;
+      E.superData      = superData.questions;
       if (superData.submitted) {
-        E.superDone = true;
-        E.superSelections = superData.selections || {};
-        E.superCorrect = superData.correct_count || 0;
+        E.superDone       = true;
+        E.superSelections = superData.selections ?? {};
+        E.superCorrect    = superData.correct_count ?? 0;
       }
     }
 
@@ -500,8 +461,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 // ============================================================
 function renderWeeklyBar() {
   const total = E.weeklyQuizScore + E.weeklySuperScore;
-  if (qs("weeklyTotal")) qs("weeklyTotal").textContent = `${total} pts`;
-  if (qs("quizSpinScore")) qs("quizSpinScore").textContent = E.quizSpinDone ? `${E.quizSpinPoints} pts` : "—";
+  if (qs("weeklyTotal"))    qs("weeklyTotal").textContent    = `${total} pts`;
+  if (qs("quizSpinScore"))  qs("quizSpinScore").textContent  = E.quizSpinDone  ? `${E.quizSpinPoints} pts`  : "—";
   if (qs("superSpinScore")) qs("superSpinScore").textContent = E.superSpinDone ? `${E.superSpinPoints} pts` : "—";
 }
 
@@ -514,12 +475,10 @@ function startCountdown() {
     const daysUntil = (7 - now.getDay()) % 7 || 7;
     sunday.setDate(now.getDate() + daysUntil);
     sunday.setHours(0, 0, 0, 0);
-
     const ms = sunday - now;
     const h = Math.floor(ms / 3600000);
     const m = Math.floor((ms % 3600000) / 60000);
     const days = Math.floor(h / 24);
-
     if (h < 48) {
       el.textContent = `⏰ ${h}h ${m}m left`;
       el.style.color = h < 12 ? "#ef4444" : "#fbbf24";
@@ -542,23 +501,16 @@ function renderStreak() {
 
   row.innerHTML = STREAK_REWARDS.map((pts, i) => {
     const day = i + 1;
-    const done = i < E.streak;
+    const done    = i < E.streak;
     const isToday = i === E.streak && !E.streakClaimed;
-    const isMega = day === 7;
-
-    let cls = "streak-day";
-    if (done) cls += " done";
-    if (isToday) cls += " today";
-    if (isMega) cls += " mega";
-
+    const isMega  = day === 7;
+    let cls = "streak-day" + (done ? " done" : "") + (isToday ? " today" : "") + (isMega ? " mega" : "");
     const icon = done ? "✅" : isMega ? "🎁" : isToday ? "🎯" : "⬜";
-
-    return `
-      <div class="${cls}" title="Day ${day}: ${pts} pts">
-        <div class="s-icon">${icon}</div>
-        <div class="s-num">D${day}</div>
-        <div class="s-pts">${isMega ? "BIG!" : `+${pts}`}</div>
-      </div>`;
+    return `<div class="${cls}" title="Day ${day}: ${pts} pts">
+      <div class="s-icon">${icon}</div>
+      <div class="s-num">D${day}</div>
+      <div class="s-pts">${isMega ? "BIG!" : `+${pts}`}</div>
+    </div>`;
   }).join("");
 
   if (E.streakClaimed) {
@@ -572,7 +524,6 @@ function renderStreak() {
   }
 }
 
-// WRITE: Claim streak via Worker
 async function claimStreak() {
   const btn = qs("streakBtn");
   if (btn) { btn.disabled = true; btn.textContent = "Claiming…"; }
@@ -598,7 +549,7 @@ window.claimStreak = claimStreak;
 // FREE SPIN
 // ============================================================
 function renderFreeSpin() {
-  const el = qs("freeSpinSection");
+  const el   = qs("freeSpinSection");
   const badge = qs("freeSpinBadge");
   if (!el) return;
 
@@ -610,10 +561,9 @@ function renderFreeSpin() {
 
   if (badge) { badge.textContent = "Daily"; badge.className = "card-badge badge-free"; }
   el.innerHTML = `<div class="spin-container"><div class="wheel-wrap"><div class="wheel-ptr"></div><canvas id="freeCanvas" class="wheel" width="300" height="300"></canvas></div><button class="spin-btn free-col" id="freeSpinBtn" onclick="doFreeSpin()">🎯 Spin Now!</button><p style="font-size:12px;color:#94a3b8;margin:0;text-align:center">Win 100–500 pts daily — completely free!</p></div>`;
-  window._freeWheel = new SpinWheel(qs("freeCanvas"), FREE_SEGS.map(s => ({...s})));
+  window._freeWheel = new SpinWheel(qs("freeCanvas"), FREE_SEGS.map(s => ({ ...s })));
 }
 
-// WRITE: Free spin via Worker
 async function doFreeSpin() {
   if (E.freeSpinDone) return;
   const btn = qs("freeSpinBtn");
@@ -623,12 +573,8 @@ async function doFreeSpin() {
 
   const weights = [3, 3, 1, 3, 2, 3, 2, 2];
   const total = weights.reduce((a, b) => a + b, 0);
-  let rand = Math.random() * total;
-  let result = 0;
-  for (let i = 0; i < weights.length; i++) {
-    rand -= weights[i];
-    if (rand <= 0) { result = i; break; }
-  }
+  let rand = Math.random() * total, result = 0;
+  for (let i = 0; i < weights.length; i++) { rand -= weights[i]; if (rand <= 0) { result = i; break; } }
   const pts = FREE_SEGS[result].value;
 
   window._freeWheel.spinTo(result, async () => {
@@ -641,26 +587,24 @@ async function doFreeSpin() {
         setTimeout(() => renderFreeSpin(), 1400);
       } else {
         toast(data.error || "Error", "#ef4444");
-        btn.disabled = false;
-        btn.textContent = "🎯 Spin Now!";
+        btn.disabled = false; btn.textContent = "🎯 Spin Now!";
       }
     } catch {
       toast("Network error", "#ef4444");
-      btn.disabled = false;
-      btn.textContent = "🎯 Spin Now!";
+      btn.disabled = false; btn.textContent = "🎯 Spin Now!";
     }
   });
 }
 window.doFreeSpin = doFreeSpin;
 
 // ============================================================
-// QUIZ SPIN (READ from Supabase, WRITE via Worker)
+// QUIZ SECTION
 // ============================================================
-let _quizSelected = {};
+let _quizSelected   = {};
 let _quizSubmitting = false;
 
 function renderQuizSection() {
-  const el = qs("quizSection");
+  const el    = qs("quizSection");
   const badge = qs("quizSpinBadge");
   if (!el) return;
 
@@ -689,7 +633,15 @@ function _renderQuizQuestions() {
     return;
   }
 
-  el.innerHTML = `<div class="quiz-cards-wrap" id="quizQWrap">${E.quizData.map((q, idx) => `<div class="quiz-card" data-qid="${q.qid}">${q.prepare_link ? `<div class="prepare-wrapper"><a href="${q.prepare_link}" target="_blank" class="prepare-link">📘 help</a></div>` : ''}<div class="question-number">Question ${idx + 1}/${E.quizData.length}</div><h3>${q.question}</h3>${['A','B','C','D'].map(opt => `<div class="option" onclick="selectQ('${q.qid}','${opt}',this)">${opt}. ${q['option_' + opt.toLowerCase()] || 'Option ' + opt}</div>`).join('')}</div>`).join('')}<button id="submitQuizBtn" class="submit-btn" onclick="doSubmitQuiz()" style="width:100%">📤 Submit Quiz</button></div>`;
+  el.innerHTML = `<div class="quiz-cards-wrap" id="quizQWrap">${E.quizData.map((q, idx) => `
+    <div class="quiz-card" data-qid="${q.qid}">
+      ${q.prepare_link ? `<div class="prepare-wrapper"><a href="${q.prepare_link}" target="_blank" class="prepare-link">📘 help</a></div>` : ""}
+      <div class="question-number">Question ${idx + 1}/${E.quizData.length}</div>
+      <h3>${q.question}</h3>
+      ${["A","B","C","D"].map(opt => `<div class="option" onclick="selectQ('${q.qid}','${opt}',this)">${opt}. ${q["option_" + opt.toLowerCase()] || "Option " + opt}</div>`).join("")}
+    </div>`).join("")}
+    <button id="submitQuizBtn" class="submit-btn" onclick="doSubmitQuiz()" style="width:100%">📤 Submit Quiz</button>
+  </div>`;
 }
 
 function selectQ(qid, opt, el) {
@@ -697,21 +649,17 @@ function selectQ(qid, opt, el) {
   el.closest(".quiz-card").querySelectorAll(".option").forEach(o => o.classList.remove("selected"));
   el.classList.add("selected");
   if (navigator.vibrate) navigator.vibrate(10);
-  const filled = Object.keys(_quizSelected).length;
-  const total = E.quizData.length;
   const bar = qs("progressBar");
-  if (bar) bar.style.width = `${(filled / total) * 100}%`;
+  if (bar) bar.style.width = `${(Object.keys(_quizSelected).length / E.quizData.length) * 100}%`;
 }
 window.selectQ = selectQ;
 
-// WRITE: Submit quiz via Worker
 async function doSubmitQuiz() {
   if (_quizSubmitting) return;
   if (Object.keys(_quizSelected).length < E.quizData.length) {
     toast(`Please answer all ${E.quizData.length} questions`, "#f59e0b");
     return;
   }
-
   _quizSubmitting = true;
   const btn = qs("submitQuizBtn");
   if (btn) { btn.disabled = true; btn.textContent = "Submitting…"; }
@@ -742,48 +690,49 @@ function _renderQuizSpinWheel() {
   if (!el) return;
 
   const correct = E.quizCorrect;
-  const total = E.quizData.length;
-  const segs = QUIZ_SEGS.map((seg, i) => ({ ...seg, active: seg.value === 0 ? false : i < correct }));
-  const dotsHtml = QUIZ_SEGS.filter(s => s.value > 0).map((_, i) => `<span class="seg-dot ${i < correct ? 'on' : 'off'}"></span>`).join('');
+  const total   = E.quizData.length;
+  const segs    = QUIZ_SEGS.map((seg, i) => ({ ...seg, active: seg.value === 0 ? false : i < correct }));
+  const dotsHtml = QUIZ_SEGS.filter(s => s.value > 0).map((_, i) => `<span class="seg-dot ${i < correct ? "on" : "off"}"></span>`).join("");
 
-  el.innerHTML = `<div style="text-align:center;margin-bottom:14px"><p style="margin:0;font-size:14px;color:#475569;font-weight:600">🎯 ${correct}/${total} correct answers</p><div class="seg-hint" style="margin-top:8px">${dotsHtml}<span style="color:#64748b">${correct} active block${correct !== 1 ? 's' : ''}</span></div>${correct === 0 ? `<p style="font-size:12px;color:#ef4444;margin:6px 0 0">No active blocks — no spin reward today 😢</p>` : `<p style="font-size:12px;color:#10b981;margin:6px 0 0">Spin will land on one of your ${correct} active block${correct !== 1 ? 's' : ''}!</p>`}</div><div class="spin-container"><div class="wheel-wrap"><div class="wheel-ptr"></div><canvas id="quizCanvas" class="wheel" width="300" height="300"></canvas></div>${correct > 0 ? `<button class="spin-btn" id="quizSpinBtn" onclick="doQuizSpin()">🎰 Spin & Win!</button>` : `<button class="ghost-btn" onclick="viewQuizAnswers()">👁️ View My Answers</button>`}</div>`;
-  window._quizWheel = new SpinWheel(qs("quizCanvas"), segs);
+  el.innerHTML = `<div style="text-align:center;margin-bottom:14px">
+    <p style="margin:0;font-size:14px;color:#475569;font-weight:600">🎯 ${correct}/${total} correct</p>
+    <div class="seg-hint" style="margin-top:8px">${dotsHtml} <span style="color:#64748b">${correct} active block${correct !== 1 ? "s" : ""}</span></div>
+    ${correct === 0
+      ? `<p style="font-size:12px;color:#ef4444;margin:6px 0 0">No active blocks — no spin reward today 😢</p>`
+      : `<p style="font-size:12px;color:#10b981;margin:6px 0 0">Spin lands on one of your ${correct} active block${correct !== 1 ? "s" : ""}!</p>`}
+  </div>
+  <div class="spin-container"><div class="wheel-wrap"><div class="wheel-ptr"></div><canvas id="quizCanvas" class="wheel" width="300" height="300"></canvas></div>
+    ${correct > 0
+      ? `<button class="spin-btn" id="quizSpinBtn" onclick="doQuizSpin()">🎰 Spin & Win!</button>`
+      : `<button class="ghost-btn" onclick="viewQuizAnswers()">👁️ View My Answers</button>`}
+  </div>`;
+
+  window._quizWheel    = new SpinWheel(qs("quizCanvas"), segs);
   window._quizSpinSegs = segs;
 }
 
-// WRITE: Quiz spin via Worker
 async function doQuizSpin() {
   if (E.quizSpinDone || E.quizCorrect === 0) return;
   const active = (window._quizSpinSegs || QUIZ_SEGS).map((seg, i) => ({ seg, i })).filter(({ seg }) => seg.active && seg.value > 0);
   if (!active.length) return;
-  const pick = active[Math.floor(Math.random() * active.length)];
-  const target = pick.i;
-  const pts = pick.seg.value;
+  const pick   = active[Math.floor(Math.random() * active.length)];
+  const pts    = pick.seg.value;
+  const btn    = qs("quizSpinBtn");
+  btn.disabled = true; btn.textContent = "Spinning…";
 
-  const btn = qs("quizSpinBtn");
-  btn.disabled = true;
-  btn.textContent = "Spinning…";
-
-  window._quizWheel.spinTo(target, async () => {
+  window._quizWheel.spinTo(pick.i, async () => {
     try {
       const data = await apiWrite("/api/user/record-spin", { type: "quiz", points: pts });
       if (data.success) {
-        E.quizSpinDone = true;
-        E.quizSpinPoints = pts;
-        E.weeklyQuizScore += pts;
+        E.quizSpinDone = true; E.quizSpinPoints = pts; E.weeklyQuizScore += pts;
         renderWeeklyBar();
         toast(`🎰 Quiz Spin: +${pts} pts!`, "#667eea");
         setTimeout(() => renderQuizSection(), 1400);
       } else {
         toast(data.error || "Error", "#ef4444");
-        btn.disabled = false;
-        btn.textContent = "🎰 Spin & Win!";
+        btn.disabled = false; btn.textContent = "🎰 Spin & Win!";
       }
-    } catch {
-      toast("Network error", "#ef4444");
-      btn.disabled = false;
-      btn.textContent = "🎰 Spin & Win!";
-    }
+    } catch { toast("Network error", "#ef4444"); btn.disabled = false; btn.textContent = "🎰 Spin & Win!"; }
   });
 }
 window.doQuizSpin = doQuizSpin;
@@ -793,14 +742,14 @@ function viewQuizAnswers() {
   if (!el || !E.quizData.length) return;
   const frag = document.createDocumentFragment();
   E.quizData.forEach((q, idx) => {
-    const qid = String(q.qid);
-    const sel = E.quizSelections[qid] || '';
-    const corr = (E.quizAnswers[qid] || '').toUpperCase();
+    const qid  = String(q.qid);
+    const sel  = E.quizSelections[qid] || "";
+    const corr = (E.quizAnswers[qid] || "").toUpperCase();
     const opts = { A: q.option_a, B: q.option_b, C: q.option_c, D: q.option_d };
     const card = document.createElement("div");
     card.className = "quiz-card view-mode";
     card.style.marginBottom = "12px";
-    let optsHtml = '';
+    let optsHtml = "";
     Object.entries(opts).forEach(([k, txt]) => {
       let cls = "option";
       let ind = "";
@@ -810,53 +759,51 @@ function viewQuizAnswers() {
         if (k === corr) { cls += " correct-selected"; ind = " ✓"; }
         else { cls += " wrong-answer"; ind = " ✗"; }
       }
-      optsHtml += `<div class="${cls}">${k}. ${txt || 'Option ' + k}${ind}</div>`;
+      optsHtml += `<div class="${cls}">${k}. ${txt || "Option " + k}${ind}</div>`;
     });
-    const ok = sel === corr;
-    card.innerHTML = `<div class="question-number">Q${idx + 1}/${E.quizData.length}</div><h3>${q.question}</h3>${optsHtml}<div style="margin-top:10px;padding:10px 12px;border-radius:8px;font-size:13px;${ok ? 'background:#d1fae5;color:#065f46;border-left:4px solid #10b981' : 'background:#fee2e2;color:#991b1b;border-left:4px solid #ef4444'}">${ok ? '✅ Correct! Well done.' : `❌ Your answer: ${sel || '—'} &nbsp;|&nbsp; Correct: ${corr}`}</div>`;
+    const isOk = sel === corr;
+    card.innerHTML = `<div class="question-number">Q${idx + 1}/${E.quizData.length}</div><h3>${q.question}</h3>${optsHtml}
+      <div style="margin-top:10px;padding:10px 12px;border-radius:8px;font-size:13px;${isOk ? "background:#d1fae5;color:#065f46;border-left:4px solid #10b981" : "background:#fee2e2;color:#991b1b;border-left:4px solid #ef4444"}">
+        ${isOk ? "✅ Correct! Well done." : `❌ Your answer: ${sel || "—"} &nbsp;|&nbsp; Correct: ${corr}`}
+      </div>`;
     frag.appendChild(card);
   });
-  const backBtn = document.createElement("button");
-  backBtn.className = "ghost-btn";
-  backBtn.style.width = "100%";
-  backBtn.style.marginTop = "4px";
-  backBtn.textContent = "← Back";
-  backBtn.onclick = () => renderQuizSection();
-  frag.appendChild(backBtn);
+  const back = document.createElement("button");
+  back.className = "ghost-btn";
+  back.style.cssText = "width:100%;margin-top:4px";
+  back.textContent = "← Back";
+  back.onclick = () => renderQuizSection();
+  frag.appendChild(back);
   el.innerHTML = "";
   el.appendChild(frag);
 }
 window.viewQuizAnswers = viewQuizAnswers;
 
 // ============================================================
-// SUPER SPIN (READ from Supabase, WRITE via Worker)
+// SUPER SPIN
 // ============================================================
-let _superSelected = {};
+let _superSelected   = {};
 let _superSubmitting = false;
 
 function renderSuperSpin() {
-  const el = qs("superSpinSection");
+  const el    = qs("superSpinSection");
   const badge = qs("superSpinBadge");
   if (!el) return;
 
   if (!E.superAvailable) {
     if (badge) { badge.textContent = "Locked"; badge.className = "card-badge badge-lock"; }
-    el.innerHTML = `<div class="locked-overlay"><div class="l-icon">🔒</div><p style="font-weight:600;color:#64748b">Super Spin is not active.</p><p>It unlocks when special questions are available. Check Regularly!</p></div>`;
+    el.innerHTML = `<div class="locked-overlay"><div class="l-icon">🔒</div><p style="font-weight:600;color:#64748b">Super Spin is not active.</p><p>Unlocks when weekly special questions are available.</p></div>`;
     return;
   }
-
   if (E.superDone && E.superSpinDone) {
     if (badge) { badge.textContent = "Done ✓"; badge.className = "card-badge badge-done"; }
     el.innerHTML = `<div class="done-overlay"><div class="d-icon">⚡</div><div class="d-score">+${E.superSpinPoints} pts</div><p class="d-sub">Super Spin complete! Resets with weekly score on Sunday.</p></div>`;
     return;
   }
-
   if (E.superDone && !E.superSpinDone) {
     if (badge) { badge.textContent = "Spin!"; badge.className = "card-badge badge-super"; }
-    _renderSuperSpinWheel();
-    return;
+    _renderSuperSpinWheel(); return;
   }
-
   if (badge) { badge.textContent = "Weekly"; badge.className = "card-badge badge-super"; }
   _renderSuperQuestions();
 }
@@ -864,7 +811,16 @@ function renderSuperSpin() {
 function _renderSuperQuestions() {
   const el = qs("superSpinSection");
   _superSelected = {};
-  el.innerHTML = `<p style="font-size:13px;color:#f59e0b;font-weight:700;text-align:center;margin:0 0 14px">⚡ Weekly Super Quiz — Higher rewards await!</p><div class="quiz-cards-wrap">${E.superData.map((q, idx) => `<div class="quiz-card" data-qid="${q.qid}">${q.prepare_link ? `<div class="prepare-wrapper"><a href="${q.prepare_link}" target="_blank" class="prepare-link">📘 help</a></div>` : ''}<div class="question-number">Question ${idx + 1}/${E.superData.length}</div><h3>${q.question}</h3>${['A','B','C','D'].map(opt => `<div class="option" onclick="selectSQ('${q.qid}','${opt}',this)">${opt}. ${q['option_' + opt.toLowerCase()] || 'Option ' + opt}</div>`).join('')}</div>`).join('')}<button id="submitSuperBtn" class="submit-btn" onclick="doSubmitSuper()" style="width:100%;background:linear-gradient(135deg,#f59e0b,#ef4444)">⚡ Submit Super Quiz</button></div>`;
+  el.innerHTML = `<p style="font-size:13px;color:#f59e0b;font-weight:700;text-align:center;margin:0 0 14px">⚡ Weekly Super Quiz — Higher rewards await!</p>
+    <div class="quiz-cards-wrap">${E.superData.map((q, idx) => `
+      <div class="quiz-card" data-qid="${q.qid}">
+        ${q.prepare_link ? `<div class="prepare-wrapper"><a href="${q.prepare_link}" target="_blank" class="prepare-link">📘 help</a></div>` : ""}
+        <div class="question-number">Question ${idx + 1}/${E.superData.length}</div>
+        <h3>${q.question}</h3>
+        ${["A","B","C","D"].map(opt => `<div class="option" onclick="selectSQ('${q.qid}','${opt}',this)">${opt}. ${q["option_" + opt.toLowerCase()] || "Option " + opt}</div>`).join("")}
+      </div>`).join("")}
+      <button id="submitSuperBtn" class="submit-btn" onclick="doSubmitSuper()" style="width:100%;background:linear-gradient(135deg,#f59e0b,#ef4444)">⚡ Submit Super Quiz</button>
+    </div>`;
 }
 
 function selectSQ(qid, opt, el) {
@@ -875,14 +831,11 @@ function selectSQ(qid, opt, el) {
 }
 window.selectSQ = selectSQ;
 
-// WRITE: Submit super quiz via Worker
 async function doSubmitSuper() {
   if (_superSubmitting) return;
   if (Object.keys(_superSelected).length < E.superData.length) {
-    toast(`Answer all ${E.superData.length} questions`, "#f59e0b");
-    return;
+    toast(`Answer all ${E.superData.length} questions`, "#f59e0b"); return;
   }
-
   _superSubmitting = true;
   const btn = qs("submitSuperBtn");
   if (btn) { btn.disabled = true; btn.textContent = "Submitting…"; }
@@ -890,9 +843,9 @@ async function doSubmitSuper() {
   try {
     const data = await apiWrite("/api/user/submit-super-quiz", { selections: _superSelected });
     if (!data.success) throw new Error(data.error || "Submit failed");
-    E.superDone = true;
+    E.superDone      = true;
     E.superSelections = { ..._superSelected };
-    E.superCorrect = data.correct_count || 0;
+    E.superCorrect   = data.correct_count ?? 0;
     toast(`⚡ ${E.superCorrect}/${E.superData.length} correct — now spin!`, "#f59e0b");
     setTimeout(() => _renderSuperSpinWheel(), 500);
   } catch (err) {
@@ -907,79 +860,99 @@ window.doSubmitSuper = doSubmitSuper;
 function _renderSuperSpinWheel() {
   const el = qs("superSpinSection");
   if (!el) return;
+  const correct  = E.superCorrect;
+  const total    = E.superData.length;
+  const segs     = SUPER_SEGS.map((seg, i) => ({ ...seg, active: seg.value === 0 ? false : i < correct }));
+  const dotsHtml = SUPER_SEGS.filter(s => s.value > 0).map((_, i) => `<span class="seg-dot ${i < correct ? "on" : "off"}"></span>`).join("");
 
-  const correct = E.superCorrect;
-  const total = E.superData.length;
-  const segs = SUPER_SEGS.map((seg, i) => ({ ...seg, active: seg.value === 0 ? false : i < correct }));
-  const dotsHtml = SUPER_SEGS.filter(s => s.value > 0).map((_, i) => `<span class="seg-dot ${i < correct ? 'on' : 'off'}"></span>`).join('');
+  el.innerHTML = `<div style="text-align:center;margin-bottom:14px">
+    <p style="margin:0;font-size:14px;color:#475569;font-weight:600">⚡ ${correct}/${total} correct</p>
+    <div class="seg-hint" style="margin-top:8px">${dotsHtml} <span style="color:#64748b">${correct} active block${correct !== 1 ? "s" : ""}</span></div>
+    ${correct === 0
+      ? `<p style="font-size:12px;color:#ef4444;margin:6px 0 0">No active blocks — keep studying for next week!</p>`
+      : `<p style="font-size:12px;color:#f59e0b;font-weight:700;margin:6px 0 0">Up to 1000 pts! Spin now!</p>`}
+  </div>
+  <div class="spin-container"><div class="wheel-wrap"><div class="wheel-ptr"></div><canvas id="superCanvas" class="wheel" width="300" height="300"></canvas></div>
+    ${correct > 0
+      ? `<button class="spin-btn super-col" id="superSpinBtn" onclick="doSuperSpin()">⚡ Super Spin!</button>`
+      : `<p style="color:#94a3b8;font-size:13px;text-align:center;margin:0">Better luck next week!</p>`}
+  </div>`;
 
-  el.innerHTML = `<div style="text-align:center;margin-bottom:14px"><p style="margin:0;font-size:14px;color:#475569;font-weight:600">⚡ ${correct}/${total} correct answers</p><div class="seg-hint" style="margin-top:8px">${dotsHtml}<span style="color:#64748b">${correct} active block${correct !== 1 ? 's' : ''}</span></div>${correct === 0 ? `<p style="font-size:12px;color:#ef4444;margin:6px 0 0">No active blocks — keep studying for next week!</p>` : `<p style="font-size:12px;color:#f59e0b;font-weight:700;margin:6px 0 0">Up to 1000 pts! Spin now!</p>`}</div><div class="spin-container"><div class="wheel-wrap"><div class="wheel-ptr"></div><canvas id="superCanvas" class="wheel" width="300" height="300"></canvas></div>${correct > 0 ? `<button class="spin-btn super-col" id="superSpinBtn" onclick="doSuperSpin()">⚡ Super Spin!</button>` : `<p style="color:#94a3b8;font-size:13px;text-align:center;margin:0">Better luck next week!</p>`}</div>`;
-  window._superWheel = new SpinWheel(qs("superCanvas"), segs);
+  window._superWheel    = new SpinWheel(qs("superCanvas"), segs);
   window._superSpinSegs = segs;
 }
 
-// WRITE: Super spin via Worker
 async function doSuperSpin() {
   if (E.superSpinDone || E.superCorrect === 0) return;
   const active = (window._superSpinSegs || SUPER_SEGS).map((seg, i) => ({ seg, i })).filter(({ seg }) => seg.active && seg.value > 0);
   if (!active.length) return;
-  const pick = active[Math.floor(Math.random() * active.length)];
-  const target = pick.i;
-  const pts = pick.seg.value;
+  const pick   = active[Math.floor(Math.random() * active.length)];
+  const pts    = pick.seg.value;
+  const btn    = qs("superSpinBtn");
+  btn.disabled = true; btn.textContent = "Spinning…";
 
-  const btn = qs("superSpinBtn");
-  btn.disabled = true;
-  btn.textContent = "Spinning…";
-
-  window._superWheel.spinTo(target, async () => {
+  window._superWheel.spinTo(pick.i, async () => {
     try {
       const data = await apiWrite("/api/user/record-spin", { type: "super", points: pts });
       if (data.success) {
-        E.superSpinDone = true;
-        E.superSpinPoints = pts;
-        E.weeklySuperScore += pts;
+        E.superSpinDone = true; E.superSpinPoints = pts; E.weeklySuperScore += pts;
         renderWeeklyBar();
         toast(`⚡ Super Spin: +${pts} pts!`, "#f59e0b");
         setTimeout(() => renderSuperSpin(), 1400);
       } else {
         toast(data.error || "Error", "#ef4444");
-        btn.disabled = false;
-        btn.textContent = "⚡ Super Spin!";
+        btn.disabled = false; btn.textContent = "⚡ Super Spin!";
       }
-    } catch {
-      toast("Network error", "#ef4444");
-      btn.disabled = false;
-      btn.textContent = "⚡ Super Spin!";
-    }
+    } catch { toast("Network error", "#ef4444"); btn.disabled = false; btn.textContent = "⚡ Super Spin!"; }
   });
 }
 window.doSuperSpin = doSuperSpin;
 
 // ============================================================
-// LEADERBOARD (READ from Supabase Direct)
+// LEADERBOARD — Supabase direct
 // ============================================================
 async function openLeaderboard() {
   const modal = qs("leaderboardModal");
-  const list = qs("leaderboardList");
+  const list  = qs("leaderboardList");
   if (!modal || !list) return;
   modal.classList.add("open");
-  list.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Loading...</p></div>`;
+  list.innerHTML = `<div class="loading-state"><p>Loading…</p></div>`;
 
   try {
-    if (window.supabase) {
-      const { data, error } = await window.supabase
-        .from('leaderboard')
-        .select('user_id, score, user_profiles(name)')
-        .order('score', { ascending: false })
+    const sb = getSB();
+    if (sb) {
+      // Simple query — no join (avoids RLS join permission issues)
+      const { data, error } = await sb
+        .from("leaderboard")
+        .select("user_id,score")
+        .order("score", { ascending: false })
         .limit(10);
-      
-      if (!error && data && data.length) {
-        const medals = ["🥇", "🥈", "🥉"];
-        list.innerHTML = data.map((u, i) => `<div class="leaderboard-row ${['gold', 'silver', 'bronze'][i] || ''}"><span class="rank">${medals[i] || i + 1}</span><span class="user">${u.user_id?.substring(0, 6) || 'User'}…</span><span class="score">${u.score || 0} pts</span></div>`).join('');
+
+      if (!error && data?.length) {
+        const medals = ["🥇","🥈","🥉"];
+        list.innerHTML = data.map((u, i) => `
+          <div class="leaderboard-row ${["gold","silver","bronze"][i] || ""}">
+            <span class="rank">${medals[i] || i + 1}</span>
+            <span class="user">${(u.user_id || "User").substring(0, 8)}</span>
+            <span class="score">${u.score ?? 0} pts</span>
+          </div>`).join("");
         return;
       }
     }
-    list.innerHTML = '<p class="empty">No scores yet — be the first!</p>';
+
+    // Worker fallback
+    const res = await workerGet("/api/user/leaderboard?limit=10");
+    if (res?.success && res.leaderboard?.length) {
+      const medals = ["🥇","🥈","🥉"];
+      list.innerHTML = res.leaderboard.map((u, i) => `
+        <div class="leaderboard-row ${["gold","silver","bronze"][i] || ""}">
+          <span class="rank">${medals[i] || i + 1}</span>
+          <span class="user">${(u.user_id || "User").substring(0, 8)}</span>
+          <span class="score">${u.score ?? 0} pts</span>
+        </div>`).join("");
+    } else {
+      list.innerHTML = `<p class="empty">No scores yet — be the first!</p>`;
+    }
   } catch (err) {
     list.innerHTML = `<p class="error">Failed to load leaderboard</p>`;
   }
@@ -989,5 +962,6 @@ function closeLeaderboard() {
   const m = qs("leaderboardModal");
   if (m) m.classList.remove("open");
 }
-window.openLeaderboard = openLeaderboard;
+
+window.openLeaderboard  = openLeaderboard;
 window.closeLeaderboard = closeLeaderboard;
