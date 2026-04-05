@@ -5,7 +5,7 @@ window.CONFIG = {
     
     // Supabase (for direct GET queries)
     SUPABASE_URL: "https://lcelcqvhxccrwmavcexo.supabase.co",
-    SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxjZWxjcXZoeGNjcm13bWF2Y2V4byIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNzM0NTY3MjAwLCJleHAiOjIwNTAxNDMyMDB9.YOUR_ACTUAL_KEY_HERE",
+    SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxjZWxjcXZoeGNjcndtYXZjZXhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNTg5NTEsImV4cCI6MjA5MDczNDk1MX0.sVUDMinl0O2_iKDbFeBsJ5bhqIAk2wCJAwxLGLFdDno",
     
     // Main site
     MAIN_SITE: "https://agtechscript.in",
