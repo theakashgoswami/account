@@ -254,8 +254,9 @@ function toast(msg, color = "#1e293b") {
         console.error('❌ Header load failed:', error);
         // Still continue, page might work without header
     }
+    await loadHeader();
 }
-await loadHeader();
+
 // WRITE OPERATIONS ONLY - Worker API
 async function apiWrite(path, body) {
   const opts = {
