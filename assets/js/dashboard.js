@@ -1,9 +1,9 @@
-// dashboard.js - Smart mode: Supabase direct when available, worker fallback
+// dashboard.js - Top of file
 document.addEventListener("DOMContentLoaded", initDashboard);
 
 async function initDashboard() {
     console.log("📊 Initializing dashboard...");
-    
+
     try {
         const user = await waitForUser();
         if (!user) {
@@ -12,12 +12,11 @@ async function initDashboard() {
         }
 
         if (typeof loadHeader === 'function') await loadHeader();
-        
         // Wait for Supabase (optional, don't block)
         if (typeof waitForSupabase === 'function') {
-            waitForSupabase(3000);
+            await waitForSupabase(3000);
         }
-        
+
         // Load all data (auto uses Supabase if ready)
         await loadDashboardStats();
         await loadFullUserProfile();
@@ -26,74 +25,49 @@ async function initDashboard() {
 
         const dashboardContent = document.getElementById("dashboardContent");
         if (dashboardContent) dashboardContent.style.display = "block";
-        
+
         const usernameEl = document.getElementById("username");
-        if (usernameEl) usernameEl.innerText = window.currentUser?.name || window.currentUser?.user_id;
-        
+        if (usernameEl) {
+            if (window.currentUser && (window.currentUser.name || window.currentUser.user_id)) {
+                usernameEl.innerText = window.currentUser.name || window.currentUser.user_id;
+            } else {
+                usernameEl.innerText = "Guest";
+            }
+        }
+
         const referralCodeEl = document.getElementById("referralCode");
-        if (referralCodeEl) referralCodeEl.innerText = window.currentUser?.user_id || "AG0000";
-        
+        if (referralCodeEl) {
+            if (window.currentUser && window.currentUser.user_id) {
+                referralCodeEl.innerText = window.currentUser.user_id;
+            } else {
+                referralCodeEl.innerText = "AG0000";
+            }
+        }
+
     } catch (err) {
         console.error("Dashboard init error:", err);
     }
 }
 
-async function waitForUser() {
-    let tries = 0;
-    while (!window.currentUser && tries < 30) {
-        await new Promise(r => setTimeout(r, 100));
-        tries++;
-    }
-    return window.currentUser || null;
-}
-
-// Smart fetch: tries Supabase first, then worker
-async function smartFetch(endpoint, options = {}) {
-    // If Supabase is ready and it's a GET request, try Supabase first
-    if (window._supabaseSessionReady && options.method !== 'POST' && endpoint === 'dashboard-stats') {
-        try {
-            const { data, error } = await window.supabase
-                .from('user_profiles')
-                .select('points, stamps')
-                .eq('user_id', window.currentUser?.user_id)
-                .maybeSingle();
-            
-            if (!error && data) {
-                return { success: true, ...data };
-            }
-        } catch(e) {}
-    }
-    
-    // Fallback to worker
-    const res = await fetch(`${window.CONFIG.WORKER_URL}/api/user/${endpoint}`, {
-        credentials: "include",
-        headers: { "X-Client-Host": window.location.host },
-        ...options
-    });
-    return res.json();
-}
-
 async function loadDashboardStats() {
     try {
-        // Try Supabase direct if ready
         if (window._supabaseSessionReady && window.currentUser?.user_id) {
             try {
                 const [quizCount, purchaseCount, referralCount] = await Promise.all([
-                    window.supabase.from('quiz_submissions').select('id', { count: 'exact', head: true }).eq('user_id', window.currentUser.user_id),
+                    window.supabase.from('quizzes').select('id', { count: 'exact', head: true }).eq('user_id', window.currentUser.user_id),
                     window.supabase.from('purchases').select('id', { count: 'exact', head: true }).eq('user_id', window.currentUser.user_id),
                     window.supabase.from('referrals').select('id', { count: 'exact', head: true }).eq('referrer_id', window.currentUser.user_id)
                 ]);
-                
+
                 document.getElementById("quizPlayed") && (document.getElementById("quizPlayed").innerText = quizCount.count || 0);
                 document.getElementById("purchaseCount") && (document.getElementById("purchaseCount").innerText = purchaseCount.count || 0);
                 document.getElementById("referralCount") && (document.getElementById("referralCount").innerText = referralCount.count || 0);
                 return;
-            } catch(e) {
+            } catch (e) {
                 console.log("Supabase stats failed, using worker");
             }
         }
-        
-        // Fallback to worker
+
         const res = await fetch(`${window.CONFIG.WORKER_URL}/api/user/dashboard-stats`, {
             credentials: "include",
             headers: { "X-Client-Host": window.location.host }
@@ -112,7 +86,6 @@ async function loadDashboardStats() {
 
 async function loadFullUserProfile() {
     try {
-        // Try Supabase direct if ready
         if (window._supabaseSessionReady && window.currentUser?.user_id) {
             try {
                 const { data, error } = await window.supabase
@@ -120,17 +93,18 @@ async function loadFullUserProfile() {
                     .select('*')
                     .eq('user_id', window.currentUser.user_id)
                     .maybeSingle();
-                
+
                 if (!error && data) {
                     window.currentUser = { ...window.currentUser, ...data };
                     const usernameEl = document.getElementById("username");
                     if (usernameEl) usernameEl.innerText = data.name || data.user_id;
                     return;
                 }
-            } catch(e) {}
+            } catch (e) {
+                console.error("Supabase profile fetch error:", e);
+            }
         }
-        
-        // Fallback to worker
+
         const res = await fetch(`${window.CONFIG.WORKER_URL}/api/user/profile?user_id=${window.currentUser.user_id}`, {
             credentials: "include",
             headers: { "X-Client-Host": window.location.host }
@@ -149,9 +123,8 @@ async function loadFullUserProfile() {
 async function loadNotifications() {
     const box = document.getElementById("notifications");
     if (!box) return;
-    
+
     try {
-        // Try Supabase direct if ready
         if (window._supabaseSessionReady) {
             try {
                 const { data, error } = await window.supabase
@@ -159,7 +132,7 @@ async function loadNotifications() {
                     .select('*')
                     .order('created_at', { ascending: false })
                     .limit(5);
-                
+
                 if (!error && data?.length) {
                     box.innerHTML = data.map(n => `
                         <div class="note-card">
@@ -170,15 +143,16 @@ async function loadNotifications() {
                     `).join("");
                     return;
                 }
-            } catch(e) {}
+            } catch (e) {
+                console.error("Error in loadNotifications Supabase fetch:", e);
+            }
         }
-        
-        // Fallback to worker
+
         const res = await fetch(`${window.CONFIG.WORKER_URL}/api/user/notifications`, {
             credentials: "include",
             headers: { "X-Client-Host": window.location.host }
         });
-        
+
         if (res.ok) {
             const data = await res.json();
             if (data.success && data.notifications?.length) {
@@ -192,14 +166,13 @@ async function loadNotifications() {
                 return;
             }
         }
-        
+
         box.innerHTML = `<div class="note-card">Welcome to AG TechScript! Complete your first quiz to earn points.</div>`;
     } catch (error) {
         box.innerHTML = `<div class="note-card">Welcome to AG TechScript!</div>`;
     }
 }
 
-// Referral functions (same as before)
 let referralData = { count: 0, earnings: 0, referrals: [] };
 
 async function loadReferralStats() {
@@ -222,7 +195,7 @@ function updateReferralUI() {
     const countEl = document.getElementById('referralCount');
     const earningsEl = document.getElementById('referralEarnings');
     const codeSpan = document.getElementById('referralCode');
-    
+
     if (countEl) countEl.innerText = referralData.count || 0;
     if (earningsEl) earningsEl.innerText = referralData.earnings || 0;
     if (codeSpan && window.currentUser?.user_id) {
@@ -262,7 +235,9 @@ async function copyReferralCode() {
             feedback.classList.add('show');
             setTimeout(() => feedback.classList.remove('show'), 2000);
         }
-    } catch (err) {}
+    } catch (err) {
+        console.error("Clipboard copy error:", err);
+    }
 }
 
 function shareViaWhatsApp() {
@@ -315,12 +290,11 @@ function formatDate(timestamp) {
         if (diffDays === 1) return 'Yesterday';
         if (diffDays < 7) return `${diffDays} days ago`;
         return date.toLocaleDateString();
-    } catch(e) {
+    } catch (e) {
         return timestamp;
     }
 }
 
-// Make functions global
 window.copyReferralCode = copyReferralCode;
 window.shareViaWhatsApp = shareViaWhatsApp;
 window.shareViaTelegram = shareViaTelegram;
