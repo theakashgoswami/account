@@ -8,6 +8,7 @@ interface AuthContextType {
   loading: boolean;
   refreshProfile: () => Promise<void>;
   logout: () => Promise<void>;
+  login?: () => void;  // ✅ Add optional or implement
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

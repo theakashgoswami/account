@@ -1,6 +1,6 @@
 import { CONFIG } from '../config';
 import { getSupabase } from '../lib/supabase';
-const sb = getSupabase();
+
 export interface UserProfile {
   user_id: string;
   name?: string;
@@ -31,8 +31,6 @@ export interface Notification {
 async function workerGet<T>(path: string): Promise<T | null> {
   try {
     const supabase = getSupabase();
-
-    // 🔥 Supabase session le
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
 
@@ -41,8 +39,8 @@ async function workerGet<T>(path: string): Promise<T | null> {
         Authorization: `Bearer ${token}`,
         'X-Client-Host': window.location.host,
       },
+      credentials: 'include',
     });
-
     if (!res.ok) return null;
     return res.json();
   } catch {
@@ -64,8 +62,8 @@ async function workerPost<T>(path: string, body: any = {}) {
         'X-Client-Host': window.location.host,
       },
       body: JSON.stringify(body),
+      credentials: 'include',
     });
-
     const dataRes = await res.json();
     return dataRes;
   } catch (e: any) {
@@ -94,14 +92,9 @@ export function getWeekKey(date = new Date()): string {
   return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
 }
 
-// ── API ──────────────────────────────────────────────────────────────
 export const API = {
-
-  // ── READ (Supabase direct) ────────────────────────────────────────
-
-   async getUserProfile(uid: string) {
+  async getUserProfile(uid: string) {
     try {
-      // ✅ Use singleton instance
       const supabase = getSupabase();
       const { data, error } = await supabase
         .from('user_profiles')
@@ -112,9 +105,11 @@ export const API = {
     } catch { /* fallback */ }
     return (await workerGet<any>('/api/user/profile')) ?? { success: false };
   },
+
   async getUserStats(uid: string) {
     try {
-      const { data, error } = await getSupabase()
+      const supabase = getSupabase();
+      const { data, error } = await supabase
         .from('user_profiles')
         .select('points, stamps')
         .eq('user_id', uid)
@@ -126,12 +121,12 @@ export const API = {
 
   async getDashboardStats(uid: string): Promise<DashboardStats | null> {
     try {
-      
+      const supabase = getSupabase();
       const [quiz, purchase, score, referrals] = await Promise.all([
-        sb.from('quiz_submissions').select('id', { count: 'exact', head: true }).eq('user_id', uid),
-        sb.from('purchases').select('id', { count: 'exact', head: true }).eq('user_id', uid),
-        sb.from('leaderboard').select('all_time_score').eq('user_id', uid).maybeSingle(),
-        sb.from('referrals').select('id', { count: 'exact', head: true }).eq('referrer_id', uid),
+        supabase.from('quiz_submissions').select('id', { count: 'exact', head: true }).eq('user_id', uid),
+        supabase.from('purchases').select('id', { count: 'exact', head: true }).eq('user_id', uid),
+        supabase.from('leaderboard').select('all_time_score').eq('user_id', uid).maybeSingle(),
+        supabase.from('referrals').select('id', { count: 'exact', head: true }).eq('referrer_id', uid),
       ]);
       return {
         quizPlayed: quiz.count ?? 0,
@@ -145,7 +140,8 @@ export const API = {
 
   async getNotifications(): Promise<Notification[]> {
     try {
-      const { data, error } = await getSupabase()
+      const supabase = getSupabase();
+      const { data, error } = await supabase
         .from('notifications')
         .select('*')
         .order('created_at', { ascending: false })
@@ -159,10 +155,10 @@ export const API = {
   async getSpinStatus(uid: string) {
     try {
       const today = getTodayIST();
-     
+      const supabase = getSupabase();
       const [{ data: streakData }, { data: spinData }] = await Promise.all([
-        sb.from('streak_records').select('streak,last_date').eq('user_id', uid).maybeSingle(),
-        sb.from('spin_records').select('type,points').eq('user_id', uid).eq('spin_date', today),
+        supabase.from('streak_records').select('streak,last_date').eq('user_id', uid).maybeSingle(),
+        supabase.from('spin_records').select('type,points').eq('user_id', uid).eq('spin_date', today),
       ]);
       const free = spinData?.find((s: any) => s.type === 'free');
       const quiz = spinData?.find((s: any) => s.type === 'quiz');
@@ -179,12 +175,12 @@ export const API = {
     return workerGet<any>('/api/user/spin-status');
   },
 
-async getQuizQuestions(uid: string) {
+  async getQuizQuestions(uid: string) {
     try {
       const today = getTodayIST();
-   
+      const supabase = getSupabase();
       
-      const { data: existing } = await sb
+      const { data: existing } = await supabase
         .from('quiz_submissions')
         .select('score,answers,questions')
         .eq('user_id', uid)
@@ -199,7 +195,7 @@ async getQuizQuestions(uid: string) {
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const dateLimit = thirtyDaysAgo.toISOString().split('T')[0];
       
-      const { data: recentQuestions } = await sb
+      const { data: recentQuestions } = await supabase
         .from('user_quiz_progress')
         .select('question_id')
         .eq('user_id', uid)
@@ -207,12 +203,11 @@ async getQuizQuestions(uid: string) {
       
       const usedQids = new Set(recentQuestions?.map(r => r.question_id) || []);
       
-      let query = sb
+      let query = supabase
         .from('quiz_questions')
         .select('qid,question,option_a,option_b,option_c,option_d,prepare_link')
         .eq('active', true);
       
-      // Fixed: Only apply 'not' filter if there are actually IDs to exclude
       if (usedQids.size > 0) {
         const usedArray = Array.from(usedQids);
         query = query.not('qid', 'in', `(${usedArray.join(',')})`);
@@ -222,7 +217,7 @@ async getQuizQuestions(uid: string) {
       let finalQuestions = availableQuestions || [];
       
       if (finalQuestions.length < 5) {
-        const { data: allQuestions } = await sb
+        const { data: allQuestions } = await supabase
           .from('quiz_questions')
           .select('qid,question,option_a,option_b,option_c,option_d,prepare_link')
           .eq('active', true);
@@ -239,7 +234,7 @@ async getQuizQuestions(uid: string) {
         answered: false
       }));
       
-      await sb.from('user_quiz_progress').insert(progressRecords);
+      await supabase.from('user_quiz_progress').insert(progressRecords);
       
       return { success: true, submitted: false, earn: selectedQuestions, score: 0 };
     } catch (error) {
@@ -251,8 +246,8 @@ async getQuizQuestions(uid: string) {
   async getSuperQuestions(uid: string) {
     try {
       const week = getWeekKey();
-    
-      const { data: existing } = await sb
+      const supabase = getSupabase();
+      const { data: existing } = await supabase
         .from('super_submissions')
         .select('correct_count,answers')
         .eq('user_id', uid)
@@ -263,7 +258,7 @@ async getQuizQuestions(uid: string) {
         return { success: true, submitted: true, correct_count: existing.correct_count ?? 0, selections: existing.answers, questions: [] };
       }
 
-      const { data: questions } = await sb
+      const { data: questions } = await supabase
         .from('super_questions')
         .select('qid,question,option_a,option_b,option_c,option_d,prepare_link')
         .eq('week', week)
@@ -275,16 +270,14 @@ async getQuizQuestions(uid: string) {
     }
   },
 
-  // ── Leaderboard Methods ────────────────────────────────────────────
-
   getWeeklyLeaderboard: async () => {
     try {
-      
+      const supabase = getSupabase();
       const now = new Date();
       const weekNum = getWeekNumber(now);
       const weekKey = `${now.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
       
-      const { data, error } = await sb
+      const { data, error } = await supabase
         .from('leaderboard')
         .select('user_id, current_week_score as score')
         .eq('week_key', weekKey)
@@ -297,7 +290,7 @@ async getQuizQuestions(uid: string) {
       let users: any[] = [];
       
       if (userIds.length > 0) {
-        const { data: userData } = await sb
+        const { data: userData } = await supabase
           .from('user_profiles')
           .select('user_id, name, profile_image')
           .in('user_id', userIds);
@@ -319,11 +312,11 @@ async getQuizQuestions(uid: string) {
 
   getMonthlyLeaderboard: async () => {
     try {
-    
+      const supabase = getSupabase();
       const now = new Date();
       const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       
-      const { data, error } = await sb
+      const { data, error } = await supabase
         .from('leaderboard')
         .select('user_id, current_month_score as score')
         .eq('month_key', monthKey)
@@ -336,7 +329,7 @@ async getQuizQuestions(uid: string) {
       let users: any[] = [];
       
       if (userIds.length > 0) {
-        const { data: userData } = await sb
+        const { data: userData } = await supabase
           .from('user_profiles')
           .select('user_id, name, profile_image')
           .in('user_id', userIds);
@@ -358,9 +351,8 @@ async getQuizQuestions(uid: string) {
 
   getAllTimeLeaderboard: async () => {
     try {
-     
-      
-      const { data, error } = await sb
+      const supabase = getSupabase();
+      const { data, error } = await supabase
         .from('leaderboard')
         .select('user_id, all_time_score as score')
         .order('all_time_score', { ascending: false })
@@ -372,7 +364,7 @@ async getQuizQuestions(uid: string) {
       let users: any[] = [];
       
       if (userIds.length > 0) {
-        const { data: userData } = await sb
+        const { data: userData } = await supabase
           .from('user_profiles')
           .select('user_id, name, profile_image')
           .in('user_id', userIds);
@@ -394,9 +386,8 @@ async getQuizQuestions(uid: string) {
 
   getUserRanks: async (userId: string) => {
     try {
-   
-      
-      const { data: user } = await sb
+      const supabase = getSupabase();
+      const { data: user } = await supabase
         .from('leaderboard')
         .select('*')
         .eq('user_id', userId)
@@ -404,19 +395,19 @@ async getQuizQuestions(uid: string) {
       
       if (!user) return null;
       
-      const { count: weeklyRank } = await sb
+      const { count: weeklyRank } = await supabase
         .from('leaderboard')
         .select('user_id', { count: 'exact', head: true })
         .eq('week_key', user.week_key)
         .gt('current_week_score', user.current_week_score);
       
-      const { count: monthlyRank } = await sb
+      const { count: monthlyRank } = await supabase
         .from('leaderboard')
         .select('user_id', { count: 'exact', head: true })
         .eq('month_key', user.month_key)
         .gt('current_month_score', user.current_month_score);
       
-      const { count: allTimeRank } = await sb
+      const { count: allTimeRank } = await supabase
         .from('leaderboard')
         .select('user_id', { count: 'exact', head: true })
         .gt('all_time_score', user.all_time_score);
@@ -437,10 +428,10 @@ async getQuizQuestions(uid: string) {
 
   async getRewards(uid?: string) {
     try {
-  
+      const supabase = getSupabase();
       const [rwResult, uResult] = await Promise.all([
-        sb.from('rewards').select('*').eq('active', true),
-        uid ? sb.from('user_profiles').select('points,stamps').eq('user_id', uid).maybeSingle() : Promise.resolve({ data: null, error: null }),
+        supabase.from('rewards').select('*').eq('active', true),
+        uid ? supabase.from('user_profiles').select('points,stamps').eq('user_id', uid).maybeSingle() : Promise.resolve({ data: null, error: null }),
       ]);
       if (!rwResult.error && rwResult.data) {
         const userPts = uResult.data?.points ?? 0;
@@ -460,7 +451,8 @@ async getQuizQuestions(uid: string) {
 
   async getRedeemHistory(uid: string) {
     try {
-      const { data, error } = await getSupabase()
+      const supabase = getSupabase();
+      const { data, error } = await supabase
         .from('reward_claims')
         .select('reward_name, points_used, stamps_used, status, created_at')
         .eq('user_id', uid)
@@ -473,11 +465,11 @@ async getQuizQuestions(uid: string) {
 
   async getFullHistory(uid: string) {
     try {
-  
+      const supabase = getSupabase();
       const [quiz, purchases, points] = await Promise.all([
-        sb.from('quiz_submissions').select('quiz_date,score,created_at').eq('user_id', uid).order('created_at', { ascending: false }),
-        sb.from('purchases').select('invoice_id,item,amount,points,stamp,created_at').eq('user_id', uid).order('created_at', { ascending: false }),
-        sb.from('points_log').select('points,reason,created_at').eq('user_id', uid).order('created_at', { ascending: false }),
+        supabase.from('quiz_submissions').select('quiz_date,score,created_at').eq('user_id', uid).order('created_at', { ascending: false }),
+        supabase.from('purchases').select('invoice_id,item,amount,points,stamp,created_at').eq('user_id', uid).order('created_at', { ascending: false }),
+        supabase.from('points_log').select('points,reason,created_at').eq('user_id', uid).order('created_at', { ascending: false }),
       ]);
       if (!quiz.error) return { success: true, quiz: quiz.data ?? [], purchases: purchases.data ?? [], points: points.data ?? [] };
     } catch { /* fallback */ }
@@ -487,8 +479,6 @@ async getQuizQuestions(uid: string) {
   async getReferralStats() {
     return workerGet<any>('/api/user/referral-stats');
   },
-
-  // ── WRITE (always worker) ─────────────────────────────────────────
 
   async redeemReward(rewardId: string) { return workerPost<any>('/api/user/redeem-reward', { rewardId }); },
   async redeemCode(code: string, week: string) { return workerPost<any>('/api/user/redeem-code', { code, week }); },
