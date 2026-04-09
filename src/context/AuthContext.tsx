@@ -19,13 +19,17 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// ✅ Kitni der baad visibility change pe re-check karna hai (5 minutes)
+const AUTH_RECHECK_INTERVAL_MS = 5 * 60 * 1000;
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refreshAbortRef = useRef<AbortController | null>(null);
+  // ✅ Last successful auth check ka timestamp
+  const lastAuthCheckRef = useRef<number>(0);
 
-  // Profile fetch — direct REST with token (bypasses Supabase JS session)
   const fetchUserProfile = useCallback(
     async (userId: string, accessToken?: string): Promise<UserProfile | null> => {
       try {
@@ -45,7 +49,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return (rows[0] as UserProfile) ?? null;
         }
 
-        // Fallback (refreshProfile path)
         const supabase = getSupabase();
         const { data, error } = await supabase.from('user_profiles').select('*').eq('user_id', userId).maybeSingle();
         if (error) { console.error('Supabase fetch error:', error); return null; }
@@ -59,7 +62,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   const checkAuth = useCallback(
-    async (signal?: AbortSignal) => {
+    async (signal?: AbortSignal, { force = false } = {}) => {
+      // ✅ Cooldown check — agar recently check hua hai toh skip karo
+      const now = Date.now();
+      if (!force && now - lastAuthCheckRef.current < AUTH_RECHECK_INTERVAL_MS) {
+        return;
+      }
+
       try {
         const response = await fetch(`${CONFIG.WORKER_URL}/api/auth/status`, {
           credentials: 'include',
@@ -72,12 +81,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (signal?.aborted) return;
 
+        // ✅ Timestamp update — successful request ke baad
+        lastAuthCheckRef.current = Date.now();
+
         if (response.ok) {
           const data = await response.json();
 
           if (data.authenticated && data.user_id) {
-            // ✅ Token ko api.ts ke module store mein set karo
-            // Ab saari API calls (getDashboardStats, getRewards, etc.) isko use karengi
             if (data.supabase_token) {
               setSupabaseToken(data.supabase_token);
             }
@@ -99,7 +109,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               created_at: profile?.created_at || '',
             });
           } else {
-            setSupabaseToken(null); // ✅ logout pe token clear
+            setSupabaseToken(null);
             setUser(null);
           }
         } else {
@@ -148,21 +158,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.error('Logout error:', err);
     } finally {
-      setSupabaseToken(null); // ✅ token clear on logout
+      setSupabaseToken(null);
+      lastAuthCheckRef.current = 0; // ✅ Reset so next login pe fresh check ho
       setUser(null);
       window.location.href = CONFIG.MAIN_SITE;
     }
   }, []);
 
+  // ✅ Mount pe ek baar — force:true se cooldown bypass
   useEffect(() => {
     const controller = new AbortController();
-    checkAuth(controller.signal);
+    checkAuth(controller.signal, { force: true });
     return () => controller.abort();
   }, [checkAuth]);
 
+  // ✅ Visibility change pe cooldown ke saath re-check
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') checkAuth();
+      if (document.visibilityState === 'visible') {
+        // force nahi — cooldown laga rahega (5 min mein ek baar hi hit hogi)
+        checkAuth();
+      }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
