@@ -42,22 +42,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchUserProfile = async (supabaseUid: string) => {
-    try {
-      const supabase = getSupabase();
-      const { data } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('supabase_uid', supabaseUid)
-        .single();
-      
+const fetchUserProfile = async (supabaseUid: string) => {
+  setLoading(true);
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .or(`supabase_uid.eq.${supabaseUid},user_id.eq.${supabaseUid}`)
+      .maybeSingle();
+
+    if (data) {
       setUser(data);
-    } catch (error) {
-      console.error('Failed to fetch user profile:', error);
-    } finally {
-      setLoading(false);
+    } else {
+      // ✅ YAHAN USE HOGA API
+      console.warn("Supabase mein profile nahi mili, worker check kar rahe hain...");
+      const workerProfile = await API.getDashboardStats(supabaseUid); 
+      
+      if (workerProfile) {
+        setUser(workerProfile);
+      } else {
+        setUser(null);
+      }
     }
-  };
+  } catch (err) {
+    console.error("Auth error:", err);
+    setUser(null);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const refreshProfile = async () => {
     if (user?.supabase_uid) {

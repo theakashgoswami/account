@@ -1,6 +1,6 @@
 import { CONFIG } from '../config';
 import { getSupabase } from '../lib/supabase';
-
+const sb = getSupabase();
 export interface UserProfile {
   user_id: string;
   name?: string;
@@ -112,7 +112,7 @@ export const API = {
 
   async getDashboardStats(uid: string): Promise<DashboardStats | null> {
     try {
-      const sb = getSupabase();
+      
       const [quiz, purchase, score, referrals] = await Promise.all([
         sb.from('quiz_submissions').select('id', { count: 'exact', head: true }).eq('user_id', uid),
         sb.from('purchases').select('id', { count: 'exact', head: true }).eq('user_id', uid),
@@ -145,7 +145,7 @@ export const API = {
   async getSpinStatus(uid: string) {
     try {
       const today = getTodayIST();
-      const sb = getSupabase();
+     
       const [{ data: streakData }, { data: spinData }] = await Promise.all([
         sb.from('streak_records').select('streak,last_date').eq('user_id', uid).maybeSingle(),
         sb.from('spin_records').select('type,points').eq('user_id', uid).eq('spin_date', today),
@@ -168,7 +168,7 @@ export const API = {
 async getQuizQuestions(uid: string) {
     try {
       const today = getTodayIST();
-      const sb = getSupabase(); // Fixed: Added sb instance
+   
       
       const { data: existing } = await sb
         .from('quiz_submissions')
@@ -237,7 +237,7 @@ async getQuizQuestions(uid: string) {
   async getSuperQuestions(uid: string) {
     try {
       const week = getWeekKey();
-      const sb = getSupabase(); // Fixed: Added sb instance
+    
       const { data: existing } = await sb
         .from('super_submissions')
         .select('correct_count,answers')
@@ -265,7 +265,7 @@ async getQuizQuestions(uid: string) {
 
   getWeeklyLeaderboard: async () => {
     try {
-      const sb = getSupabase();
+      
       const now = new Date();
       const weekNum = getWeekNumber(now);
       const weekKey = `${now.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
@@ -305,7 +305,7 @@ async getQuizQuestions(uid: string) {
 
   getMonthlyLeaderboard: async () => {
     try {
-      const sb = getSupabase();
+    
       const now = new Date();
       const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       
@@ -344,7 +344,7 @@ async getQuizQuestions(uid: string) {
 
   getAllTimeLeaderboard: async () => {
     try {
-      const sb = getSupabase();
+     
       
       const { data, error } = await sb
         .from('leaderboard')
@@ -380,7 +380,7 @@ async getQuizQuestions(uid: string) {
 
   getUserRanks: async (userId: string) => {
     try {
-      const sb = getSupabase();
+   
       
       const { data: user } = await sb
         .from('leaderboard')
@@ -423,7 +423,7 @@ async getQuizQuestions(uid: string) {
 
   async getRewards(uid?: string) {
     try {
-      const sb = getSupabase();
+  
       const [rwResult, uResult] = await Promise.all([
         sb.from('rewards').select('*').eq('active', true),
         uid ? sb.from('user_profiles').select('points,stamps').eq('user_id', uid).maybeSingle() : Promise.resolve({ data: null, error: null }),
@@ -459,7 +459,7 @@ async getQuizQuestions(uid: string) {
 
   async getFullHistory(uid: string) {
     try {
-      const sb = getSupabase();
+  
       const [quiz, purchases, points] = await Promise.all([
         sb.from('quiz_submissions').select('quiz_date,score,created_at').eq('user_id', uid).order('created_at', { ascending: false }),
         sb.from('purchases').select('invoice_id,item,amount,points,stamp,created_at').eq('user_id', uid).order('created_at', { ascending: false }),
