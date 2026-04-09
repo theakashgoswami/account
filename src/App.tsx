@@ -58,7 +58,6 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 export default function App() {
   return (
-    <AuthProvider>
       <Router>
         <Layout>
           <Routes>
@@ -72,7 +71,6 @@ export default function App() {
           </Routes>
         </Layout>
       </Router>
-    </AuthProvider>
   );
 }
 

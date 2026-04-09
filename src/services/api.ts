@@ -28,34 +28,48 @@ export interface Notification {
   created_at: string;
 }
 
-// ── helpers ─────────────────────────────────────────────────────────
 async function workerGet<T>(path: string): Promise<T | null> {
   try {
+    const supabase = getSupabase();
+
+    // 🔥 Supabase session le
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+
     const res = await fetch(`${CONFIG.WORKER_URL}${path}`, {
-      credentials: 'include',
-      headers: { 'X-Client-Host': window.location.host },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'X-Client-Host': window.location.host,
+      },
     });
+
     if (!res.ok) return null;
     return res.json();
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
-async function workerPost<T>(path: string, body: any = {}): Promise<{ success: boolean; error?: string } & T> {
+async function workerPost<T>(path: string, body: any = {}) {
   try {
+    const supabase = getSupabase();
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+
     const res = await fetch(`${CONFIG.WORKER_URL}${path}`, {
       method: 'POST',
-      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
         'X-Client-Host': window.location.host,
       },
       body: JSON.stringify(body),
     });
-    const data = await res.json();
-    if (!res.ok) return { success: false, error: data.error || `HTTP ${res.status}`, ...data };
-    return data;
+
+    const dataRes = await res.json();
+    return dataRes;
   } catch (e: any) {
-    return { success: false, error: e.message } as any;
+    return { success: false, error: e.message };
   }
 }
 
