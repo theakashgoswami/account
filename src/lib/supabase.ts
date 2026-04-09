@@ -1,30 +1,26 @@
-// lib/supabase.ts
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { CONFIG } from '../config';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Global variable to hold the instance
+let supabaseInstance: SupabaseClient | null = null;
 
-// ✅ Add check for missing variables
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase environment variables');
-  throw new Error('Missing Supabase environment variables');
-}
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-// Singleton pattern - single instance
-let supabaseInstance: ReturnType<typeof createClient> | null = null;
-
-export function getSupabase() {
-  if (!supabaseInstance) {
-    const url = import.meta.env.VITE_SUPABASE_URL;
-    const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    
-    if (!url || !key) {
-      throw new Error('Missing Supabase environment variables');
-    }
-    
-    supabaseInstance = createClient(url, key);
+export const getSupabase = () => {
+  // Agar instance pehle se bana hai, toh wahi return karo
+  if (supabaseInstance) {
+    return supabaseInstance;
   }
+
+  // Agar nahi bana, toh naya banao
+  supabaseInstance = createClient(
+    CONFIG.SUPABASE_URL,
+    CONFIG.SUPABASE_ANON_KEY,
+    {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+      }
+    }
+  );
+
   return supabaseInstance;
-}
+};

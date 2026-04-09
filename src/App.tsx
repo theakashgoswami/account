@@ -31,12 +31,12 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
       <div className="flex h-screen flex-col items-center justify-center bg-zinc-950 px-4 text-center">
         <h2 className="mb-4 text-2xl font-bold text-white">Authentication Required</h2>
         <p className="mb-8 text-zinc-400">Please login to access this page.</p>
-        <button
-          onClick={login}
-          className="rounded-lg bg-indigo-600 px-6 py-3 font-semibold text-white transition-all hover:bg-indigo-500"
+       <a
+         href="https://agtechscript.in#login"
+          className="inline-block rounded-lg bg-indigo-600 px-6 py-3 font-semibold text-white transition-all hover:bg-indigo-500"
         >
-          Login Now
-        </button>
+         Login Now
+      </a>
       </div>
     );
   }
