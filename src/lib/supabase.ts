@@ -1,37 +1,30 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { CONFIG } from '../config';
+// lib/supabase.ts
+import { createClient } from '@supabase/supabase-js';
 
-// The supabase client starts anonymous.
-// After /api/auth/status returns a supabase_token, call setSupabaseToken()
-// to recreate the client with the authenticated JWT so RLS works.
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-let _client: SupabaseClient = createClient(
-  CONFIG.SUPABASE_URL,
-  CONFIG.SUPABASE_ANON_KEY,
-  { auth: { persistSession: false } }
-);
+// ✅ Add check for missing variables
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Missing Supabase environment variables');
+  throw new Error('Missing Supabase environment variables');
+}
 
-export function setSupabaseToken(token: string | null) {
-  _client = createClient(
-    CONFIG.SUPABASE_URL,
-    CONFIG.SUPABASE_ANON_KEY,
-    {
-      global: {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      },
-      auth: { persistSession: false },
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// Singleton pattern - single instance
+let supabaseInstance: ReturnType<typeof createClient> | null = null;
+
+export function getSupabase() {
+  if (!supabaseInstance) {
+    const url = import.meta.env.VITE_SUPABASE_URL;
+    const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    
+    if (!url || !key) {
+      throw new Error('Missing Supabase environment variables');
     }
-  );
+    
+    supabaseInstance = createClient(url, key);
+  }
+  return supabaseInstance;
 }
-
-// Always use this getter so you always get the current (possibly re-authed) instance
-export function getSupabase(): SupabaseClient {
-  return _client;
-}
-
-// Convenience alias for backwards-compat
-export const supabase = new Proxy({} as SupabaseClient, {
-  get(_target, prop) {
-    return (_client as any)[prop];
-  },
-});

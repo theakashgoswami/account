@@ -59,23 +59,45 @@ async function workerPost<T>(path: string, body: any = {}): Promise<{ success: b
   }
 }
 
+function getWeekNumber(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+}
+
+function getTodayIST(): string {
+  return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
+    .toISOString().slice(0, 10);
+}
+
+export function getWeekKey(date = new Date()): string {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const year = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((d.getTime() - year.getTime()) / 86400000) + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+}
+
 // ── API ──────────────────────────────────────────────────────────────
 export const API = {
 
-  // ── READ (Supabase direct — always query by user_id) ────────────
+  // ── READ (Supabase direct) ────────────────────────────────────────
 
-  async getUserProfile(uid: string) {
+   async getUserProfile(uid: string) {
     try {
-      const { data, error } = await getSupabase()
+      // ✅ Use singleton instance
+      const supabase = getSupabase();
+      const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
-        .eq('user_id', uid)   // ← user_id, NOT supabase_uid
+        .eq('user_id', uid)
         .maybeSingle();
       if (!error && data) return { success: true, ...data };
     } catch { /* fallback */ }
     return (await workerGet<any>('/api/user/profile')) ?? { success: false };
   },
-
   async getUserStats(uid: string) {
     try {
       const { data, error } = await getSupabase()
@@ -94,13 +116,13 @@ export const API = {
       const [quiz, purchase, score, referrals] = await Promise.all([
         sb.from('quiz_submissions').select('id', { count: 'exact', head: true }).eq('user_id', uid),
         sb.from('purchases').select('id', { count: 'exact', head: true }).eq('user_id', uid),
-        sb.from('leaderboard').select('score').eq('user_id', uid).maybeSingle(),
+        sb.from('leaderboard').select('all_time_score').eq('user_id', uid).maybeSingle(),
         sb.from('referrals').select('id', { count: 'exact', head: true }).eq('referrer_id', uid),
       ]);
       return {
-        quizPlayed:    quiz.count      ?? 0,
-        purchaseCount: purchase.count  ?? 0,
-        quizScore:     score.data?.score ?? 0,
+        quizPlayed: quiz.count ?? 0,
+        purchaseCount: purchase.count ?? 0,
+        quizScore: score.data?.all_time_score ?? 0,
         referralCount: referrals.count ?? 0,
       };
     } catch { /* fallback */ }
@@ -113,7 +135,7 @@ export const API = {
         .from('notifications')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(10);
       if (!error && data) return data;
     } catch { /* fallback */ }
     const res = await workerGet<{ success: boolean; notifications: Notification[] }>('/api/user/notifications');
@@ -128,63 +150,275 @@ export const API = {
         sb.from('streak_records').select('streak,last_date').eq('user_id', uid).maybeSingle(),
         sb.from('spin_records').select('type,points').eq('user_id', uid).eq('spin_date', today),
       ]);
-      const free  = spinData?.find((s: any) => s.type === 'free');
-      const quiz  = spinData?.find((s: any) => s.type === 'quiz');
-      const sup   = spinData?.find((s: any) => s.type === 'super');
+      const free = spinData?.find((s: any) => s.type === 'free');
+      const quiz = spinData?.find((s: any) => s.type === 'quiz');
+      const sup = spinData?.find((s: any) => s.type === 'super');
       return {
         success: true,
-        streak:            streakData?.streak ?? 0,
-        streak_claimed:    streakData?.last_date === today,
-        free_spin_done:    !!free,  free_spin_points:  free?.points  ?? 0,
-        quiz_spin_done:    !!quiz,  quiz_spin_points:  quiz?.points  ?? 0,
-        super_spin_done:   !!sup,   super_spin_points: sup?.points   ?? 0,
+        streak: streakData?.streak ?? 0,
+        streak_claimed: streakData?.last_date === today,
+        free_spin_done: !!free, free_spin_points: free?.points ?? 0,
+        quiz_spin_done: !!quiz, quiz_spin_points: quiz?.points ?? 0,
+        super_spin_done: !!sup, super_spin_points: sup?.points ?? 0,
       };
     } catch { /* fallback */ }
     return workerGet<any>('/api/user/spin-status');
   },
 
-  async getQuizQuestions(uid: string) {
+async getQuizQuestions(uid: string) {
     try {
       const today = getTodayIST();
-      const sb = getSupabase();
+      const sb = getSupabase(); // Fixed: Added sb instance
+      
       const { data: existing } = await sb
         .from('quiz_submissions')
         .select('score,answers,questions')
         .eq('user_id', uid)
         .eq('quiz_date', today)
         .maybeSingle();
+      
       if (existing) {
         return { success: true, submitted: true, score: existing.score ?? 0, selections: existing.answers, earn: [] };
       }
-      const { data: allQ } = await sb
+      
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const dateLimit = thirtyDaysAgo.toISOString().split('T')[0];
+      
+      const { data: recentQuestions } = await sb
+        .from('user_quiz_progress')
+        .select('question_id')
+        .eq('user_id', uid)
+        .gte('asked_date', dateLimit);
+      
+      const usedQids = new Set(recentQuestions?.map(r => r.question_id) || []);
+      
+      let query = sb
         .from('quiz_questions')
         .select('qid,question,option_a,option_b,option_c,option_d,prepare_link')
         .eq('active', true);
-      if (allQ && allQ.length >= 5) {
-        return { success: true, submitted: false, earn: [...allQ].sort(() => Math.random() - .5).slice(0, 5), score: 0 };
+      
+      // Fixed: Only apply 'not' filter if there are actually IDs to exclude
+      if (usedQids.size > 0) {
+        const usedArray = Array.from(usedQids);
+        query = query.not('qid', 'in', `(${usedArray.join(',')})`);
       }
-    } catch { /* fallback */ }
-    return workerGet<any>('/api/user/earn');
+      
+      const { data: availableQuestions } = await query;
+      let finalQuestions = availableQuestions || [];
+      
+      if (finalQuestions.length < 5) {
+        const { data: allQuestions } = await sb
+          .from('quiz_questions')
+          .select('qid,question,option_a,option_b,option_c,option_d,prepare_link')
+          .eq('active', true);
+        finalQuestions = allQuestions || [];
+      }
+      
+      const shuffled = [...finalQuestions].sort(() => 0.5 - Math.random());
+      const selectedQuestions = shuffled.slice(0, 5);
+      
+      const progressRecords = selectedQuestions.map(q => ({
+        user_id: uid,
+        question_id: q.qid,
+        asked_date: today,
+        answered: false
+      }));
+      
+      await sb.from('user_quiz_progress').insert(progressRecords);
+      
+      return { success: true, submitted: false, earn: selectedQuestions, score: 0 };
+    } catch (error) {
+      console.error('Quiz Fetch Error:', error);
+      return (await workerGet<any>('/api/user/earn')) ?? { success: false, earn: [] };
+    }
   },
 
   async getSuperQuestions(uid: string) {
     try {
       const week = getWeekKey();
-      const sb = getSupabase();
+      const sb = getSupabase(); // Fixed: Added sb instance
       const { data: existing } = await sb
         .from('super_submissions')
         .select('correct_count,answers')
         .eq('user_id', uid)
         .eq('week', week)
         .maybeSingle();
-      if (existing) return { success: true, submitted: true, correct_count: existing.correct_count ?? 0, selections: existing.answers, questions: [] };
+
+      if (existing) {
+        return { success: true, submitted: true, correct_count: existing.correct_count ?? 0, selections: existing.answers, questions: [] };
+      }
+
       const { data: questions } = await sb
         .from('super_questions')
         .select('qid,question,option_a,option_b,option_c,option_d,prepare_link')
-        .eq('week', week).eq('active', true);
+        .eq('week', week)
+        .eq('active', true);
+
       return { success: true, submitted: false, questions: questions ?? [] };
-    } catch { /* fallback */ }
-    return workerGet<any>('/api/user/super-questions');
+    } catch (error) {
+      return (await workerGet<any>('/api/user/super-questions')) ?? { success: false, questions: [] };
+    }
+  },
+
+  // ── Leaderboard Methods ────────────────────────────────────────────
+
+  getWeeklyLeaderboard: async () => {
+    try {
+      const sb = getSupabase();
+      const now = new Date();
+      const weekNum = getWeekNumber(now);
+      const weekKey = `${now.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+      
+      const { data, error } = await sb
+        .from('leaderboard')
+        .select('user_id, current_week_score as score')
+        .eq('week_key', weekKey)
+        .order('current_week_score', { ascending: false })
+        .limit(100);
+      
+      if (error) throw error;
+      
+      const userIds = data?.map(d => d.user_id) || [];
+      let users: any[] = [];
+      
+      if (userIds.length > 0) {
+        const { data: userData } = await sb
+          .from('user_profiles')
+          .select('user_id, name, profile_image')
+          .in('user_id', userIds);
+        users = userData || [];
+      }
+      
+      const leaderboard = (data || []).map((item, idx) => ({
+        ...item,
+        rank: idx + 1,
+        name: users.find(u => u.user_id === item.user_id)?.name || item.user_id,
+        profile_image: users.find(u => u.user_id === item.user_id)?.profile_image || null,
+      }));
+      
+      return { success: true, data: leaderboard, weekKey };
+    } catch (error) {
+      return { success: false, data: [] };
+    }
+  },
+
+  getMonthlyLeaderboard: async () => {
+    try {
+      const sb = getSupabase();
+      const now = new Date();
+      const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      
+      const { data, error } = await sb
+        .from('leaderboard')
+        .select('user_id, current_month_score as score')
+        .eq('month_key', monthKey)
+        .order('current_month_score', { ascending: false })
+        .limit(100);
+      
+      if (error) throw error;
+      
+      const userIds = data?.map(d => d.user_id) || [];
+      let users: any[] = [];
+      
+      if (userIds.length > 0) {
+        const { data: userData } = await sb
+          .from('user_profiles')
+          .select('user_id, name, profile_image')
+          .in('user_id', userIds);
+        users = userData || [];
+      }
+      
+      const leaderboard = (data || []).map((item, idx) => ({
+        ...item,
+        rank: idx + 1,
+        name: users.find(u => u.user_id === item.user_id)?.name || item.user_id,
+        profile_image: users.find(u => u.user_id === item.user_id)?.profile_image || null,
+      }));
+      
+      return { success: true, data: leaderboard, monthKey };
+    } catch (error) {
+      return { success: false, data: [] };
+    }
+  },
+
+  getAllTimeLeaderboard: async () => {
+    try {
+      const sb = getSupabase();
+      
+      const { data, error } = await sb
+        .from('leaderboard')
+        .select('user_id, all_time_score as score')
+        .order('all_time_score', { ascending: false })
+        .limit(100);
+      
+      if (error) throw error;
+      
+      const userIds = data?.map(d => d.user_id) || [];
+      let users: any[] = [];
+      
+      if (userIds.length > 0) {
+        const { data: userData } = await sb
+          .from('user_profiles')
+          .select('user_id, name, profile_image')
+          .in('user_id', userIds);
+        users = userData || [];
+      }
+      
+      const leaderboard = (data || []).map((item, idx) => ({
+        ...item,
+        rank: idx + 1,
+        name: users.find(u => u.user_id === item.user_id)?.name || item.user_id,
+        profile_image: users.find(u => u.user_id === item.user_id)?.profile_image || null,
+      }));
+      
+      return { success: true, data: leaderboard };
+    } catch (error) {
+      return { success: false, data: [] };
+    }
+  },
+
+  getUserRanks: async (userId: string) => {
+    try {
+      const sb = getSupabase();
+      
+      const { data: user } = await sb
+        .from('leaderboard')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+      
+      if (!user) return null;
+      
+      const { count: weeklyRank } = await sb
+        .from('leaderboard')
+        .select('user_id', { count: 'exact', head: true })
+        .eq('week_key', user.week_key)
+        .gt('current_week_score', user.current_week_score);
+      
+      const { count: monthlyRank } = await sb
+        .from('leaderboard')
+        .select('user_id', { count: 'exact', head: true })
+        .eq('month_key', user.month_key)
+        .gt('current_month_score', user.current_month_score);
+      
+      const { count: allTimeRank } = await sb
+        .from('leaderboard')
+        .select('user_id', { count: 'exact', head: true })
+        .gt('all_time_score', user.all_time_score);
+      
+      return {
+        weekly: { rank: (weeklyRank || 0) + 1, score: user.current_week_score },
+        monthly: { rank: (monthlyRank || 0) + 1, score: user.current_month_score },
+        allTime: { rank: (allTimeRank || 0) + 1, score: user.all_time_score }
+      };
+    } catch (error) {
+      return null;
+    }
+  },
+
+  getQuizAnswers: async () => {
+    return workerGet<any>('/api/user/quiz-answers');
   },
 
   async getRewards(uid?: string) {
@@ -192,8 +426,7 @@ export const API = {
       const sb = getSupabase();
       const [rwResult, uResult] = await Promise.all([
         sb.from('rewards').select('*').eq('active', true),
-        uid ? sb.from('user_profiles').select('points,stamps').eq('user_id', uid).maybeSingle()
-            : Promise.resolve({ data: null, error: null }),
+        uid ? sb.from('user_profiles').select('points,stamps').eq('user_id', uid).maybeSingle() : Promise.resolve({ data: null, error: null }),
       ]);
       if (!rwResult.error && rwResult.data) {
         const userPts = uResult.data?.points ?? 0;
@@ -237,45 +470,19 @@ export const API = {
     return (await workerGet<any>('/api/user/full-history')) ?? { success: false, quiz: [], purchases: [], points: [] };
   },
 
-  async getLeaderboard() {
-    try {
-      const { data, error } = await getSupabase()
-        .from('leaderboard')
-        .select('user_id, score')
-        .order('score', { ascending: false })
-        .limit(10);
-      if (!error && data) return data;
-    } catch { /* fallback */ }
-    return [];
-  },
-
   async getReferralStats() {
     return workerGet<any>('/api/user/referral-stats');
   },
 
-  // ── WRITE (always worker, cookie-based auth) ─────────────────────
+  // ── WRITE (always worker) ─────────────────────────────────────────
 
-  async redeemReward(rewardId: string)            { return workerPost<any>('/api/user/redeem-reward', { rewardId }); },
-  async redeemCode(code: string, week: string)    { return workerPost<any>('/api/user/redeem-code', { code, week }); },
-  async redeemReferral(code: string)              { return workerPost<any>('/api/user/redeem-referral', { code }); },
-  async freeSpin(points: number)                  { return workerPost<any>('/api/user/free-spin', { points }); },
-  async recordSpin(type: string, points: number)  { return workerPost<any>('/api/user/record-spin', { type, points }); },
-  async claimStreak()                             { return workerPost<any>('/api/user/claim-streak', {}); },
-  async submitQuiz(selections: any)               { return workerPost<any>('/api/user/submit-quiz', { selections }); },
-  async submitSuperQuiz(selections: any)          { return workerPost<any>('/api/user/submit-super-quiz', { selections }); },
-  async updateProfile(data: any)                  { return workerPost<any>('/api/user/update', data); },
+  async redeemReward(rewardId: string) { return workerPost<any>('/api/user/redeem-reward', { rewardId }); },
+  async redeemCode(code: string, week: string) { return workerPost<any>('/api/user/redeem-code', { code, week }); },
+  async redeemReferral(code: string) { return workerPost<any>('/api/user/redeem-referral', { code }); },
+  async freeSpin(points: number) { return workerPost<any>('/api/user/free-spin', { points }); },
+  async recordSpin(type: string, points: number) { return workerPost<any>('/api/user/record-spin', { type, points }); },
+  async claimStreak() { return workerPost<any>('/api/user/claim-streak', {}); },
+  async submitQuiz(selections: any) { return workerPost<any>('/api/user/submit-quiz', { selections }); },
+  async submitSuperQuiz(selections: any) { return workerPost<any>('/api/user/submit-super-quiz', { selections }); },
+  async updateProfile(data: any) { return workerPost<any>('/api/user/update', data); },
 };
-
-// ── date helpers ─────────────────────────────────────────────────────
-function getTodayIST(): string {
-  return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
-    .toISOString().slice(0, 10);
-}
-
-export function getWeekKey(date = new Date()): string {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-  const year = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const week = Math.ceil((((d.getTime() - year.getTime()) / 86400000) + 1) / 7);
-  return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
-}

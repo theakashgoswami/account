@@ -149,7 +149,7 @@ export const Claim: React.FC = () => {
           <div className="mt-8 grid gap-6 md:grid-cols-2">
             <div className="premium-card p-6 border-l-4 border-l-indigo-500">
               <h4 className="mb-2 text-sm font-black text-white uppercase tracking-tight">Referral Codes</h4>
-              <p className="text-xs leading-relaxed text-zinc-500">Use a friend's code to get a 500 point bonus instantly. Can only be used once per account.</p>
+              <p className="text-xs leading-relaxed text-zinc-500">Use a friend's code to get a 1000 point bonus instantly. Can only be used once per account.</p>
             </div>
             <div className="premium-card p-6 border-l-4 border-l-yellow-500">
               <h4 className="mb-2 text-sm font-black text-white uppercase tracking-tight">Event Codes</h4>

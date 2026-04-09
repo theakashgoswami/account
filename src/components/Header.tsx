@@ -23,10 +23,8 @@ export const Header: React.FC = () => {
     <header className="sticky top-0 z-50 w-full border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-md">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <Link to="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 font-bold text-white">
-            AG
-          </div>
-          <span className="text-lg font-bold tracking-tight text-white">TechScript</span>
+          <img src="https://cdn.agtechscript.in/AGTechScript.webp" alt="AG TechScript Logo" className="h-8 w-8" />
+          <span className="text-lg font-bold tracking-tight text-white">AG TechScript</span>
         </Link>
 
         {/* Desktop Nav */}
@@ -98,10 +96,9 @@ export const Header: React.FC = () => {
             </div>
           ) : (
             <button
-              onClick={login}
               className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-indigo-500 active:scale-95"
             >
-              Login
+              Loading....
             </button>
           )}
 

@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { API, getWeekKey } from '../services/api';
-import { Brain, Zap, Gift, CheckCircle2, Trophy, RotateCw } from 'lucide-react';
+import { Brain, Zap, Gift, CheckCircle2, Trophy, RotateCw, Eye } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
+import { ViewAnswersModal } from '../components/ViewAnswersModal';
 
 // ── Segment configs ──────────────────────────────────────────
 const FREE_SEGS = [
@@ -38,6 +39,8 @@ const SUPER_SEGS = [
 
 const STREAK_PTS = [50, 75, 100, 150, 200, 250, 500];
 
+const getTodayDate = () => new Date().toISOString().split('T')[0];
+
 // ── Canvas Wheel ─────────────────────────────────────────────
 const SpinWheelCanvas: React.FC<{
   segments: { label: string; value: number; color: string; active?: boolean }[];
@@ -71,7 +74,6 @@ const SpinWheelCanvas: React.FC<{
       if (seg.value > 0) { ctx.font = `${W > 280 ? 9 : 7}px Arial`; ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.fillText('pts', r * 0.65, 14); }
       ctx.restore();
     });
-    // Center hub
     ctx.beginPath(); ctx.arc(cx, cy, 18, 0, 2 * Math.PI);
     const g = ctx.createRadialGradient(cx, cy - 3, 2, cx, cy, 18);
     g.addColorStop(0, '#fff'); g.addColorStop(1, '#e2e8f0');
@@ -123,19 +125,67 @@ export const Earn: React.FC = () => {
   const [superQ, setSuperQ] = useState<any>({ questions: [], submitted: false });
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'daily' | 'streak' | 'quiz' | 'super'>('daily');
+  
+  const getQuizCacheKey = () => `quiz_cache_${user?.user_id}`;
+  const getQuizAnswersKey = () => `quiz_answers_${user?.user_id}`;
+
+  const loadQuizWithCache = useCallback(async (userId: string) => {
+    const cacheKey = getQuizCacheKey();
+    const answersKey = getQuizAnswersKey();
+    const today = getTodayDate();
+    
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed.date === today && !parsed.submitted) {
+        console.log('📦 Loading quiz from cache');
+        const savedAnswers = localStorage.getItem(answersKey);
+        if (savedAnswers) {
+          sessionStorage.setItem('quiz_answers_temp', savedAnswers);
+        }
+        return { earn: parsed.questions, submitted: false };
+      }
+      if (parsed.date === today && parsed.submitted) {
+        console.log('✅ Quiz already submitted today');
+        return { earn: parsed.questions, submitted: true };
+      }
+      if (parsed.date !== today) {
+        console.log('🗑️ Old quiz found, clearing cache');
+        localStorage.removeItem(cacheKey);
+        localStorage.removeItem(answersKey);
+      }
+    }
+    
+    console.log('🌐 Fetching fresh quiz from API');
+    const freshQuiz = await API.getQuizQuestions(userId);
+    
+    if (freshQuiz && freshQuiz.earn && !freshQuiz.submitted) {
+      localStorage.setItem(cacheKey, JSON.stringify({
+        questions: freshQuiz.earn,
+        date: today,
+        submitted: false
+      }));
+      localStorage.removeItem(answersKey);
+      sessionStorage.removeItem('quiz_answers_temp');
+    }
+    
+    return freshQuiz ?? { earn: [], submitted: false };
+  }, [user?.user_id]);
 
   const loadData = useCallback(async () => {
     if (!user?.user_id) return;
-    const [s, q, sq] = await Promise.all([
+    
+    const [s, sq, cachedQuiz] = await Promise.all([
       API.getSpinStatus(user.user_id),
-      API.getQuizQuestions(user.user_id),
       API.getSuperQuestions(user.user_id),
+      loadQuizWithCache(user.user_id)
     ]);
+    
     setStatus(s);
-    setQuiz(q ?? { earn: [], submitted: false });
+    setQuiz(cachedQuiz);
     setSuperQ(sq ?? { questions: [], submitted: false });
     setLoading(false);
-  }, [user?.user_id]);
+  }, [user?.user_id, loadQuizWithCache]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -147,7 +197,6 @@ export const Earn: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Weekly bar */}
       <div className="mb-8 overflow-hidden rounded-3xl bg-zinc-900 border border-zinc-800">
         <div className="flex justify-between items-center p-6">
           <div>
@@ -172,7 +221,6 @@ export const Earn: React.FC = () => {
 
       <h1 className="mb-6 text-3xl font-black text-white">Earn Points</h1>
 
-      {/* Tabs */}
       <div className="mb-8 flex gap-2 flex-wrap">
         {[
           { key: 'daily', icon: Gift, label: 'Free Spin', badge: status?.free_spin_done ? '✓' : 'Daily' },
@@ -218,6 +266,7 @@ export const Earn: React.FC = () => {
               spinDone={status?.quiz_spin_done ?? false}
               spinPoints={status?.quiz_spin_points ?? 0}
               onRefresh={loadData}
+              userId={user?.user_id}
             />
           </motion.div>
         )}
@@ -269,7 +318,7 @@ const FreeSpin: React.FC<{ status: any; onUpdate: (s: any) => void }> = ({ statu
   if (status?.free_spin_done || done) {
     const pts = result ?? status?.free_spin_points;
     return (
-      <div className="premium-card p-12 text-center">
+      <div className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900 to-zinc-950 p-12 text-center">
         <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400">
           <CheckCircle2 className="h-12 w-12" />
         </div>
@@ -281,7 +330,7 @@ const FreeSpin: React.FC<{ status: any; onUpdate: (s: any) => void }> = ({ statu
   }
 
   return (
-    <div className="premium-card p-8 text-center">
+    <div className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900 to-zinc-950 p-8 text-center">
       <h2 className="mb-8 text-2xl font-black text-white">Daily Fortune Wheel</h2>
       <div className="mb-10 flex justify-center">
         <SpinWheelCanvas segments={FREE_SEGS} spinning={spinning} targetIndex={targetIdx} onDone={handleDone} />
@@ -314,7 +363,7 @@ const StreakSection: React.FC<{ streak: number; claimed: boolean; onClaimed: () 
   };
 
   return (
-    <div className="premium-card p-8">
+    <div className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900 to-zinc-950 p-8">
       <h2 className="mb-8 text-2xl font-black text-white">Daily Streak 🔥</h2>
       <div className="mb-8 flex justify-between gap-2">
         {STREAK_PTS.map((pts, i) => {
@@ -353,36 +402,92 @@ const StreakSection: React.FC<{ streak: number; claimed: boolean; onClaimed: () 
   );
 };
 
-// ── Quiz Section ──────────────────────────────────────────────
-const QuizSection: React.FC<{ questions: any[]; submitted: boolean; spinDone: boolean; spinPoints: number; onRefresh: () => void }> = ({ questions, submitted, spinDone, spinPoints, onRefresh }) => {
+// ── Quiz Section with View Answers ────────────────────────────
+const QuizSection: React.FC<{ 
+  questions: any[]; 
+  submitted: boolean; 
+  spinDone: boolean; 
+  spinPoints: number; 
+  onRefresh: () => void;
+  userId?: string;
+}> = ({ questions, submitted, spinDone, spinPoints, onRefresh, userId }) => {
   const [selections, setSelections] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [quizResult, setQuizResult] = useState<any>(null);
   const [showSpin, setShowSpin] = useState(submitted && !spinDone);
   const [spinning, setSpinning] = useState(false);
   const [spinTarget, setSpinTarget] = useState<number | null>(null);
-  const [spinResult, setSpinResult] = useState<number | null>(null);
+  const [showAnswersModal, setShowAnswersModal] = useState(false);
+  const [answerDetails, setAnswerDetails] = useState<any[]>([]);
 
-  const correctCount = quizResult ? Object.keys(selections).filter(k => selections[k] === quizResult.answers?.[k]).length : 0;
+  const getAnswersKey = () => `quiz_answers_${userId}`;
+
+  useEffect(() => {
+    if (userId && !submitted && questions.length > 0) {
+      const savedAnswers = localStorage.getItem(getAnswersKey());
+      if (savedAnswers) {
+        try {
+          const parsed = JSON.parse(savedAnswers);
+          setSelections(parsed);
+          console.log('📝 Loaded saved answers from cache');
+        } catch (e) {
+          console.error('Failed to load saved answers', e);
+        }
+      }
+    }
+  }, [userId, submitted, questions.length]);
+
+  const saveAnswersToCache = useCallback((newSelections: Record<string, string>) => {
+    if (userId && !submitted && Object.keys(newSelections).length > 0) {
+      localStorage.setItem(getAnswersKey(), JSON.stringify(newSelections));
+    }
+  }, [userId, submitted]);
+
+  const handleOptionSelect = (qid: string, option: string) => {
+    const newSelections = { ...selections, [qid]: option };
+    setSelections(newSelections);
+    saveAnswersToCache(newSelections);
+  };
 
   const handleSubmit = async () => {
     if (Object.keys(selections).length < questions.length || submitting) return;
     setSubmitting(true);
-    const res = await API.submitQuiz(selections);
-    if (res.success) {
-      const answers: Record<string, string> = {};
-      res.correctAnswers?.forEach((q: any) => { answers[String(q.qid)] = q.correct_option; });
-      setQuizResult({ ...res, answers });
-      setShowSpin(true);
+    
+    try {
+      const res = await API.submitQuiz(selections);
+      if (res.success) {
+        localStorage.removeItem(getAnswersKey());
+        
+        const answers: Record<string, string> = {};
+        res.correctAnswers?.forEach((q: any) => { 
+          answers[String(q.qid)] = q.correct_option; 
+        });
+        setQuizResult({ ...res, answers });
+        setShowSpin(true);
+        
+        const cacheKey = `quiz_cache_${userId}`;
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          parsed.submitted = true;
+          localStorage.setItem(cacheKey, JSON.stringify(parsed));
+        }
+      }
+    } catch (error) {
+      console.error('Quiz submission failed:', error);
+    } finally {
+      setSubmitting(false);
     }
-    setSubmitting(false);
   };
 
   const handleQuizSpin = () => {
     const correct = quizResult
       ? Object.keys(selections).filter(k => selections[k] === quizResult.answers?.[k]).length
       : 0;
-    const activeSegs = QUIZ_SEGS.map((s, i) => ({ ...s, active: s.value === 0 ? false : i < correct }));
+    const activeSegs = QUIZ_SEGS.map((s, i) => ({ 
+      ...s, 
+      active: s.value === 0 ? false : i < correct 
+    }));
     const active = activeSegs.map((s, i) => ({ s, i })).filter(({ s }) => s.active);
     if (!active.length) return;
     const pick = active[Math.floor(Math.random() * active.length)];
@@ -393,17 +498,61 @@ const QuizSection: React.FC<{ questions: any[]; submitted: boolean; spinDone: bo
   const handleSpinDone = async () => {
     const pts = QUIZ_SEGS[spinTarget!].value;
     const res = await API.recordSpin('quiz', pts);
-    if (res.success) { setSpinResult(pts); onRefresh(); }
+    if (res.success) { 
+      onRefresh(); 
+    }
     setSpinning(false);
   };
 
+  const handleViewAnswers = async () => {
+    // Build answer details from quizResult and selections
+    if (quizResult && questions.length > 0) {
+      const details = questions.map(q => ({
+        qid: q.qid,
+        question: q.question,
+        user_answer: selections[q.qid] || 'Not answered',
+        correct_answer: quizResult.answers?.[q.qid] || '',
+        is_correct: selections[q.qid] === quizResult.answers?.[q.qid],
+        option_a: q.option_a,
+        option_b: q.option_b,
+        option_c: q.option_c,
+        option_d: q.option_d,
+        prepare_link: q.prepare_link
+      }));
+      setAnswerDetails(details);
+      setShowAnswersModal(true);
+    }
+  };
+
   if (spinDone) {
+    const correctCount = quizResult
+      ? Object.keys(selections).filter(k => selections[k] === quizResult.answers?.[k]).length
+      : 0;
     return (
-      <div className="premium-card p-12 text-center">
-        <Trophy className="mx-auto mb-6 h-16 w-16 text-yellow-400" />
-        <h2 className="mb-2 text-2xl font-black text-white">Quiz + Spin Done!</h2>
-        <p className="text-zinc-400">You earned <span className="font-black text-yellow-400">+{spinPoints} pts</span> from the spin.</p>
-      </div>
+      <>
+        <div className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900 to-zinc-950 p-12 text-center">
+          <Trophy className="mx-auto mb-6 h-16 w-16 text-yellow-400" />
+          <h2 className="mb-2 text-2xl font-black text-white">Quiz + Spin Done!</h2>
+          <p className="text-zinc-400">
+            You got <span className="font-black text-emerald-400">{correctCount}/{questions.length}</span> correct and earned{' '}
+            <span className="font-black text-yellow-400">+{spinPoints} pts</span> from the spin.
+          </p>
+          <button
+            onClick={handleViewAnswers}
+            className="mt-6 flex items-center justify-center gap-2 rounded-xl bg-indigo-500/20 px-6 py-3 text-sm font-black text-indigo-400 hover:bg-indigo-500/30 transition-all mx-auto"
+          >
+            <Eye className="h-4 w-4" />
+            View Answers & Explanations
+          </button>
+        </div>
+        <ViewAnswersModal
+          isOpen={showAnswersModal}
+          onClose={() => setShowAnswersModal(false)}
+          questions={answerDetails}
+          score={correctCount * 10}
+          totalQuestions={questions.length}
+        />
+      </>
     );
   }
 
@@ -411,9 +560,12 @@ const QuizSection: React.FC<{ questions: any[]; submitted: boolean; spinDone: bo
     const correct = quizResult
       ? Object.keys(selections).filter(k => selections[k] === quizResult.answers?.[k]).length
       : 0;
-    const segs = QUIZ_SEGS.map((s, i) => ({ ...s, active: s.value === 0 ? false : i < correct }));
+    const segs = QUIZ_SEGS.map((s, i) => ({ 
+      ...s, 
+      active: s.value === 0 ? false : i < correct 
+    }));
     return (
-      <div className="premium-card p-8 text-center">
+      <div className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900 to-zinc-950 p-8 text-center">
         <h2 className="mb-2 text-2xl font-black text-white">Quiz done! Now spin 🎰</h2>
         <p className="mb-8 text-zinc-500">{correct}/{questions.length} correct → {correct} active blocks</p>
         <div className="mb-8 flex justify-center">
@@ -435,7 +587,7 @@ const QuizSection: React.FC<{ questions: any[]; submitted: boolean; spinDone: bo
 
   if (submitted) {
     return (
-      <div className="premium-card p-12 text-center">
+      <div className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900 to-zinc-950 p-12 text-center">
         <Brain className="mx-auto mb-6 h-16 w-16 text-indigo-400" />
         <h2 className="mb-2 text-2xl font-black text-white">Already submitted today!</h2>
         <p className="text-zinc-500">Come back tomorrow for a fresh quiz.</p>
@@ -444,7 +596,7 @@ const QuizSection: React.FC<{ questions: any[]; submitted: boolean; spinDone: bo
   }
 
   return (
-    <div className="premium-card p-8">
+    <div className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900 to-zinc-950 p-8">
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-2xl font-black text-white">Daily Quiz 📝</h2>
         <span className="text-sm font-bold text-zinc-500">{Object.keys(selections).length}/{questions.length} answered</span>
@@ -467,15 +619,15 @@ const QuizSection: React.FC<{ questions: any[]; submitted: boolean; spinDone: bo
               {['A', 'B', 'C', 'D'].map(opt => (
                 <button
                   key={opt}
-                  onClick={() => setSelections({ ...selections, [q.qid]: opt })}
+                  onClick={() => handleOptionSelect(String(q.qid), opt)}
                   className={cn(
                     'flex items-center gap-4 rounded-xl border p-4 text-left transition-all active:scale-[0.99]',
-                    selections[q.qid] === opt
+                    selections[String(q.qid)] === opt
                       ? 'border-indigo-500 bg-indigo-500/10 text-white'
                       : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:border-zinc-700 hover:text-white'
                   )}
                 >
-                  <div className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-black', selections[q.qid] === opt ? 'border-indigo-400 bg-indigo-400 text-zinc-950' : 'border-zinc-700')}>{opt}</div>
+                  <div className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-black', selections[String(q.qid)] === opt ? 'border-indigo-400 bg-indigo-400 text-zinc-950' : 'border-zinc-700')}>{opt}</div>
                   {q[`option_${opt.toLowerCase()}`]}
                 </button>
               ))}
@@ -508,7 +660,7 @@ const SuperSection: React.FC<{ questions: any[]; submitted: boolean; correct: nu
   const [localCorrect, setLocalCorrect] = useState(correct);
 
   if (!questions.length && !submitted) return (
-    <div className="premium-card p-12 text-center">
+    <div className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900 to-zinc-950 p-12 text-center">
       <Zap className="mx-auto mb-6 h-16 w-16 text-zinc-700" />
       <h2 className="mb-2 text-2xl font-black text-white">Super Spin Locked</h2>
       <p className="max-w-xs mx-auto text-zinc-500">Weekly super questions are not available yet. Check back soon!</p>
@@ -516,7 +668,7 @@ const SuperSection: React.FC<{ questions: any[]; submitted: boolean; correct: nu
   );
 
   if (spinDone) return (
-    <div className="premium-card p-12 text-center">
+    <div className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900 to-zinc-950 p-12 text-center">
       <Zap className="mx-auto mb-6 h-16 w-16 text-yellow-400" />
       <h2 className="mb-2 text-2xl font-black text-white">Super Spin Done!</h2>
       <p className="text-zinc-400">You earned <span className="font-black text-yellow-400">+{spinPoints} pts</span> this week!</p>
@@ -547,12 +699,12 @@ const SuperSection: React.FC<{ questions: any[]; submitted: boolean; correct: nu
     setSpinning(false);
   };
 
-  const showSpin = submitted || Object.keys(sels).length === questions.length && localCorrect > 0;
+  const showSpin = submitted || (Object.keys(sels).length === questions.length && localCorrect > 0);
 
   if (showSpin && (submitted || localCorrect >= 0)) {
     const segs = SUPER_SEGS.map((s, i) => ({ ...s, active: s.value === 0 ? false : i < localCorrect }));
     return (
-      <div className="premium-card p-8 text-center">
+      <div className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900 to-zinc-950 p-8 text-center">
         <h2 className="mb-2 text-2xl font-black text-white">⚡ Super Spin!</h2>
         <p className="mb-8 text-zinc-500">{localCorrect}/{questions.length} correct → {localCorrect} active blocks — up to 1000 pts!</p>
         <div className="mb-8 flex justify-center">
@@ -573,7 +725,7 @@ const SuperSection: React.FC<{ questions: any[]; submitted: boolean; correct: nu
   }
 
   return (
-    <div className="premium-card p-8">
+    <div className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900 to-zinc-950 p-8">
       <div className="mb-6 flex items-center gap-3">
         <Zap className="h-6 w-6 text-yellow-400" />
         <h2 className="text-2xl font-black text-white">Weekly Super Quiz ⚡</h2>
@@ -587,15 +739,15 @@ const SuperSection: React.FC<{ questions: any[]; submitted: boolean; correct: nu
               {['A', 'B', 'C', 'D'].map(opt => (
                 <button
                   key={opt}
-                  onClick={() => setSels({ ...sels, [q.qid]: opt })}
+                  onClick={() => setSels({ ...sels, [String(q.qid)]: opt })}
                   className={cn(
                     'flex items-center gap-4 rounded-xl border p-4 text-left transition-all',
-                    sels[q.qid] === opt
+                    sels[String(q.qid)] === opt
                       ? 'border-yellow-500 bg-yellow-500/10 text-white'
                       : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:border-zinc-700 hover:text-white'
                   )}
                 >
-                  <div className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-black', sels[q.qid] === opt ? 'border-yellow-400 bg-yellow-400 text-zinc-950' : 'border-zinc-700')}>{opt}</div>
+                  <div className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-black', sels[String(q.qid)] === opt ? 'border-yellow-400 bg-yellow-400 text-zinc-950' : 'border-zinc-700')}>{opt}</div>
                   {q[`option_${opt.toLowerCase()}`]}
                 </button>
               ))}

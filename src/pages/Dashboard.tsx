@@ -60,13 +60,41 @@ export const Dashboard: React.FC = () => {
           👋
         </h1>
         <p className="mt-3 text-zinc-500">
-          <a href="/earn" className="text-indigo-400 hover:text-indigo-300 transition-colors font-semibold">
-            Visit Earn page → 
+          <a href="https://rewards.agtechscript.in" className="text-indigo-400 hover:text-indigo-300 transition-colors font-semibold">
+            Visit Rewards page → 
           </a>{' '}
-          spin the wheel, complete quizzes, claim your daily streak and grow your balance.
+          To know more about your rewards and benefits or any kind of Querries.
         </p>
       </motion.header>
 
+       {/* Notifications */}
+       <div>
+        <section className="premium-card p-8">
+          <div className="mb-6 flex items-center justify-between">
+            <h2 className="text-xl font-black text-white">Notifications</h2>
+            <Bell className="h-5 w-5 text-zinc-600" />
+          </div>
+          <div className="space-y-3">
+            {notifications.length > 0 ? (
+              notifications.slice(0, 5).map(n => (
+                <div key={n.id} className="rounded-2xl bg-zinc-950 p-4 transition-all hover:bg-zinc-900">
+                  <h3 className="mb-1 text-sm font-black text-white">{n.title}</h3>
+                  <p className="text-xs text-zinc-500 line-clamp-2">{n.message}</p>
+                  <span className="mt-2 block text-[10px] text-zinc-700">
+                    {new Date(n.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Zap className="mb-4 h-10 w-10 text-zinc-800" />
+                <p className="text-sm font-bold text-zinc-700">No notifications yet</p>
+                <p className="text-xs text-zinc-800 mt-1">Earn points to unlock exclusive offers!</p>
+              </div>
+            )}
+          </div>
+        </section>
+            </div>
       {/* Stats */}
       <div className="mb-10 grid gap-6 md:grid-cols-3">
         <StatCard icon={Brain} label="Quizzes Played" value={stats?.quizPlayed ?? 0} color="text-blue-400" bg="bg-blue-400/10" delay={0} />
@@ -167,33 +195,6 @@ export const Dashboard: React.FC = () => {
             </div>
           </section>
         </div>
-
-        {/* Notifications */}
-        <section className="premium-card p-8">
-          <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-xl font-black text-white">Notifications</h2>
-            <Bell className="h-5 w-5 text-zinc-600" />
-          </div>
-          <div className="space-y-3">
-            {notifications.length > 0 ? (
-              notifications.slice(0, 5).map(n => (
-                <div key={n.id} className="rounded-2xl bg-zinc-950 p-4 transition-all hover:bg-zinc-900">
-                  <h3 className="mb-1 text-sm font-black text-white">{n.title}</h3>
-                  <p className="text-xs text-zinc-500 line-clamp-2">{n.message}</p>
-                  <span className="mt-2 block text-[10px] text-zinc-700">
-                    {new Date(n.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Zap className="mb-4 h-10 w-10 text-zinc-800" />
-                <p className="text-sm font-bold text-zinc-700">No notifications yet</p>
-                <p className="text-xs text-zinc-800 mt-1">Earn points to unlock exclusive offers!</p>
-              </div>
-            )}
-          </div>
-        </section>
       </div>
     </div>
   );

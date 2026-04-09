@@ -1,120 +1,85 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { CONFIG } from '../config';
-import { setSupabaseToken, getSupabase } from '../lib/supabase';
-
-export interface UserProfile {
-  user_id: string;
-  name?: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-  profile_image?: string;
-  points?: number;
-  stamps?: number;
-  created_at?: string;
-  role?: string;
-  supabase_uid?: string;
-  supabase_token?: string;
-}
+// context/AuthContext.tsx
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { getSupabase } from '../lib/supabase';
+import { API } from '../services/api';
 
 interface AuthContextType {
-  user: UserProfile | null;
+  user: any;
   loading: boolean;
-  login: () => void;
-  logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserProfile | null>(null);
+  const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  const checkAuth = useCallback(async () => {
-    try {
-      const res = await fetch(`${CONFIG.WORKER_URL}/api/auth/status`, {
-        credentials: 'include',
-        headers: { 'X-Client-Host': window.location.host },
-      });
+  useEffect(() => {
+    // ✅ Use singleton instance
+    const supabase = getSupabase();
+    
+    // Check current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        fetchUserProfile(session.user.id);
+      } else {
+        setLoading(false);
+      }
+    });
 
-      if (!res.ok) throw new Error('Auth check failed');
-      const data = await res.json();
-
-      if (!data.authenticated || !data.user_id) {
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        fetchUserProfile(session.user.id);
+      } else {
         setUser(null);
         setLoading(false);
-        return;
       }
+    });
 
-      // ✅ Set supabase token BEFORE any Supabase queries so RLS works
-      setSupabaseToken(data.supabase_token ?? null);
+    return () => subscription.unsubscribe();
+  }, []);
 
-      // Now query Supabase directly with the authenticated client
-      const sb = getSupabase();
-      const { data: profile, error } = await sb
+  const fetchUserProfile = async (supabaseUid: string) => {
+    try {
+      const supabase = getSupabase();
+      const { data } = await supabase
         .from('user_profiles')
         .select('*')
-        .eq('user_id', data.user_id)
-        .maybeSingle();
-
-      setUser({
-        user_id: data.user_id,
-        role: data.role ?? 'user',
-        profile_image: data.profile_image ?? null,
-        supabase_uid: data.supabase_uid ?? null,
-        supabase_token: data.supabase_token ?? null,
-        ...(profile && !error ? profile : {}),
-      });
-    } catch (err) {
-      console.error('Auth error:', err);
-      setUser(null);
+        .eq('supabase_uid', supabaseUid)
+        .single();
+      
+      setUser(data);
+    } catch (error) {
+      console.error('Failed to fetch user profile:', error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
-  const refreshProfile = useCallback(async () => {
-    if (!user?.user_id) return;
-    const sb = getSupabase();
-    const { data, error } = await sb
-      .from('user_profiles')
-      .select('*')
-      .eq('user_id', user.user_id)
-      .maybeSingle();
-    if (!error && data) {
-      setUser(prev => prev ? { ...prev, ...data } : null);
+  const refreshProfile = async () => {
+    if (user?.supabase_uid) {
+      await fetchUserProfile(user.supabase_uid);
     }
-  }, [user?.user_id]);
-
-  const login = () => {
-    window.location.href = `${CONFIG.MAIN_SITE}#login`;
   };
 
   const logout = async () => {
-    try {
-      await fetch(`${CONFIG.WORKER_URL}/api/auth/logout`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'X-Client-Host': window.location.host },
-      });
-    } catch { /* ignore */ }
+    const supabase = getSupabase();
+    await supabase.auth.signOut();
     setUser(null);
-    setSupabaseToken(null);
-    window.location.href = CONFIG.MAIN_SITE;
   };
 
-  useEffect(() => { checkAuth(); }, [checkAuth]);
-
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, refreshProfile }}>
+    <AuthContext.Provider value={{ user, loading, refreshProfile, logout }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
 export const useAuth = () => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
-  return ctx;
+  const context = useContext(AuthContext);
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
+  return context;
 };
