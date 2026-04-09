@@ -1,4 +1,5 @@
 import { CONFIG } from '../config';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { getSupabase } from '../lib/supabase';
 
 export interface UserProfile {
@@ -28,9 +29,34 @@ export interface Notification {
   created_at: string;
 }
 
-// ─── Auth Token ───────────────────────────────────────────────────────────────
+// ─── Token Store ──────────────────────────────────────────────────────────────
+// Worker se aaya JWT yahan store hoga — saari API calls isko use karengi
+// AuthContext mein setSupabaseToken(data.supabase_token) call karo
+
+let _supabaseToken: string | null = null;
+
+export function setSupabaseToken(token: string | null) {
+  _supabaseToken = token;
+}
+
+// ✅ Token hai toh authenticated client, nahi toh default anon client
+function getClient(): SupabaseClient {
+  if (_supabaseToken) {
+    return createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY, {
+      global: {
+        headers: { Authorization: `Bearer ${_supabaseToken}` },
+      },
+      auth: { persistSession: false },
+    });
+  }
+  return getSupabase();
+}
+
+// ─── Auth Token (for Worker calls) ───────────────────────────────────────────
 
 async function getAuthToken(): Promise<string | null> {
+  // Worker calls ke liye Supabase session token
+  if (_supabaseToken) return _supabaseToken;
   try {
     const supabase = getSupabase();
     const { data } = await supabase.auth.getSession();
@@ -43,7 +69,6 @@ async function getAuthToken(): Promise<string | null> {
 
 // ─── Worker Helpers ───────────────────────────────────────────────────────────
 
-// ✅ 401 handled via custom event — no hard redirect, React lifecycle stays intact
 function handle401() {
   window.dispatchEvent(new CustomEvent('auth:unauthorized'));
 }
@@ -67,10 +92,7 @@ async function workerGet<T>(path: string): Promise<T | null> {
     });
 
     if (!res.ok) {
-      if (res.status === 401) {
-        console.error('Auth failed for:', path);
-        handle401();
-      }
+      if (res.status === 401) { console.error('Auth failed for:', path); handle401(); }
       return null;
     }
 
@@ -84,10 +106,7 @@ async function workerGet<T>(path: string): Promise<T | null> {
 async function workerPost<T>(path: string, body: Record<string, unknown> = {}): Promise<T | { success: false; error: string }> {
   try {
     const token = await getAuthToken();
-    if (!token) {
-      console.warn('No auth token available for POST:', path);
-      return { success: false, error: 'Not authenticated' };
-    }
+    if (!token) return { success: false, error: 'Not authenticated' };
 
     const res = await fetch(`${CONFIG.WORKER_URL}${path}`, {
       method: 'POST',
@@ -100,12 +119,8 @@ async function workerPost<T>(path: string, body: Record<string, unknown> = {}): 
       credentials: 'include',
     });
 
-    // ✅ Check ok BEFORE parsing — avoids crash on non-JSON error bodies
     if (!res.ok) {
-      if (res.status === 401) {
-        console.error('Auth failed for POST:', path);
-        handle401();
-      }
+      if (res.status === 401) { console.error('Auth failed for POST:', path); handle401(); }
       const text = await res.text();
       let errorMsg = `HTTP ${res.status}`;
       try { errorMsg = JSON.parse(text)?.error ?? errorMsg; } catch { /* not JSON */ }
@@ -121,12 +136,10 @@ async function workerPost<T>(path: string, body: Record<string, unknown> = {}): 
 
 // ─── Date Utilities ───────────────────────────────────────────────────────────
 
-// ✅ Reliable IST date using Intl API
 function getTodayIST(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
 }
 
-// ✅ getWeekNumber removed — getWeekKey does the same thing
 export function getWeekKey(date = new Date()): string {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
@@ -135,7 +148,6 @@ export function getWeekKey(date = new Date()): string {
   return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
 }
 
-// ✅ Fisher-Yates — unbiased shuffle
 function shuffleArray<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -145,23 +157,21 @@ function shuffleArray<T>(arr: T[]): T[] {
   return a;
 }
 
-// ─── Leaderboard Helper (DRY) ─────────────────────────────────────────────────
+// ─── Leaderboard Helper ───────────────────────────────────────────────────────
 
 async function buildLeaderboard(
   scoreField: string,
   filterField?: string,
   filterValue?: string
 ): Promise<{ user_id: string; score: number; rank: number; name: string; profile_image: string | null }[]> {
-  const supabase = getSupabase();
-  let query = supabase
+  const db = getClient(); // ✅ authenticated client
+  let query = db
     .from('leaderboard')
     .select(`user_id, ${scoreField} as score`)
     .order(scoreField, { ascending: false })
     .limit(100);
 
-  if (filterField && filterValue) {
-    query = query.eq(filterField, filterValue);
-  }
+  if (filterField && filterValue) query = query.eq(filterField, filterValue);
 
   const { data, error } = await query;
   if (error) throw error;
@@ -170,7 +180,7 @@ async function buildLeaderboard(
   let users: { user_id: string; name: string; profile_image: string | null }[] = [];
 
   if (userIds.length > 0) {
-    const { data: userData } = await supabase
+    const { data: userData } = await db
       .from('user_profiles')
       .select('user_id, name, profile_image')
       .in('user_id', userIds);
@@ -190,12 +200,8 @@ async function buildLeaderboard(
 export const API = {
   async getUserProfile(uid: string) {
     try {
-      const supabase = getSupabase();
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('user_id', uid)
-        .maybeSingle();
+      const db = getClient();
+      const { data, error } = await db.from('user_profiles').select('*').eq('user_id', uid).maybeSingle();
       if (!error && data) return { success: true, ...data };
     } catch { /* fallback */ }
     return (await workerGet<any>('/api/user/profile')) ?? { success: false };
@@ -203,12 +209,8 @@ export const API = {
 
   async getUserStats(uid: string) {
     try {
-      const supabase = getSupabase();
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('points, stamps')
-        .eq('user_id', uid)
-        .maybeSingle();
+      const db = getClient();
+      const { data, error } = await db.from('user_profiles').select('points, stamps').eq('user_id', uid).maybeSingle();
       if (!error && data) return { success: true, points: data.points ?? 0, stamps: data.stamps ?? 0 };
     } catch { /* fallback */ }
     return (await workerGet<any>('/api/user/stats')) ?? { success: false, points: 0, stamps: 0 };
@@ -216,12 +218,12 @@ export const API = {
 
   async getDashboardStats(uid: string): Promise<DashboardStats | null> {
     try {
-      const supabase = getSupabase();
+      const db = getClient();
       const [quiz, purchase, score, referrals] = await Promise.all([
-        supabase.from('quiz_submissions').select('id', { count: 'exact', head: true }).eq('user_id', uid),
-        supabase.from('purchases').select('id', { count: 'exact', head: true }).eq('user_id', uid),
-        supabase.from('leaderboard').select('all_time_score').eq('user_id', uid).maybeSingle(),
-        supabase.from('referrals').select('id', { count: 'exact', head: true }).eq('referrer_id', uid),
+        db.from('quiz_submissions').select('id', { count: 'exact', head: true }).eq('user_id', uid),
+        db.from('purchases').select('id', { count: 'exact', head: true }).eq('user_id', uid),
+        db.from('leaderboard').select('all_time_score').eq('user_id', uid).maybeSingle(),
+        db.from('referrals').select('id', { count: 'exact', head: true }).eq('referrer_id', uid),
       ]);
       return {
         quizPlayed: quiz.count ?? 0,
@@ -235,12 +237,8 @@ export const API = {
 
   async getNotifications(): Promise<Notification[]> {
     try {
-      const supabase = getSupabase();
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(10);
+      const db = getClient();
+      const { data, error } = await db.from('notifications').select('*').order('created_at', { ascending: false }).limit(10);
       if (!error && data) return data;
     } catch { /* fallback */ }
     const res = await workerGet<{ success: boolean; notifications: Notification[] }>('/api/user/notifications');
@@ -250,10 +248,10 @@ export const API = {
   async getSpinStatus(uid: string) {
     try {
       const today = getTodayIST();
-      const supabase = getSupabase();
+      const db = getClient();
       const [{ data: streakData }, { data: spinData }] = await Promise.all([
-        supabase.from('streak_records').select('streak,last_date').eq('user_id', uid).maybeSingle(),
-        supabase.from('spin_records').select('type,points').eq('user_id', uid).eq('spin_date', today),
+        db.from('streak_records').select('streak,last_date').eq('user_id', uid).maybeSingle(),
+        db.from('spin_records').select('type,points').eq('user_id', uid).eq('spin_date', today),
       ]);
       const free = spinData?.find((s: any) => s.type === 'free');
       const quiz = spinData?.find((s: any) => s.type === 'quiz');
@@ -273,14 +271,11 @@ export const API = {
   async getQuizQuestions(uid: string) {
     try {
       const today = getTodayIST();
-      const supabase = getSupabase();
+      const db = getClient();
 
-      const { data: existing } = await supabase
-        .from('quiz_submissions')
-        .select('score,answers,questions')
-        .eq('user_id', uid)
-        .eq('quiz_date', today)
-        .maybeSingle();
+      const { data: existing } = await db
+        .from('quiz_submissions').select('score,answers,questions')
+        .eq('user_id', uid).eq('quiz_date', today).maybeSingle();
 
       if (existing) {
         return { success: true, submitted: true, score: existing.score ?? 0, selections: existing.answers, earn: [] };
@@ -290,46 +285,37 @@ export const API = {
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const dateLimit = thirtyDaysAgo.toISOString().split('T')[0];
 
-      const { data: recentQuestions } = await supabase
-        .from('user_quiz_progress')
-        .select('question_id')
-        .eq('user_id', uid)
-        .gte('asked_date', dateLimit);
+      const { data: recentQuestions } = await db
+        .from('user_quiz_progress').select('question_id')
+        .eq('user_id', uid).gte('asked_date', dateLimit);
 
       const usedQids = new Set(recentQuestions?.map(r => r.question_id) || []);
 
-      let query = supabase
+      let query = db
         .from('quiz_questions')
         .select('qid,question,option_a,option_b,option_c,option_d,prepare_link')
         .eq('active', true);
 
       if (usedQids.size > 0) {
-        const usedArray = Array.from(usedQids);
-        query = query.not('qid', 'in', `(${usedArray.join(',')})`);
+        query = query.not('qid', 'in', `(${Array.from(usedQids).join(',')})`);
       }
 
       const { data: availableQuestions } = await query;
       let finalQuestions = availableQuestions || [];
 
       if (finalQuestions.length < 5) {
-        const { data: allQuestions } = await supabase
+        const { data: allQuestions } = await db
           .from('quiz_questions')
           .select('qid,question,option_a,option_b,option_c,option_d,prepare_link')
           .eq('active', true);
         finalQuestions = allQuestions || [];
       }
 
-      // ✅ Fisher-Yates instead of biased sort
       const selectedQuestions = shuffleArray(finalQuestions).slice(0, 5);
 
-      const progressRecords = selectedQuestions.map(q => ({
-        user_id: uid,
-        question_id: q.qid,
-        asked_date: today,
-        answered: false,
-      }));
-
-      await supabase.from('user_quiz_progress').insert(progressRecords);
+      await db.from('user_quiz_progress').insert(
+        selectedQuestions.map(q => ({ user_id: uid, question_id: q.qid, asked_date: today, answered: false }))
+      );
 
       return { success: true, submitted: false, earn: selectedQuestions, score: 0 };
     } catch (error) {
@@ -341,23 +327,19 @@ export const API = {
   async getSuperQuestions(uid: string) {
     try {
       const week = getWeekKey();
-      const supabase = getSupabase();
-      const { data: existing } = await supabase
-        .from('super_submissions')
-        .select('correct_count,answers')
-        .eq('user_id', uid)
-        .eq('week', week)
-        .maybeSingle();
+      const db = getClient();
+      const { data: existing } = await db
+        .from('super_submissions').select('correct_count,answers')
+        .eq('user_id', uid).eq('week', week).maybeSingle();
 
       if (existing) {
         return { success: true, submitted: true, correct_count: existing.correct_count ?? 0, selections: existing.answers, questions: [] };
       }
 
-      const { data: questions } = await supabase
+      const { data: questions } = await db
         .from('super_questions')
         .select('qid,question,option_a,option_b,option_c,option_d,prepare_link')
-        .eq('week', week)
-        .eq('active', true);
+        .eq('week', week).eq('active', true);
 
       return { success: true, submitted: false, questions: questions ?? [] };
     } catch (error) {
@@ -365,15 +347,11 @@ export const API = {
     }
   },
 
-  // ✅ All 3 leaderboards now use shared buildLeaderboard helper
   getWeeklyLeaderboard: async () => {
     try {
-      const weekKey = getWeekKey(); // ✅ was duplicating getWeekNumber logic
-      const data = await buildLeaderboard('current_week_score', 'week_key', weekKey);
-      return { success: true, data, weekKey };
-    } catch {
-      return { success: false, data: [] };
-    }
+      const data = await buildLeaderboard('current_week_score', 'week_key', getWeekKey());
+      return { success: true, data, weekKey: getWeekKey() };
+    } catch { return { success: false, data: [] }; }
   },
 
   getMonthlyLeaderboard: async () => {
@@ -382,40 +360,26 @@ export const API = {
       const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       const data = await buildLeaderboard('current_month_score', 'month_key', monthKey);
       return { success: true, data, monthKey };
-    } catch {
-      return { success: false, data: [] };
-    }
+    } catch { return { success: false, data: [] }; }
   },
 
   getAllTimeLeaderboard: async () => {
     try {
       const data = await buildLeaderboard('all_time_score');
       return { success: true, data };
-    } catch {
-      return { success: false, data: [] };
-    }
+    } catch { return { success: false, data: [] }; }
   },
 
   getUserRanks: async (userId: string) => {
     try {
-      const supabase = getSupabase();
-
-      // ✅ .maybeSingle() instead of .single() — won't throw if no row
-      const { data: user } = await supabase
-        .from('leaderboard')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
-
+      const db = getClient();
+      const { data: user } = await db.from('leaderboard').select('*').eq('user_id', userId).maybeSingle();
       if (!user) return null;
 
       const [{ count: weeklyRank }, { count: monthlyRank }, { count: allTimeRank }] = await Promise.all([
-        supabase.from('leaderboard').select('user_id', { count: 'exact', head: true })
-          .eq('week_key', user.week_key).gt('current_week_score', user.current_week_score),
-        supabase.from('leaderboard').select('user_id', { count: 'exact', head: true })
-          .eq('month_key', user.month_key).gt('current_month_score', user.current_month_score),
-        supabase.from('leaderboard').select('user_id', { count: 'exact', head: true })
-          .gt('all_time_score', user.all_time_score),
+        db.from('leaderboard').select('user_id', { count: 'exact', head: true }).eq('week_key', user.week_key).gt('current_week_score', user.current_week_score),
+        db.from('leaderboard').select('user_id', { count: 'exact', head: true }).eq('month_key', user.month_key).gt('current_month_score', user.current_month_score),
+        db.from('leaderboard').select('user_id', { count: 'exact', head: true }).gt('all_time_score', user.all_time_score),
       ]);
 
       return {
@@ -423,21 +387,19 @@ export const API = {
         monthly: { rank: (monthlyRank || 0) + 1, score: user.current_month_score },
         allTime: { rank: (allTimeRank || 0) + 1, score: user.all_time_score },
       };
-    } catch {
-      return null;
-    }
+    } catch { return null; }
   },
 
-  getQuizAnswers: async () => workerGet<any>('/api/user/quiz-answers'),
+  getQuizAnswers:  () => workerGet<any>('/api/user/quiz-answers'),
+  getReferralStats: () => workerGet<any>('/api/user/referral-stats'),
 
   async getRewards(uid?: string) {
     try {
-      const supabase = getSupabase();
+      const db = getClient();
       const [rwResult, uResult] = await Promise.all([
-        supabase.from('rewards').select('*').eq('active', true),
-        uid
-          ? supabase.from('user_profiles').select('points,stamps').eq('user_id', uid).maybeSingle()
-          : Promise.resolve({ data: null, error: null }),
+        db.from('rewards').select('*').eq('active', true),
+        uid ? db.from('user_profiles').select('points,stamps').eq('user_id', uid).maybeSingle()
+            : Promise.resolve({ data: null, error: null }),
       ]);
       if (!rwResult.error && rwResult.data) {
         const userPts    = uResult.data?.points  ?? 0;
@@ -445,8 +407,7 @@ export const API = {
         return {
           success: true,
           rewards: rwResult.data.map((r: any) => ({
-            ...r,
-            canAfford: userPts >= r.cost_points && userStamps >= r.cost_stamps,
+            ...r, canAfford: userPts >= r.cost_points && userStamps >= r.cost_stamps,
           })),
           userPoints: userPts,
           userStamps,
@@ -458,13 +419,10 @@ export const API = {
 
   async getRedeemHistory(uid: string) {
     try {
-      const supabase = getSupabase();
-      const { data, error } = await supabase
-        .from('reward_claims')
+      const db = getClient();
+      const { data, error } = await db.from('reward_claims')
         .select('reward_name, points_used, stamps_used, status, created_at')
-        .eq('user_id', uid)
-        .order('created_at', { ascending: false })
-        .limit(50);
+        .eq('user_id', uid).order('created_at', { ascending: false }).limit(50);
       if (!error && data) return { success: true, history: data };
     } catch { /* fallback */ }
     return (await workerGet<any>('/api/user/redeem-history')) ?? { success: true, history: [] };
@@ -472,26 +430,24 @@ export const API = {
 
   async getFullHistory(uid: string) {
     try {
-      const supabase = getSupabase();
+      const db = getClient();
       const [quiz, purchases, points] = await Promise.all([
-        supabase.from('quiz_submissions').select('quiz_date,score,created_at').eq('user_id', uid).order('created_at', { ascending: false }),
-        supabase.from('purchases').select('invoice_id,item,amount,points,stamp,created_at').eq('user_id', uid).order('created_at', { ascending: false }),
-        supabase.from('points_log').select('points,reason,created_at').eq('user_id', uid).order('created_at', { ascending: false }),
+        db.from('quiz_submissions').select('quiz_date,score,created_at').eq('user_id', uid).order('created_at', { ascending: false }),
+        db.from('purchases').select('invoice_id,item,amount,points,stamp,created_at').eq('user_id', uid).order('created_at', { ascending: false }),
+        db.from('points_log').select('points,reason,created_at').eq('user_id', uid).order('created_at', { ascending: false }),
       ]);
       if (!quiz.error) return { success: true, quiz: quiz.data ?? [], purchases: purchases.data ?? [], points: points.data ?? [] };
     } catch { /* fallback */ }
     return (await workerGet<any>('/api/user/full-history')) ?? { success: false, quiz: [], purchases: [], points: [] };
   },
 
-  getReferralStats: () => workerGet<any>('/api/user/referral-stats'),
-
-  redeemReward:    (rewardId: string)                => workerPost<any>('/api/user/redeem-reward',   { rewardId }),
-  redeemCode:      (code: string, week: string)      => workerPost<any>('/api/user/redeem-code',     { code, week }),
-  redeemReferral:  (code: string)                    => workerPost<any>('/api/user/redeem-referral', { code }),
-  freeSpin:        (points: number)                  => workerPost<any>('/api/user/free-spin',       { points }),
-  recordSpin:      (type: string, points: number)    => workerPost<any>('/api/user/record-spin',     { type, points }),
-  claimStreak:     ()                                => workerPost<any>('/api/user/claim-streak',    {}),
-  submitQuiz:      (selections: unknown)             => workerPost<any>('/api/user/submit-quiz',     { selections }),
-  submitSuperQuiz: (selections: unknown)             => workerPost<any>('/api/user/submit-super-quiz', { selections }),
-  updateProfile:   (data: Record<string, unknown>)   => workerPost<any>('/api/user/update',          data),
+  redeemReward:    (rewardId: string)              => workerPost<any>('/api/user/redeem-reward',     { rewardId }),
+  redeemCode:      (code: string, week: string)    => workerPost<any>('/api/user/redeem-code',       { code, week }),
+  redeemReferral:  (code: string)                  => workerPost<any>('/api/user/redeem-referral',   { code }),
+  freeSpin:        (points: number)                => workerPost<any>('/api/user/free-spin',         { points }),
+  recordSpin:      (type: string, points: number)  => workerPost<any>('/api/user/record-spin',       { type, points }),
+  claimStreak:     ()                              => workerPost<any>('/api/user/claim-streak',      {}),
+  submitQuiz:      (selections: unknown)           => workerPost<any>('/api/user/submit-quiz',       { selections }),
+  submitSuperQuiz: (selections: unknown)           => workerPost<any>('/api/user/submit-super-quiz', { selections }),
+  updateProfile:   (data: Record<string, unknown>) => workerPost<any>('/api/user/update',            data),
 };

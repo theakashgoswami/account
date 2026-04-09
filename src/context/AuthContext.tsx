@@ -7,7 +7,7 @@ import React, {
   useRef,
 } from 'react';
 import { CONFIG } from '../config';
-import { UserProfile } from '../services/api';
+import { UserProfile, setSupabaseToken } from '../services/api';
 import { getSupabase } from '../lib/supabase';
 
 interface AuthContextType {
@@ -25,16 +25,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshAbortRef = useRef<AbortController | null>(null);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // fetchUserProfile — DO NOT use setSession (empty refresh_token silently
-  // rejected by Supabase JS client → falls back to anon → RLS blocks).
-  // Instead: pass token directly as Bearer header in a plain fetch call.
-  // ─────────────────────────────────────────────────────────────────────────
+  // Profile fetch — direct REST with token (bypasses Supabase JS session)
   const fetchUserProfile = useCallback(
     async (userId: string, accessToken?: string): Promise<UserProfile | null> => {
       try {
         if (accessToken) {
-          // ✅ Direct REST — guaranteed to carry the right JWT
           const res = await fetch(
             `${CONFIG.SUPABASE_URL}/rest/v1/user_profiles?select=*&user_id=eq.${userId}`,
             {
@@ -45,29 +40,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               },
             }
           );
-
-          if (!res.ok) {
-            console.error('Profile fetch failed — status:', res.status);
-            return null;
-          }
-
+          if (!res.ok) { console.error('Profile fetch failed:', res.status); return null; }
           const rows = await res.json();
           return (rows[0] as UserProfile) ?? null;
         }
 
-        // Fallback for refreshProfile (no token available there)
+        // Fallback (refreshProfile path)
         const supabase = getSupabase();
-        const { data, error } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('user_id', userId)
-          .maybeSingle();
-
-        if (error) {
-          console.error('Supabase fetch error:', error);
-          return null;
-        }
-
+        const { data, error } = await supabase.from('user_profiles').select('*').eq('user_id', userId).maybeSingle();
+        if (error) { console.error('Supabase fetch error:', error); return null; }
         return (data as UserProfile) ?? null;
       } catch (err) {
         console.error('Fetch profile error:', err);
@@ -77,7 +58,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     []
   );
 
-  // ✅ Accepts AbortSignal to cancel stale requests
   const checkAuth = useCallback(
     async (signal?: AbortSignal) => {
       try {
@@ -96,7 +76,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const data = await response.json();
 
           if (data.authenticated && data.user_id) {
-            // ✅ Token directly pass — no setSession needed
+            // ✅ Token ko api.ts ke module store mein set karo
+            // Ab saari API calls (getDashboardStats, getRewards, etc.) isko use karengi
+            if (data.supabase_token) {
+              setSupabaseToken(data.supabase_token);
+            }
+
             const profile = await fetchUserProfile(data.user_id, data.supabase_token ?? undefined);
 
             if (signal?.aborted) return;
@@ -114,9 +99,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               created_at: profile?.created_at || '',
             });
           } else {
+            setSupabaseToken(null); // ✅ logout pe token clear
             setUser(null);
           }
         } else {
+          setSupabaseToken(null);
           setUser(null);
         }
       } catch (err) {
@@ -130,7 +117,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [fetchUserProfile]
   );
 
-  // ✅ Race condition fix — cancels previous call if called again quickly
   const refreshProfile = useCallback(async () => {
     setUser(currentUser => {
       if (!currentUser?.user_id) return currentUser;
@@ -156,28 +142,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fetch(`${CONFIG.WORKER_URL}/api/auth/logout`, {
           method: 'POST',
           credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Client-Host': window.location.host,
-          },
+          headers: { 'Content-Type': 'application/json', 'X-Client-Host': window.location.host },
         }),
       ]);
     } catch (err) {
       console.error('Logout error:', err);
     } finally {
+      setSupabaseToken(null); // ✅ token clear on logout
       setUser(null);
       window.location.href = CONFIG.MAIN_SITE;
     }
   }, []);
 
-  // Initial auth check with cleanup
   useEffect(() => {
     const controller = new AbortController();
     checkAuth(controller.signal);
     return () => controller.abort();
   }, [checkAuth]);
 
-  // Re-check when user comes back to tab
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') checkAuth();
