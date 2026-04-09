@@ -1,0 +1,134 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+:root {
+  --gradient-primary: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #2563eb 100%);
+  --gradient-gold: linear-gradient(135deg, #ffd700 0%, #ff8c00 50%, #ff6b6b 100%);
+  --shadow-glow: 0 0 30px rgba(79, 70, 229, 0.25);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+@layer base {
+  * { box-sizing: border-box; }
+
+  body {
+    @apply bg-zinc-950 text-zinc-100 antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    min-height: 100vh;
+    background:
+      radial-gradient(ellipse at 20% 50%, rgba(79, 70, 229, 0.05) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(124, 58, 237, 0.05) 0%, transparent 60%),
+      #09090b;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #18181b; }
+  ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #6366f1; }
+
+  ::selection { background: rgba(99, 102, 241, 0.3); color: #fff; }
+}
+
+@layer components {
+  /* ── Cards ── */
+  .premium-card {
+    @apply bg-zinc-900/60 border border-zinc-800/60 rounded-3xl overflow-hidden transition-all duration-300;
+    backdrop-filter: blur(12px);
+  }
+
+  .premium-card:hover {
+    @apply border-indigo-500/25;
+    box-shadow: var(--shadow-2xl), 0 0 0 1px rgba(99, 102, 241, 0.1);
+    transform: translateY(-2px);
+  }
+
+  /* ── Text ── */
+  .gradient-text {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .welcome-text {
+    @apply font-black text-white;
+  }
+
+  /* ── Glow ── */
+  .shadow-glow {
+    box-shadow: 0 0 30px rgba(99, 102, 241, 0.35);
+  }
+
+  /* ── Buttons ── */
+  .btn-primary {
+    @apply relative overflow-hidden rounded-2xl bg-indigo-600 px-6 py-3 text-sm font-black uppercase tracking-widest text-white transition-all hover:bg-indigo-500 active:scale-95;
+    box-shadow: 0 10px 25px rgba(79, 70, 229, 0.3);
+  }
+
+  /* ── Spin wheel pointer ── */
+  .wheel-ptr {
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-top: 20px solid #6366f1;
+    filter: drop-shadow(0 2px 4px rgba(99, 102, 241, 0.6));
+    z-index: 10;
+  }
+
+  /* ── Referral wrapper (used on dashboard) ── */
+  .referral-wrapper {
+    @apply mt-10;
+  }
+
+  /* ── Status badge ── */
+  .status-badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest;
+  }
+
+  .status-live {
+    @apply bg-emerald-500/10 text-emerald-400 border border-emerald-500/20;
+  }
+
+  /* ── Table ── */
+  .data-table th {
+    @apply px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-600 text-left;
+    background: rgba(9, 9, 11, 0.5);
+  }
+
+  .data-table td {
+    @apply px-6 py-5 text-sm;
+  }
+
+  .data-table tr {
+    @apply border-b border-zinc-800/50 transition-colors hover:bg-indigo-500/[0.03];
+  }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(99, 102, 241, 0.6); }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ping-slow {
+  75%, 100% { transform: scale(2); opacity: 0; }
+}
