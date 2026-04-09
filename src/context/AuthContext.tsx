@@ -66,6 +66,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const data = await response.json();
 
         if (data.authenticated && data.user_id) {
+          // ✅ Worker ka generated JWT Supabase client mein set karo
+          // Iske baad fetchUserProfile mein proper "authenticated" role jayega
+          if (data.supabase_token) {
+            const supabase = getSupabase();
+            await supabase.auth.setSession({
+              access_token: data.supabase_token,
+              refresh_token: '', // worker stateless hai, refresh token nahi hai
+            });
+          }
+
           const profile = await fetchUserProfile(data.user_id);
 
           if (signal?.aborted) return;
