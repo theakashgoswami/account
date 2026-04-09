@@ -28,46 +28,83 @@ export interface Notification {
   created_at: string;
 }
 
-async function workerGet<T>(path: string): Promise<T | null> {
+async function getAuthToken(): Promise<string | null> {
   try {
     const supabase = getSupabase();
     const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token;
+    return data.session?.access_token || null;
+  } catch (error) {
+    console.error('Failed to get auth token:', error);
+    return null;
+  }
+}
+
+async function workerGet<T>(path: string): Promise<T | null> {
+  try {
+    const token = await getAuthToken();
+    if (!token) {
+      console.warn('No auth token available for:', path);
+      return null;
+    }
 
     const res = await fetch(`${CONFIG.WORKER_URL}${path}`, {
+      method: 'GET',
       headers: {
-        Authorization: `Bearer ${token}`,
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
         'X-Client-Host': window.location.host,
       },
       credentials: 'include',
     });
-    if (!res.ok) return null;
+    
+    if (!res.ok) {
+      if (res.status === 401) {
+        console.error('Auth failed for:', path);
+        // Trigger re-authentication if needed
+        window.location.href = `${CONFIG.MAIN_SITE}#login`;
+      }
+      return null;
+    }
     return res.json();
-  } catch {
+  } catch (error) {
+    console.error('Worker GET error:', error);
     return null;
   }
 }
 
 async function workerPost<T>(path: string, body: any = {}) {
   try {
-    const supabase = getSupabase();
-    const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token;
+    const token = await getAuthToken();
+    if (!token) {
+      console.warn('No auth token available for POST:', path);
+      return { success: false, error: 'Not authenticated' };
+    }
 
     const res = await fetch(`${CONFIG.WORKER_URL}${path}`, {
       method: 'POST',
       headers: {
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
         'X-Client-Host': window.location.host,
       },
       body: JSON.stringify(body),
       credentials: 'include',
     });
-    const dataRes = await res.json();
-    return dataRes;
-  } catch (e: any) {
-    return { success: false, error: e.message };
+    
+    const data = await res.json();
+    
+    if (!res.ok) {
+      if (res.status === 401) {
+        console.error('Auth failed for POST:', path);
+        window.location.href = `${CONFIG.MAIN_SITE}#login`;
+      }
+      return { success: false, error: data.error || `HTTP ${res.status}` };
+    }
+    
+    return data;
+  } catch (error: any) {
+    console.error('Worker POST error:', error);
+    return { success: false, error: error.message };
   }
 }
 
