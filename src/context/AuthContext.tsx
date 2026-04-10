@@ -144,26 +144,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, [fetchUserProfile]);
 
-  const logout = useCallback(async () => {
-    try {
-      const supabase = getSupabase();
-      await Promise.allSettled([
-        supabase.auth.signOut(),
-        fetch(`${CONFIG.WORKER_URL}/api/auth/logout`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json', 'X-Client-Host': window.location.host },
-        }),
-      ]);
-    } catch (err) {
-      console.error('Logout error:', err);
-    } finally {
-      setSupabaseToken(null);
-      lastAuthCheckRef.current = 0; // ✅ Reset so next login pe fresh check ho
-      setUser(null);
-      window.location.href = CONFIG.MAIN_SITE;
+
+const logout = useCallback(async () => {
+  try {
+    // ✅ Pehle worker logout call karo
+    const workerResponse = await fetch(`${CONFIG.WORKER_URL}/api/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 
+        'Content-Type': 'application/json', 
+        'X-Client-Host': window.location.host 
+      },
+    });
+    
+    if (!workerResponse.ok) {
+      console.error('Worker logout failed:', await workerResponse.text());
     }
-  }, []);
+    
+    // ✅ Fir Supabase sign out (with timeout to avoid hanging)
+    const supabase = getSupabase();
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Supabase logout timeout')), 3000)
+    );
+    
+    await Promise.race([
+      supabase.auth.signOut(),
+      timeoutPromise
+    ]).catch(err => console.error('Supabase logout error:', err));
+    
+  } catch (err) {
+    console.error('Logout error:', err);
+  } finally {
+    // ✅ Always clear local state and storage
+    setSupabaseToken(null);
+    lastAuthCheckRef.current = 0;
+    setUser(null);
+    
+    // ✅ Clear local storage items
+    localStorage.removeItem('sb-auth-token');
+    localStorage.removeItem('supabase.auth.token');
+    sessionStorage.clear();
+    
+    // ✅ Redirect to main site login
+    window.location.href = `${CONFIG.MAIN_SITE}#login`;
+  }
+}, []);
 
   // ✅ Mount pe ek baar — force:true se cooldown bypass
   useEffect(() => {
