@@ -32,19 +32,27 @@ export interface Notification {
 // ─── Token Store ──────────────────────────────────────────────────────────────
 
 let _supabaseToken: string | null = null;
+let _cachedClient: SupabaseClient | null = null; // ✅ cache — ek hi instance
 
 export function setSupabaseToken(token: string | null) {
-  _supabaseToken = token;
+  if (token !== _supabaseToken) {
+    _supabaseToken = token;
+    _cachedClient = null; // token badla toh client reset
+  }
 }
 
 function getClient(): SupabaseClient {
   if (_supabaseToken) {
-    return createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: `Bearer ${_supabaseToken}` } },
-      auth: { persistSession: false },
-    });
+    // ✅ Cached client return karo — har call pe naya instance nahi banega
+    if (!_cachedClient) {
+      _cachedClient = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY, {
+        global: { headers: { Authorization: `Bearer ${_supabaseToken}` } },
+        auth: { persistSession: false },
+      });
+    }
+    return _cachedClient;
   }
-  return getSupabase();
+  return getSupabase(); // anon fallback
 }
 
 // ─── Auth Token (for Worker calls) ───────────────────────────────────────────

@@ -290,6 +290,7 @@ export const Earn: React.FC = () => {
 
 // ── Free Spin ─────────────────────────────────────────────────
 const FreeSpin: React.FC<{ status: any; onUpdate: (s: any) => void }> = ({ status, onUpdate }) => {
+  const { user } = useAuth(); // ✅ user yahan se lo
   const [spinning, setSpinning] = useState(false);
   const [targetIdx, setTargetIdx] = useState<number | null>(null);
   const [result, setResult] = useState<number | null>(null);
