@@ -4,7 +4,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import App from './App';
-import '/index.css';  
+import './index.css';  
 import { CONFIG } from './config';
 
 // ✅ Handle unauthorized event (improved)
