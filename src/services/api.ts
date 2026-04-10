@@ -1,6 +1,5 @@
 import { CONFIG } from '../config';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { getSupabase } from '../lib/supabase';
+import { getSupabaseClient } from '../lib/SupabaseClient'; // ✅ Consistent import
 
 export interface UserProfile {
   user_id: string;
@@ -32,62 +31,84 @@ export interface Notification {
 // ─── Token Store ──────────────────────────────────────────────────────────────
 
 let _supabaseToken: string | null = null;
-let _cachedClient: SupabaseClient | null = null; // ✅ cache — ek hi instance
+let _tokenRefreshPromise: Promise<string | null> | null = null; // ✅ Prevent race conditions
 
 export function setSupabaseToken(token: string | null) {
-  if (token !== _supabaseToken) {
-    _supabaseToken = token;
-    _cachedClient = null; // token badla toh client reset
-  }
-}
-
-function getClient(): SupabaseClient {
-  if (_supabaseToken) {
-    // ✅ Cached client return karo — har call pe naya instance nahi banega
-    if (!_cachedClient) {
-      _cachedClient = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY, {
-        global: { headers: { Authorization: `Bearer ${_supabaseToken}` } },
-        auth: { persistSession: false },
-      });
-    }
-    return _cachedClient;
-  }
-  return getSupabase(); // anon fallback
+  _supabaseToken = token;
 }
 
 // ─── Auth Token (for Worker calls) ───────────────────────────────────────────
 
 async function getAuthToken(): Promise<string | null> {
+  // Return cached token if exists
   if (_supabaseToken) return _supabaseToken;
-  try {
-    const supabase = getSupabase();
-    const { data } = await supabase.auth.getSession();
-    return data.session?.access_token || null;
-  } catch (error) {
-    console.error('Failed to get auth token:', error);
-    return null;
+  
+  // Prevent multiple concurrent refreshes
+  if (_tokenRefreshPromise) {
+    return _tokenRefreshPromise;
   }
+  
+  _tokenRefreshPromise = (async () => {
+    try {
+      const supabase = getSupabaseClient();
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token || null;
+      if (token) {
+        _supabaseToken = token;
+      }
+      return token;
+    } catch (error) {
+      console.error('Failed to get auth token:', error);
+      return null;
+    } finally {
+      _tokenRefreshPromise = null;
+    }
+  })();
+  
+  return _tokenRefreshPromise;
 }
 
 // ─── Worker Helpers ───────────────────────────────────────────────────────────
 
 function handle401() {
+  // Clear token on auth failure
+  _supabaseToken = null;
   window.dispatchEvent(new CustomEvent('auth:unauthorized'));
 }
 
-async function workerGet<T>(path: string): Promise<T | null> {
+async function workerGet<T>(path: string, retryCount = 0): Promise<T | null> {
+  const MAX_RETRIES = 1;
+  
   try {
     const token = await getAuthToken();
-    if (!token) { console.warn('No auth token for:', path); return null; }
+    if (!token) { 
+      console.warn('No auth token for:', path); 
+      return null; 
+    }
 
     const res = await fetch(`${CONFIG.WORKER_URL}${path}`, {
       method: 'GET',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'X-Client-Host': window.location.host },
+      headers: { 
+        Authorization: `Bearer ${token}`, 
+        'Content-Type': 'application/json', 
+        'X-Client-Host': window.location.host 
+      },
       credentials: 'include',
     });
 
     if (!res.ok) {
-      if (res.status === 401) { console.error('Auth failed for:', path); handle401(); }
+      if (res.status === 401) { 
+        console.error('Auth failed for:', path);
+        
+        // Clear token and retry once if token might be expired
+        _supabaseToken = null;
+        if (retryCount < MAX_RETRIES) {
+          console.log('Retrying with fresh token...');
+          return workerGet<T>(path, retryCount + 1);
+        }
+        
+        handle401(); 
+      }
       return null;
     }
     return res.json();
@@ -97,23 +118,45 @@ async function workerGet<T>(path: string): Promise<T | null> {
   }
 }
 
-async function workerPost<T>(path: string, body: Record<string, unknown> = {}): Promise<T | { success: false; error: string }> {
+async function workerPost<T>(path: string, body: Record<string, unknown> = {}, retryCount = 0): Promise<T | { success: false; error: string }> {
+  const MAX_RETRIES = 1;
+  
   try {
     const token = await getAuthToken();
     if (!token) return { success: false, error: 'Not authenticated' };
 
     const res = await fetch(`${CONFIG.WORKER_URL}${path}`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'X-Client-Host': window.location.host },
+      headers: { 
+        Authorization: `Bearer ${token}`, 
+        'Content-Type': 'application/json', 
+        'X-Client-Host': window.location.host 
+      },
       body: JSON.stringify(body),
       credentials: 'include',
     });
 
     if (!res.ok) {
-      if (res.status === 401) { console.error('Auth failed for POST:', path); handle401(); }
+      if (res.status === 401) {
+        console.error('Auth failed for POST:', path);
+        
+        // Clear token and retry once
+        _supabaseToken = null;
+        if (retryCount < MAX_RETRIES) {
+          console.log('Retrying POST with fresh token...');
+          return workerPost<T>(path, body, retryCount + 1);
+        }
+        
+        handle401();
+      }
+      
       const text = await res.text();
       let errorMsg = `HTTP ${res.status}`;
-      try { errorMsg = JSON.parse(text)?.error ?? errorMsg; } catch { /* not JSON */ }
+      try { 
+        errorMsg = JSON.parse(text)?.error ?? errorMsg; 
+      } catch { 
+        // not JSON 
+      }
       return { success: false, error: errorMsg };
     }
     return res.json();
@@ -153,7 +196,7 @@ async function buildLeaderboard(
   filterField?: string,
   filterValue?: string
 ): Promise<{ user_id: string; score: number; rank: number; name: string; profile_image: string | null }[]> {
-  const db = getClient();
+  const db = getSupabaseClient(); 
   let query = db.from('leaderboard').select(`user_id, ${scoreField} as score`).order(scoreField, { ascending: false }).limit(100);
   if (filterField && filterValue) query = query.eq(filterField, filterValue);
 
@@ -181,7 +224,7 @@ async function buildLeaderboard(
 export const API = {
   async getUserProfile(uid: string) {
     try {
-      const db = getClient();
+      const db = getSupabaseClient(); // ✅ Fixed
       const { data, error } = await db.from('user_profiles').select('*').eq('user_id', uid).maybeSingle();
       if (!error && data) return { success: true, ...data };
     } catch { /* fallback */ }
@@ -190,7 +233,7 @@ export const API = {
 
   async getUserStats(uid: string) {
     try {
-      const db = getClient();
+      const db = getSupabaseClient(); // ✅ Fixed
       const { data, error } = await db.from('user_profiles').select('points, stamps').eq('user_id', uid).maybeSingle();
       if (!error && data) return { success: true, points: data.points ?? 0, stamps: data.stamps ?? 0 };
     } catch { /* fallback */ }
@@ -199,21 +242,26 @@ export const API = {
 
   async getDashboardStats(uid: string): Promise<DashboardStats | null> {
     try {
-      const db = getClient();
+      const db = getSupabaseClient(); // ✅ Fixed
       const [quiz, purchase, score, referrals] = await Promise.all([
         db.from('quiz_submissions').select('id', { count: 'exact', head: true }).eq('user_id', uid),
         db.from('purchases').select('id', { count: 'exact', head: true }).eq('user_id', uid),
         db.from('leaderboard').select('all_time_score').eq('user_id', uid).maybeSingle(),
         db.from('referrals').select('id', { count: 'exact', head: true }).eq('referrer_id', uid),
       ]);
-      return { quizPlayed: quiz.count ?? 0, purchaseCount: purchase.count ?? 0, quizScore: score.data?.all_time_score ?? 0, referralCount: referrals.count ?? 0 };
-    } catch { /* fallback */ }
-    return workerGet<DashboardStats>('/api/user/dashboard-stats');
+      return { 
+        quizPlayed: quiz.count ?? 0, 
+        purchaseCount: purchase.count ?? 0, 
+        quizScore: score.data?.all_time_score ?? 0, 
+        referralCount: referrals.count ?? 0 
+      };
+    } catch { 
+      return workerGet<DashboardStats>('/api/user/dashboard-stats');
+    }
   },
-
   async getNotifications(): Promise<Notification[]> {
     try {
-      const db = getClient();
+      const db = getSupabaseClient();
       const { data, error } = await db.from('notifications').select('*').order('created_at', { ascending: false }).limit(10);
       if (!error && data) return data;
     } catch { /* fallback */ }
@@ -225,7 +273,7 @@ export const API = {
     try {
       const today = getTodayIST();
       const week  = getWeekKey();
-      const db    = getClient();
+      const db    = getSupabaseClient();
 
       // ✅ Super spin alag query — week se check (spin_date se nahi)
       // Daily spins (free, quiz) — aaj ki date se check
@@ -254,7 +302,7 @@ export const API = {
   async getQuizQuestions(uid: string) {
     try {
       const today = getTodayIST();
-      const db = getClient();
+      const db = getSupabaseClient();
 
       const { data: existing } = await db.from('quiz_submissions').select('score,answers,questions').eq('user_id', uid).eq('quiz_date', today).maybeSingle();
       if (existing) return { success: true, submitted: true, score: existing.score ?? 0, selections: existing.answers, earn: [] };
@@ -290,7 +338,7 @@ export const API = {
   async getSuperQuestions(uid: string) {
     try {
       const week = getWeekKey();
-      const db = getClient();
+      const db = getSupabaseClient();
       const { data: existing } = await db.from('super_submissions').select('correct_count,answers').eq('user_id', uid).eq('week', week).maybeSingle();
       if (existing) return { success: true, submitted: true, correct_count: existing.correct_count ?? 0, selections: existing.answers, questions: [] };
 
@@ -322,7 +370,7 @@ export const API = {
 
   getUserRanks: async (userId: string) => {
     try {
-      const db = getClient();
+      const db = getSupabaseClient();
       const { data: user } = await db.from('leaderboard').select('*').eq('user_id', userId).maybeSingle();
       if (!user) return null;
 
@@ -345,7 +393,7 @@ export const API = {
 
   async getRewards(uid?: string) {
     try {
-      const db = getClient();
+      const db = getSupabaseClient();
       const [rwResult, uResult] = await Promise.all([
         db.from('rewards').select('*').eq('active', true),
         uid ? db.from('user_profiles').select('points,stamps').eq('user_id', uid).maybeSingle() : Promise.resolve({ data: null, error: null }),
@@ -362,7 +410,7 @@ export const API = {
   // ✅ Reward catalogue redemption history (reward_claims table)
   async getRedeemHistory(uid: string) {
     try {
-      const db = getClient();
+      const db = getSupabaseClient();
       const { data, error } = await db.from('reward_claims')
         .select('reward_name, points_used, stamps_used, status, created_at')
         .eq('user_id', uid).order('created_at', { ascending: false }).limit(50);
@@ -374,7 +422,7 @@ export const API = {
   // ✅ Code/referral redemption history (redeem_history table) — Claim.tsx ke liye
   async getCodeHistory(uid: string) {
     try {
-      const db = getClient();
+      const db = getSupabaseClient();
       const { data, error } = await db.from('redeem_history')
         .select('code, reward_type, reward_value, redeemed_at')
         .eq('user_id', uid).order('redeemed_at', { ascending: false }).limit(50);
@@ -385,7 +433,7 @@ export const API = {
 
   async getFullHistory(uid: string) {
     try {
-      const db = getClient();
+      const db = getSupabaseClient();
       const [quiz, purchases, points] = await Promise.all([
         db.from('quiz_submissions').select('quiz_date,score,created_at').eq('user_id', uid).order('created_at', { ascending: false }),
         db.from('purchases').select('invoice_id,item,amount,points,stamp,created_at').eq('user_id', uid).order('created_at', { ascending: false }),

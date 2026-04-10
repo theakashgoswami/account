@@ -1,25 +1,27 @@
-// lib/supabaseClient.ts
-import { createClient } from '@supabase/supabase-js';
+// lib/supabase.ts
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { CONFIG } from '../config';
 
-let supabaseInstance: ReturnType<typeof createClient> | null = null;
+let supabaseInstance: SupabaseClient | null = null;
 
 export const getSupabaseClient = () => {
-  if (!supabaseInstance) {
-    supabaseInstance = createClient(
-      import.meta.env.VITE_SUPABASE_URL,
-      import.meta.env.VITE_SUPABASE_ANON_KEY,
-      {
-        auth: {
-          persistSession: true,
-          storageKey: 'sb-auth-token',
-          storage: localStorage,
-          autoRefreshToken: true,
-          detectSessionInUrl: true
-        }
-      }
-    );
+  if (supabaseInstance) {
+    return supabaseInstance;
   }
+
+  supabaseInstance = createClient(
+    CONFIG.SUPABASE_URL,
+    CONFIG.SUPABASE_ANON_KEY,
+    {
+      auth: {
+        persistSession: true,
+        storageKey: 'sb-auth-token',
+        storage: localStorage,
+        autoRefreshToken: true,
+        detectSessionInUrl: true
+      }
+    }
+  );
+
   return supabaseInstance;
 };
-
-// Use this in your components instead of creating new clients

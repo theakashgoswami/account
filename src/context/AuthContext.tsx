@@ -8,7 +8,7 @@ import React, {
 } from 'react';
 import { CONFIG } from '../config';
 import { UserProfile, setSupabaseToken } from '../services/api';
-import { getSupabase } from '../lib/supabase';
+import { getSupabaseClient } from '../lib/SupabaseClient';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -49,7 +49,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return (rows[0] as UserProfile) ?? null;
         }
 
-        const supabase = getSupabase();
+        const supabase = getSupabaseClient();
         const { data, error } = await supabase.from('user_profiles').select('*').eq('user_id', userId).maybeSingle();
         if (error) { console.error('Supabase fetch error:', error); return null; }
         return (data as UserProfile) ?? null;
@@ -162,7 +162,7 @@ const logout = useCallback(async () => {
     }
     
     // ✅ Fir Supabase sign out (with timeout to avoid hanging)
-    const supabase = getSupabase();
+    const supabase = getSupabaseClient();
     const timeoutPromise = new Promise((_, reject) => 
       setTimeout(() => reject(new Error('Supabase logout timeout')), 3000)
     );
