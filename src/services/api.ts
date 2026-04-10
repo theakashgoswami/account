@@ -30,8 +30,6 @@ export interface Notification {
 }
 
 // ─── Token Store ──────────────────────────────────────────────────────────────
-// Worker se aaya JWT yahan store hoga — saari API calls isko use karengi
-// AuthContext mein setSupabaseToken(data.supabase_token) call karo
 
 let _supabaseToken: string | null = null;
 
@@ -39,13 +37,10 @@ export function setSupabaseToken(token: string | null) {
   _supabaseToken = token;
 }
 
-// ✅ Token hai toh authenticated client, nahi toh default anon client
 function getClient(): SupabaseClient {
   if (_supabaseToken) {
     return createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY, {
-      global: {
-        headers: { Authorization: `Bearer ${_supabaseToken}` },
-      },
+      global: { headers: { Authorization: `Bearer ${_supabaseToken}` } },
       auth: { persistSession: false },
     });
   }
@@ -55,7 +50,6 @@ function getClient(): SupabaseClient {
 // ─── Auth Token (for Worker calls) ───────────────────────────────────────────
 
 async function getAuthToken(): Promise<string | null> {
-  // Worker calls ke liye Supabase session token
   if (_supabaseToken) return _supabaseToken;
   try {
     const supabase = getSupabase();
@@ -76,18 +70,11 @@ function handle401() {
 async function workerGet<T>(path: string): Promise<T | null> {
   try {
     const token = await getAuthToken();
-    if (!token) {
-      console.warn('No auth token available for:', path);
-      return null;
-    }
+    if (!token) { console.warn('No auth token for:', path); return null; }
 
     const res = await fetch(`${CONFIG.WORKER_URL}${path}`, {
       method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'X-Client-Host': window.location.host,
-      },
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'X-Client-Host': window.location.host },
       credentials: 'include',
     });
 
@@ -95,7 +82,6 @@ async function workerGet<T>(path: string): Promise<T | null> {
       if (res.status === 401) { console.error('Auth failed for:', path); handle401(); }
       return null;
     }
-
     return res.json();
   } catch (error) {
     console.error('Worker GET error:', error);
@@ -110,11 +96,7 @@ async function workerPost<T>(path: string, body: Record<string, unknown> = {}): 
 
     const res = await fetch(`${CONFIG.WORKER_URL}${path}`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'X-Client-Host': window.location.host,
-      },
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'X-Client-Host': window.location.host },
       body: JSON.stringify(body),
       credentials: 'include',
     });
@@ -126,7 +108,6 @@ async function workerPost<T>(path: string, body: Record<string, unknown> = {}): 
       try { errorMsg = JSON.parse(text)?.error ?? errorMsg; } catch { /* not JSON */ }
       return { success: false, error: errorMsg };
     }
-
     return res.json();
   } catch (error: unknown) {
     console.error('Worker POST error:', error);
@@ -164,13 +145,8 @@ async function buildLeaderboard(
   filterField?: string,
   filterValue?: string
 ): Promise<{ user_id: string; score: number; rank: number; name: string; profile_image: string | null }[]> {
-  const db = getClient(); // ✅ authenticated client
-  let query = db
-    .from('leaderboard')
-    .select(`user_id, ${scoreField} as score`)
-    .order(scoreField, { ascending: false })
-    .limit(100);
-
+  const db = getClient();
+  let query = db.from('leaderboard').select(`user_id, ${scoreField} as score`).order(scoreField, { ascending: false }).limit(100);
   if (filterField && filterValue) query = query.eq(filterField, filterValue);
 
   const { data, error } = await query;
@@ -180,10 +156,7 @@ async function buildLeaderboard(
   let users: { user_id: string; name: string; profile_image: string | null }[] = [];
 
   if (userIds.length > 0) {
-    const { data: userData } = await db
-      .from('user_profiles')
-      .select('user_id, name, profile_image')
-      .in('user_id', userIds);
+    const { data: userData } = await db.from('user_profiles').select('user_id, name, profile_image').in('user_id', userIds);
     users = userData ?? [];
   }
 
@@ -225,12 +198,7 @@ export const API = {
         db.from('leaderboard').select('all_time_score').eq('user_id', uid).maybeSingle(),
         db.from('referrals').select('id', { count: 'exact', head: true }).eq('referrer_id', uid),
       ]);
-      return {
-        quizPlayed: quiz.count ?? 0,
-        purchaseCount: purchase.count ?? 0,
-        quizScore: score.data?.all_time_score ?? 0,
-        referralCount: referrals.count ?? 0,
-      };
+      return { quizPlayed: quiz.count ?? 0, purchaseCount: purchase.count ?? 0, quizScore: score.data?.all_time_score ?? 0, referralCount: referrals.count ?? 0 };
     } catch { /* fallback */ }
     return workerGet<DashboardStats>('/api/user/dashboard-stats');
   },
@@ -248,21 +216,28 @@ export const API = {
   async getSpinStatus(uid: string) {
     try {
       const today = getTodayIST();
-      const db = getClient();
-      const [{ data: streakData }, { data: spinData }] = await Promise.all([
+      const week  = getWeekKey();
+      const db    = getClient();
+
+      // ✅ Super spin alag query — week se check (spin_date se nahi)
+      // Daily spins (free, quiz) — aaj ki date se check
+      const [{ data: streakData }, { data: dailySpins }, { data: superSpin }] = await Promise.all([
         db.from('streak_records').select('streak,last_date').eq('user_id', uid).maybeSingle(),
-        db.from('spin_records').select('type,points').eq('user_id', uid).eq('spin_date', today),
+        db.from('spin_records').select('type,points').eq('user_id', uid).eq('spin_date', today).in('type', ['free', 'quiz']),
+        // ✅ Super spin — week filter (worker bhi yahi karta hai)
+        db.from('spin_records').select('points').eq('user_id', uid).eq('type', 'super').eq('week', week).maybeSingle(),
       ]);
-      const free = spinData?.find((s: any) => s.type === 'free');
-      const quiz = spinData?.find((s: any) => s.type === 'quiz');
-      const sup  = spinData?.find((s: any) => s.type === 'super');
+
+      const free = dailySpins?.find((s: any) => s.type === 'free');
+      const quiz = dailySpins?.find((s: any) => s.type === 'quiz');
+
       return {
         success: true,
         streak: streakData?.streak ?? 0,
         streak_claimed: streakData?.last_date === today,
-        free_spin_done: !!free,  free_spin_points: free?.points ?? 0,
-        quiz_spin_done: !!quiz,  quiz_spin_points: quiz?.points ?? 0,
-        super_spin_done: !!sup,  super_spin_points: sup?.points ?? 0,
+        free_spin_done:  !!free,      free_spin_points:  free?.points  ?? 0,
+        quiz_spin_done:  !!quiz,      quiz_spin_points:  quiz?.points  ?? 0,
+        super_spin_done: !!superSpin, super_spin_points: superSpin?.points ?? 0,
       };
     } catch { /* fallback */ }
     return workerGet<any>('/api/user/spin-status');
@@ -273,49 +248,29 @@ export const API = {
       const today = getTodayIST();
       const db = getClient();
 
-      const { data: existing } = await db
-        .from('quiz_submissions').select('score,answers,questions')
-        .eq('user_id', uid).eq('quiz_date', today).maybeSingle();
-
-      if (existing) {
-        return { success: true, submitted: true, score: existing.score ?? 0, selections: existing.answers, earn: [] };
-      }
+      const { data: existing } = await db.from('quiz_submissions').select('score,answers,questions').eq('user_id', uid).eq('quiz_date', today).maybeSingle();
+      if (existing) return { success: true, submitted: true, score: existing.score ?? 0, selections: existing.answers, earn: [] };
 
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const dateLimit = thirtyDaysAgo.toISOString().split('T')[0];
 
-      const { data: recentQuestions } = await db
-        .from('user_quiz_progress').select('question_id')
-        .eq('user_id', uid).gte('asked_date', dateLimit);
-
+      const { data: recentQuestions } = await db.from('user_quiz_progress').select('question_id').eq('user_id', uid).gte('asked_date', dateLimit);
       const usedQids = new Set(recentQuestions?.map(r => r.question_id) || []);
 
-      let query = db
-        .from('quiz_questions')
-        .select('qid,question,option_a,option_b,option_c,option_d,prepare_link')
-        .eq('active', true);
-
-      if (usedQids.size > 0) {
-        query = query.not('qid', 'in', `(${Array.from(usedQids).join(',')})`);
-      }
+      let query = db.from('quiz_questions').select('qid,question,option_a,option_b,option_c,option_d,prepare_link').eq('active', true);
+      if (usedQids.size > 0) query = query.not('qid', 'in', `(${Array.from(usedQids).join(',')})`);
 
       const { data: availableQuestions } = await query;
       let finalQuestions = availableQuestions || [];
 
       if (finalQuestions.length < 5) {
-        const { data: allQuestions } = await db
-          .from('quiz_questions')
-          .select('qid,question,option_a,option_b,option_c,option_d,prepare_link')
-          .eq('active', true);
+        const { data: allQuestions } = await db.from('quiz_questions').select('qid,question,option_a,option_b,option_c,option_d,prepare_link').eq('active', true);
         finalQuestions = allQuestions || [];
       }
 
       const selectedQuestions = shuffleArray(finalQuestions).slice(0, 5);
-
-      await db.from('user_quiz_progress').insert(
-        selectedQuestions.map(q => ({ user_id: uid, question_id: q.qid, asked_date: today, answered: false }))
-      );
+      await db.from('user_quiz_progress').insert(selectedQuestions.map(q => ({ user_id: uid, question_id: q.qid, asked_date: today, answered: false })));
 
       return { success: true, submitted: false, earn: selectedQuestions, score: 0 };
     } catch (error) {
@@ -328,30 +283,19 @@ export const API = {
     try {
       const week = getWeekKey();
       const db = getClient();
-      const { data: existing } = await db
-        .from('super_submissions').select('correct_count,answers')
-        .eq('user_id', uid).eq('week', week).maybeSingle();
+      const { data: existing } = await db.from('super_submissions').select('correct_count,answers').eq('user_id', uid).eq('week', week).maybeSingle();
+      if (existing) return { success: true, submitted: true, correct_count: existing.correct_count ?? 0, selections: existing.answers, questions: [] };
 
-      if (existing) {
-        return { success: true, submitted: true, correct_count: existing.correct_count ?? 0, selections: existing.answers, questions: [] };
-      }
-
-      const { data: questions } = await db
-        .from('super_questions')
-        .select('qid,question,option_a,option_b,option_c,option_d,prepare_link')
-        .eq('week', week).eq('active', true);
-
+      const { data: questions } = await db.from('super_questions').select('qid,question,option_a,option_b,option_c,option_d,prepare_link').eq('week', week).eq('active', true);
       return { success: true, submitted: false, questions: questions ?? [] };
-    } catch (error) {
+    } catch {
       return (await workerGet<any>('/api/user/super-questions')) ?? { success: false, questions: [] };
     }
   },
 
   getWeeklyLeaderboard: async () => {
-    try {
-      const data = await buildLeaderboard('current_week_score', 'week_key', getWeekKey());
-      return { success: true, data, weekKey: getWeekKey() };
-    } catch { return { success: false, data: [] }; }
+    try { const data = await buildLeaderboard('current_week_score', 'week_key', getWeekKey()); return { success: true, data, weekKey: getWeekKey() }; }
+    catch { return { success: false, data: [] }; }
   },
 
   getMonthlyLeaderboard: async () => {
@@ -364,10 +308,8 @@ export const API = {
   },
 
   getAllTimeLeaderboard: async () => {
-    try {
-      const data = await buildLeaderboard('all_time_score');
-      return { success: true, data };
-    } catch { return { success: false, data: [] }; }
+    try { const data = await buildLeaderboard('all_time_score'); return { success: true, data }; }
+    catch { return { success: false, data: [] }; }
   },
 
   getUserRanks: async (userId: string) => {
@@ -390,7 +332,7 @@ export const API = {
     } catch { return null; }
   },
 
-  getQuizAnswers:  () => workerGet<any>('/api/user/quiz-answers'),
+  getQuizAnswers: () => workerGet<any>('/api/user/quiz-answers'),
   getReferralStats: () => workerGet<any>('/api/user/referral-stats'),
 
   async getRewards(uid?: string) {
@@ -398,25 +340,18 @@ export const API = {
       const db = getClient();
       const [rwResult, uResult] = await Promise.all([
         db.from('rewards').select('*').eq('active', true),
-        uid ? db.from('user_profiles').select('points,stamps').eq('user_id', uid).maybeSingle()
-            : Promise.resolve({ data: null, error: null }),
+        uid ? db.from('user_profiles').select('points,stamps').eq('user_id', uid).maybeSingle() : Promise.resolve({ data: null, error: null }),
       ]);
       if (!rwResult.error && rwResult.data) {
-        const userPts    = uResult.data?.points  ?? 0;
+        const userPts = uResult.data?.points ?? 0;
         const userStamps = uResult.data?.stamps ?? 0;
-        return {
-          success: true,
-          rewards: rwResult.data.map((r: any) => ({
-            ...r, canAfford: userPts >= r.cost_points && userStamps >= r.cost_stamps,
-          })),
-          userPoints: userPts,
-          userStamps,
-        };
+        return { success: true, rewards: rwResult.data.map((r: any) => ({ ...r, canAfford: userPts >= r.cost_points && userStamps >= r.cost_stamps })), userPoints: userPts, userStamps };
       }
     } catch { /* fallback */ }
     return (await workerGet<any>('/api/user/rewards')) ?? { success: false, rewards: [], userPoints: 0, userStamps: 0 };
   },
 
+  // ✅ Reward catalogue redemption history (reward_claims table)
   async getRedeemHistory(uid: string) {
     try {
       const db = getClient();
@@ -426,6 +361,18 @@ export const API = {
       if (!error && data) return { success: true, history: data };
     } catch { /* fallback */ }
     return (await workerGet<any>('/api/user/redeem-history')) ?? { success: true, history: [] };
+  },
+
+  // ✅ Code/referral redemption history (redeem_history table) — Claim.tsx ke liye
+  async getCodeHistory(uid: string) {
+    try {
+      const db = getClient();
+      const { data, error } = await db.from('redeem_history')
+        .select('code, reward_type, reward_value, redeemed_at')
+        .eq('user_id', uid).order('redeemed_at', { ascending: false }).limit(50);
+      if (!error && data) return { success: true, history: data };
+    } catch { /* fallback */ }
+    return workerGet<any>('/api/user/code-history') ?? { success: true, history: [] };
   },
 
   async getFullHistory(uid: string) {

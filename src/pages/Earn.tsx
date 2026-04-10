@@ -39,7 +39,8 @@ const SUPER_SEGS = [
 
 const STREAK_PTS = [50, 75, 100, 150, 200, 250, 500];
 
-const getTodayDate = () => new Date().toISOString().split('T')[0];
+// ✅ IST date — UTC se galat date aa sakti thi raat 10:30 ke baad India mein
+const getTodayDate = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
 
 // ── Canvas Wheel ─────────────────────────────────────────────
 const SpinWheelCanvas: React.FC<{
@@ -318,8 +319,8 @@ const FreeSpin: React.FC<{ status: any; onUpdate: (s: any) => void }> = ({ statu
     setResult(pts);
     setDone(true);
 
-    // 🔥 ALWAYS SYNC FROM BACKEND
-    await onUpdate(await API.getSpinStatus());
+    // 🔥 ALWAYS SYNC FROM BACKEND — ✅ uid pass karna zaroori tha
+    await onUpdate(await API.getSpinStatus(user!.user_id));
 
   } catch (e) {
     console.error("Spin error:", e);
