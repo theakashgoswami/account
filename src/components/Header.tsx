@@ -13,9 +13,9 @@ export const Header: React.FC = () => {
 
   const navItems = [
     { name: 'Home', path: '/', icon: LayoutDashboard },
-    { name: 'Redeem Code', path: '/claim', icon: Ticket },
+    { name: 'Claim', path: '/claim', icon: Ticket },
     { name: 'Earn', path: '/earn', icon: BrainCircuit },
-    { name: 'Use', path: '/rewards', icon: Gift },
+    { name: 'Rewards', path: '/rewards', icon: Gift },
     { name: 'History', path: '/history', icon: History },
     { name: 'Leaderboard', path: '/leaderboard', icon: Trophy },
   ];

@@ -34,6 +34,7 @@ export const Rewards: React.FC = () => {
   }, [user]);
 
   const handleRedeem = async () => {
+    if (!user?.user_id) return;
     if (!selectedReward || redeeming) return;
     setRedeeming(true);
     try {

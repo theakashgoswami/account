@@ -41,30 +41,6 @@ export const Profile: React.FC = () => {
     });
   }, [user]);
 
-  const checkPasswordStrength = (password: string) => {
-    let strength = 0;
-    const errors: string[] = [];
-    
-    if (password.length < 6) errors.push('At least 6 characters');
-    if (password.length >= 6) strength++;
-    if (/[A-Z]/.test(password)) strength++;
-    if (/[a-z]/.test(password)) strength++;
-    if (/[0-9]/.test(password)) strength++;
-    if (/[!@#$%^&*]/.test(password)) strength++;
-    
-    setPasswordStrength(Math.min(strength, 5));
-    setPasswordErrors(errors);
-    return errors.length === 0 && password.length >= 6;
-  };
-
-  useEffect(() => {
-    if (passwordData.new_password) {
-      checkPasswordStrength(passwordData.new_password);
-    } else {
-      setPasswordStrength(0);
-      setPasswordErrors([]);
-    }
-  }, [passwordData.new_password]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -229,13 +205,33 @@ export const Profile: React.FC = () => {
                     New Password
                   </label>
                   <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={passwordData.new_password}
-                      onChange={e => setPasswordData({ ...passwordData, new_password: e.target.value })}
-                      className="w-full rounded-xl border border-zinc-800 bg-zinc-950 py-3 pl-4 pr-10 text-sm text-white focus:border-indigo-500 focus:outline-none"
-                      placeholder="Enter new password (min 6 chars)"
-                    />
+                   <input
+  type={showPassword ? 'text' : 'password'}
+  value={passwordData.new_password}
+  onChange={(e) => {
+    const value = e.target.value;
+
+    setPasswordData(prev => ({
+      ...prev,
+      new_password: value
+    }));
+
+    let strength = 0;
+    const errors: string[] = [];
+
+    if (value.length < 6) errors.push('At least 6 characters');
+    if (value.length >= 6) strength++;
+    if (/[A-Z]/.test(value)) strength++;
+    if (/[a-z]/.test(value)) strength++;
+    if (/[0-9]/.test(value)) strength++;
+    if (/[!@#$%^&*]/.test(value)) strength++;
+
+    setPasswordStrength(Math.min(strength, 5));
+    setPasswordErrors(errors);
+  }}
+  className="w-full rounded-xl border border-zinc-800 bg-zinc-950 py-3 pl-4 pr-10 text-sm text-white focus:border-indigo-500 focus:outline-none"
+  placeholder="Enter new password (min 6 chars)"
+/>
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
@@ -255,7 +251,12 @@ export const Profile: React.FC = () => {
                     <input
                       type={showPassword ? 'text' : 'password'}
                       value={passwordData.confirm_password}
-                      onChange={e => setPasswordData({ ...passwordData, confirm_password: e.target.value })}
+                     onChange={(e) =>
+  setPasswordData(prev => ({
+    ...prev,
+    confirm_password: e.target.value
+  }))
+}
                       className={cn(
                         'w-full rounded-xl border bg-zinc-950 py-3 pl-4 pr-10 text-sm text-white focus:outline-none',
                         passwordData.confirm_password && passwordData.confirm_password !== passwordData.new_password
