@@ -5,7 +5,7 @@ import { User, Camera, Save, Loader2, AlertCircle, CheckCircle2, Key, Lock, Eye,
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { CONFIG } from '../config';
-import PasswordModal from './PasswordModal'; // Import the modal component
+import PasswordModal from '../components/PasswordModal'; // Import the modal component
 
 export const Profile: React.FC = () => {
   const { user, refreshProfile } = useAuth();
