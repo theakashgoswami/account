@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { API, getWeekKey } from '../services/api';
+import { API } from '../services/api';
 import { Brain, Zap, Gift, CheckCircle2, Trophy, RotateCw, Eye } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
@@ -304,16 +304,29 @@ const FreeSpin: React.FC<{ status: any; onUpdate: (s: any) => void }> = ({ statu
     setSpinning(true);
   };
 
-  const handleDone = async () => {
+ const handleDone = async () => {
+  try {
     const pts = FREE_SEGS[targetIdx!].value;
+
     const res = await API.freeSpin(pts);
-    if (res.success) {
-      setResult(pts);
-      setDone(true);
-      onUpdate({ ...status, free_spin_done: true, free_spin_points: pts });
+
+    if (!res || res.success !== true) {
+      console.error("Free spin failed:", res);
+      return;
     }
+
+    setResult(pts);
+    setDone(true);
+
+    // 🔥 ALWAYS SYNC FROM BACKEND
+    await onUpdate(await API.getSpinStatus());
+
+  } catch (e) {
+    console.error("Spin error:", e);
+  } finally {
     setSpinning(false);
-  };
+  }
+};
 
   if (status?.free_spin_done || done) {
     const pts = result ?? status?.free_spin_points;
@@ -355,12 +368,28 @@ const StreakSection: React.FC<{ streak: number; claimed: boolean; onClaimed: () 
   const [claiming, setClaiming] = useState(false);
 
   const handleClaim = async () => {
-    if (claiming || claimed) return;
-    setClaiming(true);
+  if (claiming || claimed) return;
+
+  setClaiming(true);
+
+  try {
     const res = await API.claimStreak();
-    if (res.success) onClaimed();
+
+    if (!res || res.success !== true) {
+      console.error("Streak failed:", res);
+      alert(res?.error || "Claim failed");
+      return;
+    }
+
+    // 🔥 force refresh
+    await onClaimed();
+
+  } catch (e) {
+    console.error("Streak error:", e);
+  } finally {
     setClaiming(false);
-  };
+  }
+};
 
   return (
     <div className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900 to-zinc-950 p-8">
@@ -449,36 +478,48 @@ const QuizSection: React.FC<{
     saveAnswersToCache(newSelections);
   };
 
-  const handleSubmit = async () => {
-    if (Object.keys(selections).length < questions.length || submitting) return;
-    setSubmitting(true);
-    
-    try {
-      const res = await API.submitQuiz(selections);
-      if (res.success) {
-        localStorage.removeItem(getAnswersKey());
-        
-        const answers: Record<string, string> = {};
-        res.correctAnswers?.forEach((q: any) => { 
-          answers[String(q.qid)] = q.correct_option; 
-        });
-        setQuizResult({ ...res, answers });
-        setShowSpin(true);
-        
-        const cacheKey = `quiz_cache_${userId}`;
-        const cached = localStorage.getItem(cacheKey);
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          parsed.submitted = true;
-          localStorage.setItem(cacheKey, JSON.stringify(parsed));
-        }
-      }
-    } catch (error) {
-      console.error('Quiz submission failed:', error);
-    } finally {
-      setSubmitting(false);
+ const handleSubmit = async () => {
+  if (Object.keys(selections).length < questions.length || submitting) return;
+
+  setSubmitting(true);
+
+  try {
+    const res = await API.submitQuiz(selections);
+
+    if (!res || res.success !== true) {
+      console.error("Quiz failed:", res);
+      alert(res?.error || "Quiz submit failed");
+      return;
     }
-  };
+
+    // 🔥 cache clean
+    localStorage.removeItem(getAnswersKey());
+
+    // 🔥 build correct answers safely
+    const answers: Record<string, string> = {};
+    res.correctAnswers?.forEach((q: any) => {
+      answers[String(q.qid)] = q.correct_option;
+    });
+
+    setQuizResult({ ...res, answers });
+    setShowSpin(true);
+
+    // 🔥 mark cache submitted
+    const cacheKey = `quiz_cache_${userId}`;
+    const cached = localStorage.getItem(cacheKey);
+
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      parsed.submitted = true;
+      localStorage.setItem(cacheKey, JSON.stringify(parsed));
+    }
+
+  } catch (error) {
+    console.error("Quiz crash:", error);
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const handleQuizSpin = () => {
     const correct = quizResult
@@ -496,13 +537,24 @@ const QuizSection: React.FC<{
   };
 
   const handleSpinDone = async () => {
+  try {
     const pts = QUIZ_SEGS[spinTarget!].value;
+
     const res = await API.recordSpin('quiz', pts);
-    if (res.success) { 
-      onRefresh(); 
+
+    if (!res || res.success !== true) {
+      console.error("Quiz spin failed:", res);
+      return;
     }
+
+    await onRefresh();
+
+  } catch (e) {
+    console.error("Spin error:", e);
+  } finally {
     setSpinning(false);
-  };
+  }
+};
 
   const handleViewAnswers = async () => {
     // Build answer details from quizResult and selections
@@ -693,11 +745,24 @@ const SuperSection: React.FC<{ questions: any[]; submitted: boolean; correct: nu
   };
 
   const handleSpinDone = async () => {
+  try {
     const pts = SUPER_SEGS[spinTarget!].value;
-    await API.recordSpin('super', pts);
-    onRefresh();
+
+    const res = await API.recordSpin('super', pts);
+
+    if (!res || res.success !== true) {
+      console.error("Super spin failed:", res);
+      return;
+    }
+
+    await onRefresh();
+
+  } catch (e) {
+    console.error("Super spin error:", e);
+  } finally {
     setSpinning(false);
-  };
+  }
+};
 
   const showSpin = submitted || (Object.keys(sels).length === questions.length && localCorrect > 0);
 

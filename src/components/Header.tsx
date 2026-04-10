@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Menu, X, User, LogOut, Settings, History, Gift, LayoutDashboard, BrainCircuit, Ticket } from 'lucide-react';
+import { Menu, X, User, LogOut, Settings, History, Gift, LayoutDashboard, BrainCircuit, Ticket, Trophy } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -17,6 +17,7 @@ export const Header: React.FC = () => {
     { name: 'Earn', path: '/earn', icon: BrainCircuit },
     { name: 'Use', path: '/rewards', icon: Gift },
     { name: 'History', path: '/history', icon: History },
+    { name: 'Leaderboard', path: '/leaderboard', icon: Trophy },
   ];
 
   return (

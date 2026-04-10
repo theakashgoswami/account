@@ -14,6 +14,7 @@ import { Rewards } from './pages/Rewards';
 import { History } from './pages/History';
 import { Profile } from './pages/Profile';
 import { Claim } from './pages/Claim';
+import { Leaderboard } from './pages/Leaderboard';
 
 // ✅ login removed — <a> tag directly used instead
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -67,6 +68,7 @@ export default function App() {
         <Route path="/rewards" element={<ProtectedRoute><Rewards /></ProtectedRoute>} />
         <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+        <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>

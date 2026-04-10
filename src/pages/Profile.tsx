@@ -24,6 +24,14 @@ export const Profile: React.FC = () => {
   const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
 
   useEffect(() => {
+  if (showPasswordModal) {
+    document.body.style.overflow = 'hidden';
+  } else {
+    document.body.style.overflow = '';
+  }
+}, [showPasswordModal]);
+
+  useEffect(() => {
     if (user) setForm({ 
       name: user.name || '', 
       email: user.email || '', 
@@ -199,9 +207,9 @@ export const Profile: React.FC = () => {
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 p-4"
+           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           >
-            <div className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900 to-zinc-950 p-6">
+           <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900 to-zinc-950 p-6">
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Shield className="h-5 w-5 text-indigo-400" />
