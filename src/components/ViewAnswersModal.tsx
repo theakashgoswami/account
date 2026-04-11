@@ -32,6 +32,7 @@ export const ViewAnswersModal: React.FC<ViewAnswersModalProps> = ({
   totalQuestions
 }) => {
   const [selectedQuestion, setSelectedQuestion] = useState<QuestionAnswer | null>(null);
+  const totalScore = totalQuestions * 10;
 
   useEffect(() => {
     if (isOpen && questions.length > 0) {
@@ -58,7 +59,7 @@ export const ViewAnswersModal: React.FC<ViewAnswersModalProps> = ({
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="fixed inset-3 z-50 overflow-hidden rounded-2xl bg-zinc-950 shadow-2xl md:inset-auto md:left-1/2 md:top-1/2 md:h-[90vh] md:w-[95vw] md:max-w-6xl md:-translate-x-1/2 md:-translate-y-1/2"
+            className="fixed inset-3 z-50 overflow-hidden rounded-2xl bg-zinc-950 shadow-2xl md:inset-auto md:left-1/2 md:top-1/2 md:h-[min(88vh,820px)] md:w-[min(94vw,1120px)] md:-translate-x-1/2 md:-translate-y-1/2"
           >
             {/* Header */}
             <div className="border-b border-zinc-800 bg-gradient-to-r from-indigo-600/20 to-purple-600/20 p-6">
@@ -70,7 +71,7 @@ export const ViewAnswersModal: React.FC<ViewAnswersModalProps> = ({
                   <div>
                     <h2 className="text-xl font-black text-white">Quiz Answers Review</h2>
                     <p className="text-sm text-zinc-500">
-                      Score: <span className="font-black text-yellow-400">{score}</span> / {totalQuestions}
+                      Score: <span className="font-black text-yellow-400">{score}</span> / {totalScore}
                     </p>
                   </div>
                 </div>
@@ -83,9 +84,9 @@ export const ViewAnswersModal: React.FC<ViewAnswersModalProps> = ({
               </div>
             </div>
 
-            <div className="flex h-[calc(100%-92px)] flex-col md:h-[calc(90vh-80px)] md:flex-row">
+            <div className="flex h-[calc(100%-92px)] min-h-0 flex-col md:flex-row">
               {/* Question List Sidebar */}
-              <div className="max-h-64 w-full overflow-y-auto border-b border-zinc-800 md:max-h-none md:w-80 md:border-b-0 md:border-r">
+              <div className="max-h-64 w-full overflow-y-auto border-b border-zinc-800 md:max-h-none md:w-72 md:shrink-0 md:border-b-0 md:border-r">
                 <div className="p-4">
                   <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-zinc-600">
                     Questions ({questions.length})
@@ -126,7 +127,7 @@ export const ViewAnswersModal: React.FC<ViewAnswersModalProps> = ({
 
               {/* Question Details */}
               {selectedQuestion && (
-                <div className="flex-1 overflow-y-auto p-4 md:p-6">
+                <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
                   <div className="mb-6">
                     <div className="mb-2 flex items-center gap-2">
                       <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs font-black text-zinc-500">
