@@ -7,8 +7,8 @@ import React, {
   useRef,
 } from 'react';
 import { CONFIG } from '../config';
-import { UserProfile, setSupabaseToken } from '../services/api';
 import { getSupabaseClient } from '../lib/SupabaseClient';
+import { setSupabaseToken, UserProfile } from '../services/api';
 
 interface AuthContextType {
   user: UserProfile | null;

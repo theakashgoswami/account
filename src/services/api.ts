@@ -1,5 +1,12 @@
 import { CONFIG } from '../config';
-import { getSupabaseClient } from '../lib/SupabaseClient'; // ✅ Consistent import
+import { getSupabaseClient } from '../lib/SupabaseClient';
+
+
+// 🔥 SAFE AUTH HANDLER (no breaking)
+export function handleAuthFailSafe() {
+  console.warn("Auth failed → clearing session");
+  window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+}
 
 export interface UserProfile {
   user_id: string;
@@ -30,6 +37,27 @@ export interface Notification {
 
 let _supabaseToken: string | null = null;
 
+export function setSupabaseToken(token: string | null) {
+  _supabaseToken = token;
+
+  if (typeof window === 'undefined') return;
+
+  if (token) {
+    window.localStorage.setItem('agtech-worker-supabase-token', token);
+  } else {
+    window.localStorage.removeItem('agtech-worker-supabase-token');
+  }
+}
+
+async function safeFetch<T>(fn: () => Promise<T>): Promise<T | null> {
+  try {
+    return await fn();
+  } catch (e) {
+    console.error("API crash:", e);
+    return null;
+  }
+}
+
 async function safeQuery<T>(fn: () => Promise<T>) {
   try {
     return await fn();
@@ -38,28 +66,34 @@ async function safeQuery<T>(fn: () => Promise<T>) {
     return null;
   }
 }
+function unwrapSafe<T>(res: any): T | null {
+  if (!res) return null;
+  if (res.data) return res.data;
+  return res;
+}
 // ─── Auth Token (for Worker calls) ───────────────────────────────────────────
 
 async function getAuthToken(): Promise<string | null> {
   try {
     const supabase = getSupabaseClient();
-
     const { data, error } = await supabase.auth.getSession();
 
-    if (error || !data.session) {
-      _supabaseToken = null;
-      return null;
+    if (!error && data.session?.access_token) {
+      const token = data.session.access_token;
+      setSupabaseToken(token);
+      return token;
     }
 
-    const token = data.session.access_token;
-
-    // 🔥 always fresh token
-    _supabaseToken = token;
-
-    return token;
+    if (_supabaseToken) return _supabaseToken;
+    return typeof window !== 'undefined'
+      ? window.localStorage.getItem('agtech-worker-supabase-token')
+      : null;
   } catch (error) {
     console.error('Token error:', error);
-    return null;
+    if (_supabaseToken) return _supabaseToken;
+    return typeof window !== 'undefined'
+      ? window.localStorage.getItem('agtech-worker-supabase-token')
+      : null;
   }
 }
 
@@ -67,7 +101,7 @@ async function getAuthToken(): Promise<string | null> {
 
 function handle401() {
   // Clear token on auth failure
-  _supabaseToken = null;
+  setSupabaseToken(null);
   window.dispatchEvent(new CustomEvent('auth:unauthorized'));
 }
 
@@ -92,7 +126,10 @@ async function workerGet<T>(path: string, retryCount = 0): Promise<T | null> {
 
     if (!res.ok) {
       if (res.status === 401) {
-  _supabaseToken = null;
+  handleAuthFailSafe();
+}
+      if (res.status === 401) {
+  setSupabaseToken(null);
 
   const supabase = getSupabaseClient();
   await supabase.auth.refreshSession();
@@ -191,13 +228,14 @@ async function buildLeaderboard(
   filterValue?: string
 ): Promise<{ user_id: string; score: number; rank: number; name: string; profile_image: string | null }[]> {
   const db = getSupabaseClient(); 
-  let query = db.from('leaderboard').select(`user_id, ${scoreField} as score`).order(scoreField, { ascending: false }).limit(100);
+  let query = db.from('leaderboard').select(`user_id, ${scoreField}`).order(scoreField, { ascending: false }).limit(100);
   if (filterField && filterValue) query = query.eq(filterField, filterValue);
 
   const { data, error } = await query;
   if (error) throw error;
 
-  const userIds = (data ?? []).map(d => d.user_id);
+  const leaderboardRows = (data ?? []) as Array<Record<string, any>>;
+  const userIds = leaderboardRows.map((row) => row.user_id);
   let users: { user_id: string; name: string; profile_image: string | null }[] = [];
 
   if (userIds.length > 0) {
@@ -205,8 +243,9 @@ async function buildLeaderboard(
     users = userData ?? [];
   }
 
-  return (data ?? []).map((item, idx) => ({
-    ...item,
+  return leaderboardRows.map((item, idx) => ({
+    user_id: item.user_id,
+    score: Number(item[scoreField] ?? 0),
     rank: idx + 1,
     name: users.find(u => u.user_id === item.user_id)?.name || item.user_id,
     profile_image: users.find(u => u.user_id === item.user_id)?.profile_image ?? null,
@@ -219,10 +258,9 @@ export const API = {
   async getUserProfile(uid: string) {
     try {
       const db = getSupabaseClient(); // ✅ Fixed
-      const { data, error } = await safeQuery(() =>
-  db.from('user_profiles').select('*').eq('user_id', uid).maybeSingle()
-);
-      if (!error && data) return { success: true, ...data };
+      const result = await safeQuery(async () => await db.from('user_profiles').select('*').eq('user_id', uid).maybeSingle());
+      const data = unwrapSafe<any>(result);
+      if (data) return { success: true, ...data };
     } catch { /* fallback */ }
     return (await workerGet<any>('/api/user/profile')) ?? { success: false };
   },
@@ -230,8 +268,9 @@ export const API = {
   async getUserStats(uid: string) {
     try {
       const db = getSupabaseClient(); // ✅ Fixed
-      const { data, error } = await db.from('user_profiles').select('points, stamps').eq('user_id', uid).maybeSingle();
-      if (!error && data) return { success: true, points: data.points ?? 0, stamps: data.stamps ?? 0 };
+      const result = await safeQuery(async () => await db.from('user_profiles').select('points, stamps').eq('user_id', uid).maybeSingle());
+      const data = unwrapSafe<any>(result);
+      if (data) return { success: true, points: data.points ?? 0, stamps: data.stamps ?? 0 };
     } catch { /* fallback */ }
     return (await workerGet<any>('/api/user/stats')) ?? { success: false, points: 0, stamps: 0 };
   },
@@ -322,7 +361,7 @@ export const API = {
       }
 
       const selectedQuestions = shuffleArray(finalQuestions).slice(0, 5);
-      await db.from('user_quiz_progress').insert(selectedQuestions.map(q => ({ user_id: uid, question_id: q.qid, asked_date: today, answered: false })));
+      await db.from('user_quiz_progress').insert((selectedQuestions ?? []).map((q: any) => ({ user_id: uid, question_id: q.qid, asked_date: today, answered: false })));
 
       return { success: true, submitted: false, earn: selectedQuestions, score: 0 };
     } catch (error) {
@@ -424,7 +463,7 @@ export const API = {
         .eq('user_id', uid).order('redeemed_at', { ascending: false }).limit(50);
       if (!error && data) return { success: true, history: data };
     } catch { /* fallback */ }
-    return workerGet<any>('/api/user/code-history') ?? { success: true, history: [] };
+    return (await workerGet<any>('/api/user/code-history')) ?? { success: true, history: [] };
   },
 
   async getFullHistory(uid: string) {

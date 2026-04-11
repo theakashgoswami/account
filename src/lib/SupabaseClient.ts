@@ -15,8 +15,7 @@ export const getSupabaseClient = () => {
         storageKey: 'agtech-auth',
         storage: typeof window !== 'undefined' ? window.localStorage : undefined,
         autoRefreshToken: true,
-        detectSessionInUrl: true,
-        multiTab: true
+        detectSessionInUrl: true
       }
     }
   );
