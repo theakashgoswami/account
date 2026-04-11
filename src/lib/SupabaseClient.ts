@@ -1,13 +1,10 @@
-// lib/supabase.ts
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { CONFIG } from '../config';
 
 let supabaseInstance: SupabaseClient | null = null;
 
 export const getSupabaseClient = () => {
-  if (supabaseInstance) {
-    return supabaseInstance;
-  }
+  if (supabaseInstance) return supabaseInstance;
 
   supabaseInstance = createClient(
     CONFIG.SUPABASE_URL,
@@ -15,10 +12,11 @@ export const getSupabaseClient = () => {
     {
       auth: {
         persistSession: true,
-        storageKey: 'sb-auth-token',
-        storage: localStorage,
+        storageKey: 'agtech-auth',
+        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
         autoRefreshToken: true,
-        detectSessionInUrl: true
+        detectSessionInUrl: true,
+        multiTab: true
       }
     }
   );

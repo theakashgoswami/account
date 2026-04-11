@@ -28,44 +28,39 @@ export interface Notification {
   created_at: string;
 }
 
-// ─── Token Store ──────────────────────────────────────────────────────────────
-
 let _supabaseToken: string | null = null;
-let _tokenRefreshPromise: Promise<string | null> | null = null; // ✅ Prevent race conditions
 
-export function setSupabaseToken(token: string | null) {
-  _supabaseToken = token;
+async function safeQuery<T>(fn: () => Promise<T>) {
+  try {
+    return await fn();
+  } catch (e) {
+    console.error("DB error:", e);
+    return null;
+  }
 }
-
 // ─── Auth Token (for Worker calls) ───────────────────────────────────────────
 
 async function getAuthToken(): Promise<string | null> {
-  // Return cached token if exists
-  if (_supabaseToken) return _supabaseToken;
-  
-  // Prevent multiple concurrent refreshes
-  if (_tokenRefreshPromise) {
-    return _tokenRefreshPromise;
-  }
-  
-  _tokenRefreshPromise = (async () => {
-    try {
-      const supabase = getSupabaseClient();
-      const { data } = await supabase.auth.getSession();
-      const token = data.session?.access_token || null;
-      if (token) {
-        _supabaseToken = token;
-      }
-      return token;
-    } catch (error) {
-      console.error('Failed to get auth token:', error);
+  try {
+    const supabase = getSupabaseClient();
+
+    const { data, error } = await supabase.auth.getSession();
+
+    if (error || !data.session) {
+      _supabaseToken = null;
       return null;
-    } finally {
-      _tokenRefreshPromise = null;
     }
-  })();
-  
-  return _tokenRefreshPromise;
+
+    const token = data.session.access_token;
+
+    // 🔥 always fresh token
+    _supabaseToken = token;
+
+    return token;
+  } catch (error) {
+    console.error('Token error:', error);
+    return null;
+  }
 }
 
 // ─── Worker Helpers ───────────────────────────────────────────────────────────
@@ -93,22 +88,21 @@ async function workerGet<T>(path: string, retryCount = 0): Promise<T | null> {
         'Content-Type': 'application/json', 
         'X-Client-Host': window.location.host 
       },
-      credentials: 'include',
     });
 
     if (!res.ok) {
-      if (res.status === 401) { 
-        console.error('Auth failed for:', path);
-        
-        // Clear token and retry once if token might be expired
-        _supabaseToken = null;
-        if (retryCount < MAX_RETRIES) {
-          console.log('Retrying with fresh token...');
-          return workerGet<T>(path, retryCount + 1);
-        }
-        
-        handle401(); 
-      }
+      if (res.status === 401) {
+  _supabaseToken = null;
+
+  const supabase = getSupabaseClient();
+  await supabase.auth.refreshSession();
+
+  if (retryCount < MAX_RETRIES) {
+    return workerGet<T>(path, retryCount + 1);
+  }
+
+  handle401();
+}
       return null;
     }
     return res.json();
@@ -133,22 +127,22 @@ async function workerPost<T>(path: string, body: Record<string, unknown> = {}, r
         'X-Client-Host': window.location.host 
       },
       body: JSON.stringify(body),
-      credentials: 'include',
     });
 
     if (!res.ok) {
       if (res.status === 401) {
-        console.error('Auth failed for POST:', path);
-        
-        // Clear token and retry once
-        _supabaseToken = null;
-        if (retryCount < MAX_RETRIES) {
-          console.log('Retrying POST with fresh token...');
-          return workerPost<T>(path, body, retryCount + 1);
-        }
-        
-        handle401();
-      }
+  _supabaseToken = null;
+
+  // 🔥 force refresh session
+  const supabase = getSupabaseClient();
+  await supabase.auth.refreshSession();
+
+  if (retryCount < MAX_RETRIES) {
+    return workerPost<T>(path, body, retryCount + 1);
+  }
+
+  handle401();
+}
       
       const text = await res.text();
       let errorMsg = `HTTP ${res.status}`;
@@ -225,7 +219,9 @@ export const API = {
   async getUserProfile(uid: string) {
     try {
       const db = getSupabaseClient(); // ✅ Fixed
-      const { data, error } = await db.from('user_profiles').select('*').eq('user_id', uid).maybeSingle();
+      const { data, error } = await safeQuery(() =>
+  db.from('user_profiles').select('*').eq('user_id', uid).maybeSingle()
+);
       if (!error && data) return { success: true, ...data };
     } catch { /* fallback */ }
     return (await workerGet<any>('/api/user/profile')) ?? { success: false };
