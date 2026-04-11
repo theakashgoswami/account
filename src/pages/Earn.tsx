@@ -122,7 +122,7 @@ const SpinWheelCanvas: React.FC<{
 export const Earn: React.FC = () => {
   const { user } = useAuth();
   const [status, setStatus] = useState<any>(null);
-  const [quiz, setQuiz] = useState<any>({ earn: [], submitted: false });
+  const [quiz, setQuiz] = useState<any>({ earn: [], submitted: false, selections: {}, correctAnswers: [] });
   const [superQ, setSuperQ] = useState<any>({ questions: [], submitted: false });
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'daily' | 'streak' | 'quiz' | 'super'>('daily');
@@ -144,11 +144,21 @@ export const Earn: React.FC = () => {
         if (savedAnswers) {
           sessionStorage.setItem('quiz_answers_temp', savedAnswers);
         }
-        return { earn: parsed.questions, submitted: false };
+        return {
+          earn: parsed.questions,
+          submitted: false,
+          selections: parsed.selections ?? {},
+          correctAnswers: parsed.correctAnswers ?? []
+        };
       }
       if (parsed.date === today && parsed.submitted) {
         console.log('✅ Quiz already submitted today');
-        return { earn: parsed.questions, submitted: true };
+        return {
+          earn: parsed.questions,
+          submitted: true,
+          selections: parsed.selections ?? {},
+          correctAnswers: parsed.correctAnswers ?? []
+        };
       }
       if (parsed.date !== today) {
         console.log('🗑️ Old quiz found, clearing cache');
@@ -164,13 +174,15 @@ export const Earn: React.FC = () => {
       localStorage.setItem(cacheKey, JSON.stringify({
         questions: freshQuiz.earn,
         date: today,
-        submitted: false
+        submitted: false,
+        selections: {},
+        correctAnswers: []
       }));
       localStorage.removeItem(answersKey);
       sessionStorage.removeItem('quiz_answers_temp');
     }
     
-    return freshQuiz ?? { earn: [], submitted: false };
+    return freshQuiz ?? { earn: [], submitted: false, selections: {}, correctAnswers: [] };
   }, [user?.user_id]);
 
   const loadData = useCallback(async () => {
@@ -264,6 +276,8 @@ export const Earn: React.FC = () => {
             <QuizSection
               questions={quiz.earn ?? []}
               submitted={quiz.submitted ?? false}
+              submittedSelections={quiz.selections ?? {}}
+              submittedCorrectAnswers={quiz.correctAnswers ?? []}
               spinDone={status?.quiz_spin_done ?? false}
               spinPoints={status?.quiz_spin_points ?? 0}
               onRefresh={loadData}
@@ -437,11 +451,22 @@ const StreakSection: React.FC<{ streak: number; claimed: boolean; onClaimed: () 
 const QuizSection: React.FC<{ 
   questions: any[]; 
   submitted: boolean; 
+  submittedSelections?: Record<string, string>;
+  submittedCorrectAnswers?: any[];
   spinDone: boolean; 
   spinPoints: number; 
   onRefresh: () => void;
   userId?: string;
-}> = ({ questions, submitted, spinDone, spinPoints, onRefresh, userId }) => {
+}> = ({
+  questions,
+  submitted,
+  submittedSelections = {},
+  submittedCorrectAnswers = [],
+  spinDone,
+  spinPoints,
+  onRefresh,
+  userId
+}) => {
   const [selections, setSelections] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [quizResult, setQuizResult] = useState<any>(null);
@@ -467,6 +492,22 @@ const QuizSection: React.FC<{
       }
     }
   }, [userId, submitted, questions.length]);
+
+  useEffect(() => {
+    if (!submitted || !questions.length) return;
+
+    const answers: Record<string, string> = {};
+    submittedCorrectAnswers.forEach((q: any) => {
+      answers[String(q.qid)] = q.correct_option;
+    });
+
+    setSelections(submittedSelections);
+    setQuizResult({
+      correctAnswers: submittedCorrectAnswers,
+      answers,
+    });
+    setShowSpin(!spinDone);
+  }, [submitted, submittedSelections, submittedCorrectAnswers, questions.length, spinDone]);
 
   const saveAnswersToCache = useCallback((newSelections: Record<string, string>) => {
     if (userId && !submitted && Object.keys(newSelections).length > 0) {
@@ -513,6 +554,8 @@ const QuizSection: React.FC<{
     if (cached) {
       const parsed = JSON.parse(cached);
       parsed.submitted = true;
+      parsed.selections = selections;
+      parsed.correctAnswers = res.correctAnswers ?? [];
       localStorage.setItem(cacheKey, JSON.stringify(parsed));
     }
 
