@@ -168,7 +168,7 @@ const logout = useCallback(async () => {
     );
     
     await Promise.race([
-      supabase.auth.signOut(),
+      supabase.auth.signOut({ scope: 'global' }),
       timeoutPromise
     ]).catch(err => console.error('Supabase logout error:', err));
     
@@ -183,6 +183,8 @@ const logout = useCallback(async () => {
     // ✅ Clear local storage items
     localStorage.removeItem('sb-auth-token');
     localStorage.removeItem('supabase.auth.token');
+    localStorage.removeItem('agtech-auth');
+    localStorage.removeItem('agtech-worker-supabase-token');
     sessionStorage.clear();
     
     // ✅ Redirect to main site login

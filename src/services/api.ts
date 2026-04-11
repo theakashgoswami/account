@@ -97,6 +97,16 @@ async function getAuthToken(): Promise<string | null> {
   }
 }
 
+async function hasNativeSupabaseSession(): Promise<boolean> {
+  try {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase.auth.getSession();
+    return !error && !!data.session?.access_token;
+  } catch {
+    return false;
+  }
+}
+
 // ─── Worker Helpers ───────────────────────────────────────────────────────────
 
 function handle401() {
@@ -256,6 +266,9 @@ async function buildLeaderboard(
 
 export const API = {
   async getUserProfile(uid: string) {
+    if (!(await hasNativeSupabaseSession())) {
+      return (await workerGet<any>('/api/user/profile')) ?? { success: false };
+    }
     try {
       const db = getSupabaseClient(); // ✅ Fixed
       const result = await safeQuery(async () => await db.from('user_profiles').select('*').eq('user_id', uid).maybeSingle());
@@ -266,6 +279,9 @@ export const API = {
   },
 
   async getUserStats(uid: string) {
+    if (!(await hasNativeSupabaseSession())) {
+      return (await workerGet<any>('/api/user/stats')) ?? { success: false, points: 0, stamps: 0 };
+    }
     try {
       const db = getSupabaseClient(); // ✅ Fixed
       const result = await safeQuery(async () => await db.from('user_profiles').select('points, stamps').eq('user_id', uid).maybeSingle());
@@ -276,6 +292,9 @@ export const API = {
   },
 
   async getDashboardStats(uid: string): Promise<DashboardStats | null> {
+    if (!(await hasNativeSupabaseSession())) {
+      return workerGet<DashboardStats>('/api/user/dashboard-stats');
+    }
     try {
       const db = getSupabaseClient(); // ✅ Fixed
       const [quiz, purchase, score, referrals] = await Promise.all([
@@ -295,6 +314,10 @@ export const API = {
     }
   },
   async getNotifications(): Promise<Notification[]> {
+    if (!(await hasNativeSupabaseSession())) {
+      const res = await workerGet<{ success: boolean; notifications: Notification[] }>('/api/user/notifications');
+      return res?.notifications ?? [];
+    }
     try {
       const db = getSupabaseClient();
       const { data, error } = await db.from('notifications').select('*').order('created_at', { ascending: false }).limit(10);
@@ -305,6 +328,9 @@ export const API = {
   },
 
   async getSpinStatus(uid: string) {
+    if (!(await hasNativeSupabaseSession())) {
+      return workerGet<any>('/api/user/spin-status');
+    }
     try {
       const today = getTodayIST();
       const week  = getWeekKey();
@@ -335,6 +361,9 @@ export const API = {
   },
 
   async getQuizQuestions(uid: string) {
+    if (!(await hasNativeSupabaseSession())) {
+      return (await workerGet<any>('/api/user/earn')) ?? { success: false, earn: [] };
+    }
     try {
       const today = getTodayIST();
       const db = getSupabaseClient();
@@ -371,6 +400,9 @@ export const API = {
   },
 
   async getSuperQuestions(uid: string) {
+    if (!(await hasNativeSupabaseSession())) {
+      return (await workerGet<any>('/api/user/super-questions')) ?? { success: false, questions: [] };
+    }
     try {
       const week = getWeekKey();
       const db = getSupabaseClient();
@@ -427,6 +459,9 @@ export const API = {
   getReferralStats: () => workerGet<any>('/api/user/referral-stats'),
 
   async getRewards(uid?: string) {
+    if (uid && !(await hasNativeSupabaseSession())) {
+      return (await workerGet<any>('/api/user/rewards')) ?? { success: false, rewards: [], userPoints: 0, userStamps: 0 };
+    }
     try {
       const db = getSupabaseClient();
       const [rwResult, uResult] = await Promise.all([
@@ -444,6 +479,9 @@ export const API = {
 
   // ✅ Reward catalogue redemption history (reward_claims table)
   async getRedeemHistory(uid: string) {
+    if (!(await hasNativeSupabaseSession())) {
+      return (await workerGet<any>('/api/user/redeem-history')) ?? { success: true, history: [] };
+    }
     try {
       const db = getSupabaseClient();
       const { data, error } = await db.from('reward_claims')
@@ -456,6 +494,9 @@ export const API = {
 
   // ✅ Code/referral redemption history (redeem_history table) — Claim.tsx ke liye
   async getCodeHistory(uid: string) {
+    if (!(await hasNativeSupabaseSession())) {
+      return (await workerGet<any>('/api/user/code-history')) ?? { success: true, history: [] };
+    }
     try {
       const db = getSupabaseClient();
       const { data, error } = await db.from('redeem_history')
@@ -467,6 +508,9 @@ export const API = {
   },
 
   async getFullHistory(uid: string) {
+    if (!(await hasNativeSupabaseSession())) {
+      return (await workerGet<any>('/api/user/full-history')) ?? { success: false, quiz: [], purchases: [], points: [] };
+    }
     try {
       const db = getSupabaseClient();
       const [quiz, purchases, points] = await Promise.all([
