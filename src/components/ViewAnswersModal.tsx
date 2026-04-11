@@ -59,7 +59,7 @@ export const ViewAnswersModal: React.FC<ViewAnswersModalProps> = ({
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="fixed inset-3 z-50 overflow-hidden rounded-2xl bg-zinc-950 shadow-2xl md:inset-auto md:left-1/2 md:top-1/2 md:h-[min(88vh,820px)] md:w-[min(94vw,1120px)] md:-translate-x-1/2 md:-translate-y-1/2"
+            className="fixed inset-3 z-50 overflow-hidden rounded-2xl bg-zinc-950 shadow-2xl md:inset-auto md:left-1/2 md:top-1/2 md:h-[820px] md:max-h-[calc(100vh-48px)] md:w-[1120px] md:max-w-[calc(100vw-48px)] md:-translate-x-1/2 md:-translate-y-1/2"
           >
             {/* Header */}
             <div className="border-b border-zinc-800 bg-gradient-to-r from-indigo-600/20 to-purple-600/20 p-6">

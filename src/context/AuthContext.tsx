@@ -148,7 +148,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 const logout = useCallback(async () => {
   try {
     // ✅ Pehle worker logout call karo
-    const workerResponse = await fetch(`${CONFIG.WORKER_URL}/api/auth/logout`, {
+    let workerResponse = await fetch(`${CONFIG.WORKER_URL}/api/auth/logout`, {
       method: 'POST',
       credentials: 'include',
       headers: { 
@@ -156,6 +156,13 @@ const logout = useCallback(async () => {
         'X-Client-Host': window.location.host 
       },
     });
+
+    if (!workerResponse.ok) {
+      workerResponse = await fetch(`${CONFIG.WORKER_URL}/api/auth/logout`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+    }
     
     if (!workerResponse.ok) {
       console.error('Worker logout failed:', await workerResponse.text());
@@ -186,6 +193,11 @@ const logout = useCallback(async () => {
     localStorage.removeItem('agtech-auth');
     localStorage.removeItem('agtech-worker-supabase-token');
     sessionStorage.clear();
+
+    const expired = 'Thu, 01 Jan 1970 00:00:00 GMT';
+    document.cookie = `auth_token=; expires=${expired}; path=/; domain=.agtechscript.in; Secure; SameSite=None`;
+    document.cookie = `auth_token=; expires=${expired}; path=/; domain=${window.location.hostname}; Secure; SameSite=None`;
+    document.cookie = `auth_token=; expires=${expired}; path=/`;
     
     // ✅ Redirect to main site login
     window.location.href = `${CONFIG.MAIN_SITE}#login`;

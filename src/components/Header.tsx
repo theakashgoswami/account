@@ -24,7 +24,11 @@ export const Header: React.FC = () => {
     <header className="sticky top-0 z-50 w-full border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-md">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <Link to="/" className="flex items-center gap-2">
-          <img src="https://cdn.agtechscript.in/AGTechScript.webp" alt="AG TechScript Logo" className="h-8 w-8" />
+          <img
+            src="https://cdn.agtechscript.in/AGTechScript.webp"
+            alt="AG TechScript Logo"
+            className="h-9 w-9 rounded-[10px] object-cover ring-1 ring-white/12 shadow-[0_8px_24px_rgba(0,0,0,0.28)]"
+          />
           <span className="text-lg font-bold tracking-tight text-white">AG TechScript</span>
         </Link>
 
