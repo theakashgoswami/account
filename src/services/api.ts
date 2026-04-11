@@ -221,6 +221,12 @@ export function getWeekKey(date = new Date()): string {
   return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
 }
 
+function daysAgoISO(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+
 function shuffleArray<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -368,29 +374,55 @@ export const API = {
       const today = getTodayIST();
       const db = getSupabaseClient();
 
-      const { data: existing } = await db.from('quiz_submissions').select('score,answers,questions').eq('user_id', uid).eq('quiz_date', today).maybeSingle();
-      if (existing) return { success: true, submitted: true, score: existing.score ?? 0, selections: existing.answers, earn: [] };
+      const { data: existing } = await db
+        .from('quiz_submissions')
+        .select('score,answers,questions')
+        .eq('user_id', uid)
+        .eq('quiz_date', today)
+        .maybeSingle();
 
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const dateLimit = thirtyDaysAgo.toISOString().split('T')[0];
+      if (existing) {
+        const questionIds = Array.isArray(existing.questions) ? existing.questions : [];
+        const { data: submittedQuestions } = await db
+          .from('quiz_questions')
+          .select('qid,question,option_a,option_b,option_c,option_d,prepare_link,correct_option')
+          .in('qid', questionIds);
 
-      const { data: recentQuestions } = await db.from('user_quiz_progress').select('question_id').eq('user_id', uid).gte('asked_date', dateLimit);
-      const usedQids = new Set(recentQuestions?.map(r => r.question_id) || []);
-
-      let query = db.from('quiz_questions').select('qid,question,option_a,option_b,option_c,option_d,prepare_link').eq('active', true);
-      if (usedQids.size > 0) query = query.not('qid', 'in', `(${Array.from(usedQids).join(',')})`);
-
-      const { data: availableQuestions } = await query;
-      let finalQuestions = availableQuestions || [];
-
-      if (finalQuestions.length < 5) {
-        const { data: allQuestions } = await db.from('quiz_questions').select('qid,question,option_a,option_b,option_c,option_d,prepare_link').eq('active', true);
-        finalQuestions = allQuestions || [];
+        return {
+          success: true,
+          submitted: true,
+          score: existing.score ?? 0,
+          selections: existing.answers ?? {},
+          earn: submittedQuestions ?? [],
+          correctAnswers: (submittedQuestions ?? []).map((q: any) => ({
+            qid: q.qid,
+            correct_option: q.correct_option,
+          })),
+        };
       }
 
-      const selectedQuestions = shuffleArray(finalQuestions).slice(0, 5);
-      await db.from('user_quiz_progress').insert((selectedQuestions ?? []).map((q: any) => ({ user_id: uid, question_id: q.qid, asked_date: today, answered: false })));
+      const recentSince = daysAgoISO(7);
+      const { data: recentSubmissions } = await db
+        .from('quiz_submissions')
+        .select('questions')
+        .eq('user_id', uid)
+        .gte('quiz_date', recentSince);
+
+      const usedQids = new Set(
+        (recentSubmissions ?? []).flatMap((row: any) =>
+          Array.isArray(row.questions) ? row.questions : []
+        )
+      );
+
+      const { data: allQuestions } = await db
+        .from('quiz_questions')
+        .select('qid,question,option_a,option_b,option_c,option_d,prepare_link')
+        .eq('active', true);
+
+      const questionPool = allQuestions ?? [];
+      const freshPool = questionPool.filter((q: any) => !usedQids.has(q.qid));
+      const selectablePool = freshPool.length >= 5 ? freshPool : questionPool;
+      const selectedQuestions = shuffleArray(selectablePool).slice(0, Math.min(5, selectablePool.length));
 
       return { success: true, submitted: false, earn: selectedQuestions, score: 0 };
     } catch (error) {

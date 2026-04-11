@@ -170,16 +170,19 @@ export const Earn: React.FC = () => {
     console.log('🌐 Fetching fresh quiz from API');
     const freshQuiz = await API.getQuizQuestions(userId);
     
-    if (freshQuiz && freshQuiz.earn && !freshQuiz.submitted) {
+    if (freshQuiz?.earn) {
       localStorage.setItem(cacheKey, JSON.stringify({
         questions: freshQuiz.earn,
         date: today,
-        submitted: false,
-        selections: {},
-        correctAnswers: []
+        submitted: !!freshQuiz.submitted,
+        selections: freshQuiz.selections ?? {},
+        correctAnswers: freshQuiz.correctAnswers ?? []
       }));
-      localStorage.removeItem(answersKey);
-      sessionStorage.removeItem('quiz_answers_temp');
+
+      if (!freshQuiz.submitted) {
+        localStorage.removeItem(answersKey);
+        sessionStorage.removeItem('quiz_answers_temp');
+      }
     }
     
     return freshQuiz ?? { earn: [], submitted: false, selections: {}, correctAnswers: [] };
@@ -677,6 +680,13 @@ const QuizSection: React.FC<{
           )}
         >
           {spinning ? 'Spinning…' : correct > 0 ? '🎰 Spin & Win!' : 'No active blocks 😢'}
+        </button>
+        <button
+          onClick={handleViewAnswers}
+          className="mx-auto mt-4 flex items-center justify-center gap-2 rounded-xl bg-indigo-500/15 px-6 py-3 text-sm font-black text-indigo-300 hover:bg-indigo-500/25 transition-all"
+        >
+          <Eye className="h-4 w-4" />
+          View Answers & Explanations
         </button>
       </div>
     );
