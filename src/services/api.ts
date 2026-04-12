@@ -657,4 +657,30 @@ export const API = {
   redeemReward:   (rewardId: string)             => workerPost<any>('/api/user/redeem-reward',   { rewardId }),
   redeemCode:     (code: string, week: string)   => workerPost<any>('/api/user/redeem-code',     { code, week }),
   redeemReferral: (code: string)                 => workerPost<any>('/api/user/redeem-referral', { code }),
+
+  // Image upload — multipart/form-data with auth header
+  async uploadProfileImage(file: File): Promise<{ success: boolean; url?: string; error?: string }> {
+    const token = await getAuthToken();
+    if (!token) return { success: false, error: 'Not authenticated' };
+
+    const fd = new FormData();
+    fd.append('file', file);
+
+    try {
+      const res = await fetch(`${CONFIG.WORKER_URL}/api/user/upload-image`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          // ⚠️ Do NOT set Content-Type here — browser sets it with boundary automatically
+        },
+        body: fd,
+      });
+      const data = await res.json();
+      return data.success
+        ? { success: true, url: data.url }
+        : { success: false, error: data.error || 'Upload failed' };
+    } catch (err: unknown) {
+      return { success: false, error: err instanceof Error ? err.message : 'Upload failed' };
+    }
+  },
 };

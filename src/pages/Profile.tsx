@@ -4,8 +4,7 @@ import { API } from '../services/api';
 import { User, Camera, Save, Loader2, AlertCircle, CheckCircle2, Key, Lock, Eye, EyeOff, Shield, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
-import { CONFIG } from '../config';
-import PasswordModal from '../components/PasswordModal'; // Import the modal component
+import PasswordModal from '../components/PasswordModal';
 
 export const Profile: React.FC = () => {
   const { user, refreshProfile } = useAuth();
@@ -36,17 +35,10 @@ export const Profile: React.FC = () => {
     reader.readAsDataURL(file);
 
     setUploading(true);
-    const fd = new FormData();
-    fd.append('file', file);
     try {
-      const res = await fetch(`${CONFIG.WORKER_URL}/api/user/upload-image`, {
-        method: 'POST',
-        credentials: 'include',
-        body: fd,
-      });
-      const data = await res.json();
-      if (data.success) {
-        setForm(f => ({ ...f, profile_image: data.url }));
+      const data = await API.uploadProfileImage(file);
+      if (data.success && data.url) {
+        setForm(f => ({ ...f, profile_image: data.url! }));
         setMsg({ type: 'success', text: 'Image uploaded!' });
         await refreshProfile();
       } else {

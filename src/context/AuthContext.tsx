@@ -7,7 +7,7 @@ import React, {
   useRef,
 } from 'react';
 import { CONFIG } from '../config';
-import { getSupabaseClient } from '../lib/SupabaseClient';
+import { getSupabaseClient, getAuthedSupabaseClient } from '../lib/SupabaseClient';
 import { setSupabaseToken, UserProfile } from '../services/api';
 
 interface AuthContextType {
@@ -19,58 +19,55 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// ✅ Kitni der baad visibility change pe re-check karna hai (5 minutes)
+// Re-check on visibility change at most once every 5 minutes
 const AUTH_RECHECK_INTERVAL_MS = 5 * 60 * 1000;
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserProfile | null>(null);
+  const [user, setUser]       = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const refreshAbortRef = useRef<AbortController | null>(null);
-  // ✅ Last successful auth check ka timestamp
-  const lastAuthCheckRef = useRef<number>(0);
+  const refreshAbortRef    = useRef<AbortController | null>(null);
+  const lastAuthCheckRef   = useRef<number>(0);
 
+  // ─── Fetch profile directly from Supabase ──────────────────────────────────
+  // Uses the worker-issued Supabase JWT (or native session) — no extra worker hop.
   const fetchUserProfile = useCallback(
-    async (userId: string, accessToken?: string): Promise<UserProfile | null> => {
+    async (userId: string, supabaseToken?: string): Promise<UserProfile | null> => {
       try {
-        if (accessToken) {
-          const res = await fetch(
-            `${CONFIG.SUPABASE_URL}/rest/v1/user_profiles?select=*&user_id=eq.${userId}`,
-            {
-              headers: {
-                apikey: CONFIG.SUPABASE_ANON_KEY,
-                Authorization: `Bearer ${accessToken}`,
-                'Content-Type': 'application/json',
-              },
-            }
-          );
-          if (!res.ok) { console.error('Profile fetch failed:', res.status); return null; }
-          const rows = await res.json();
-          return (rows[0] as UserProfile) ?? null;
-        }
+        // Prefer an explicit token if provided (worker-issued Supabase JWT)
+        const db = supabaseToken
+          ? getAuthedSupabaseClient(supabaseToken)
+          : getSupabaseClient();
 
-        const supabase = getSupabaseClient();
-        const { data, error } = await supabase.from('user_profiles').select('*').eq('user_id', userId).maybeSingle();
-        if (error) { console.error('Supabase fetch error:', error); return null; }
+        const { data, error } = await db
+          .from('user_profiles')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (error) {
+          console.error('Profile fetch error:', error.message);
+          return null;
+        }
         return (data as UserProfile) ?? null;
       } catch (err) {
-        console.error('Fetch profile error:', err);
+        console.error('fetchUserProfile crash:', err);
         return null;
       }
     },
     []
   );
 
+  // ─── Auth check — hits worker once to verify cookie + get Supabase JWT ─────
+  // After the first call, the Supabase JWT is stored in memory/localStorage
+  // and all subsequent data reads go directly to Supabase (via api.ts → getDB()).
   const checkAuth = useCallback(
     async (signal?: AbortSignal, { force = false } = {}) => {
-      // ✅ Cooldown check — agar recently check hua hai toh skip karo
       const now = Date.now();
-      if (!force && now - lastAuthCheckRef.current < AUTH_RECHECK_INTERVAL_MS) {
-        return;
-      }
+      if (!force && now - lastAuthCheckRef.current < AUTH_RECHECK_INTERVAL_MS) return;
 
       try {
-        const response = await fetch(`${CONFIG.WORKER_URL}/api/auth/status`, {
+        const res = await fetch(`${CONFIG.WORKER_URL}/api/auth/status`, {
           credentials: 'include',
           signal,
           headers: {
@@ -80,42 +77,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         if (signal?.aborted) return;
-
-        // ✅ Timestamp update — successful request ke baad
         lastAuthCheckRef.current = Date.now();
 
-        if (response.ok) {
-          const data = await response.json();
-
-          if (data.authenticated && data.user_id) {
-            if (data.supabase_token) {
-              setSupabaseToken(data.supabase_token);
-            }
-
-            const profile = await fetchUserProfile(data.user_id, data.supabase_token ?? undefined);
-
-            if (signal?.aborted) return;
-
-            setUser({
-              user_id: data.user_id,
-              role: data.role || 'user',
-              name: profile?.name || data.user_id,
-              email: profile?.email || '',
-              phone: profile?.phone || '',
-              address: profile?.address || '',
-              profile_image: profile?.profile_image || data.profile_image || '',
-              points: profile?.points || 0,
-              stamps: profile?.stamps || 0,
-              created_at: profile?.created_at || '',
-            });
-          } else {
-            setSupabaseToken(null);
-            setUser(null);
-          }
-        } else {
+        if (!res.ok) {
           setSupabaseToken(null);
           setUser(null);
+          return;
         }
+
+        const data = await res.json();
+
+        if (!data.authenticated || !data.user_id) {
+          setSupabaseToken(null);
+          setUser(null);
+          return;
+        }
+
+        // Store Supabase JWT — this enables all subsequent reads to bypass the worker
+        if (data.supabase_token) setSupabaseToken(data.supabase_token);
+
+        // Fetch full profile directly from Supabase (zero extra worker cost)
+        const profile = await fetchUserProfile(data.user_id, data.supabase_token ?? undefined);
+
+        if (signal?.aborted) return;
+
+        setUser({
+          user_id:       data.user_id,
+          role:          data.role || 'user',
+          name:          profile?.name          || data.user_id,
+          email:         profile?.email         || '',
+          phone:         profile?.phone         || '',
+          address:       profile?.address       || '',
+          profile_image: profile?.profile_image || data.profile_image || '',
+          points:        profile?.points        ?? 0,
+          stamps:        profile?.stamps        ?? 0,
+          created_at:    profile?.created_at    || '',
+        });
       } catch (err) {
         if ((err as Error).name === 'AbortError') return;
         console.error('Auth check error:', err);
@@ -127,6 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [fetchUserProfile]
   );
 
+  // ─── Refresh profile in-place (no auth re-check) ──────────────────────────
   const refreshProfile = useCallback(async () => {
     setUser(currentUser => {
       if (!currentUser?.user_id) return currentUser;
@@ -140,87 +138,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       });
 
-      return currentUser;
+      return currentUser; // Return current state synchronously; async update follows
     });
   }, [fetchUserProfile]);
 
-
-const logout = useCallback(async () => {
-  try {
-    // ✅ Pehle worker logout call karo
-    let workerResponse = await fetch(`${CONFIG.WORKER_URL}/api/auth/logout`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 
-        'Content-Type': 'application/json', 
-        'X-Client-Host': window.location.host 
-      },
-    });
-
-    if (!workerResponse.ok) {
-      workerResponse = await fetch(`${CONFIG.WORKER_URL}/api/auth/logout`, {
-        method: 'GET',
+  // ─── Logout ────────────────────────────────────────────────────────────────
+  const logout = useCallback(async () => {
+    try {
+      // Clear server-side HttpOnly cookie
+      await fetch(`${CONFIG.WORKER_URL}/api/auth/logout`, {
+        method: 'POST',
         credentials: 'include',
-      });
-    }
-    
-    if (!workerResponse.ok) {
-      console.error('Worker logout failed:', await workerResponse.text());
-    }
-    
-    // ✅ Fir Supabase sign out (with timeout to avoid hanging)
-    const supabase = getSupabaseClient();
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Supabase logout timeout')), 3000)
-    );
-    
-    await Promise.race([
-      supabase.auth.signOut({ scope: 'global' }),
-      timeoutPromise
-    ]).catch(err => console.error('Supabase logout error:', err));
-    
-  } catch (err) {
-    console.error('Logout error:', err);
-  } finally {
-    // ✅ Always clear local state and storage
-    setSupabaseToken(null);
-    lastAuthCheckRef.current = 0;
-    setUser(null);
-    
-    // ✅ Clear local storage items
-    localStorage.removeItem('sb-auth-token');
-    localStorage.removeItem('supabase.auth.token');
-    localStorage.removeItem('agtech-auth');
-    localStorage.removeItem('agtech-worker-supabase-token');
-    sessionStorage.clear();
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Client-Host': window.location.host,
+        },
+      }).catch(() =>
+        // Fallback GET in case POST fails
+        fetch(`${CONFIG.WORKER_URL}/api/auth/logout`, { method: 'GET', credentials: 'include' })
+      );
 
-    const expired = 'Thu, 01 Jan 1970 00:00:00 GMT';
-    document.cookie = `auth_token=; expires=${expired}; path=/; domain=.agtechscript.in; Secure; SameSite=None`;
-    document.cookie = `auth_token=; expires=${expired}; path=/; domain=${window.location.hostname}; Secure; SameSite=None`;
-    document.cookie = `auth_token=; expires=${expired}; path=/`;
-    
-    // ✅ Redirect to main site login
-    window.location.href = `${CONFIG.MAIN_SITE}#login`;
-  }
-}, []);
+      // Sign out native Supabase session (OAuth users)
+      const supabase = getSupabaseClient();
+      await Promise.race([
+        supabase.auth.signOut({ scope: 'global' }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
+      ]).catch(() => {/* non-critical */});
+    } catch (err) {
+      console.error('Logout error:', err);
+    } finally {
+      // Clear everything regardless
+      setSupabaseToken(null);
+      lastAuthCheckRef.current = 0;
+      setUser(null);
 
-  // ✅ Mount pe ek baar — force:true se cooldown bypass
+      localStorage.removeItem('sb-auth-token');
+      localStorage.removeItem('supabase.auth.token');
+      localStorage.removeItem('agtech-auth');
+      localStorage.removeItem('agtech-worker-supabase-token');
+      sessionStorage.clear();
+
+      const exp = 'Thu, 01 Jan 1970 00:00:00 GMT';
+      document.cookie = `auth_token=; expires=${exp}; path=/; domain=.agtechscript.in; Secure; SameSite=None`;
+      document.cookie = `auth_token=; expires=${exp}; path=/; domain=${window.location.hostname}; Secure; SameSite=None`;
+      document.cookie = `auth_token=; expires=${exp}; path=/`;
+
+      window.location.href = `${CONFIG.MAIN_SITE}#login`;
+    }
+  }, []);
+
+  // ─── Effects ───────────────────────────────────────────────────────────────
   useEffect(() => {
     const controller = new AbortController();
     checkAuth(controller.signal, { force: true });
     return () => controller.abort();
   }, [checkAuth]);
 
-  // ✅ Visibility change pe cooldown ke saath re-check
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        // force nahi — cooldown laga rahega (5 min mein ek baar hi hit hogi)
-        checkAuth();
-      }
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') checkAuth(); // cooldown guards the worker call
     };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
   }, [checkAuth]);
 
   return (
@@ -231,9 +210,7 @@ const logout = useCallback(async () => {
 };
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within an AuthProvider');
+  return ctx;
 };
