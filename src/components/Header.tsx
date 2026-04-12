@@ -1,15 +1,27 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Menu, X, User, LogOut, Settings, History, Gift, LayoutDashboard, BrainCircuit, Ticket, Trophy } from 'lucide-react';
+import { Menu, X, User, LogOut, Settings, History, Gift, LayoutDashboard, BrainCircuit, Ticket, Trophy, Loader2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const Header: React.FC = () => {
   const { user, logout } = useAuth();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen]   = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [loggingOut, setLoggingOut]   = useState(false);
   const location = useLocation();
+
+  const handleLogout = async () => {
+    if (loggingOut) return; // prevent double-click
+    setIsProfileOpen(false);
+    setLoggingOut(true);
+    try {
+      await logout(); // AuthContext handles cookie clear + redirect
+    } catch {
+      setLoggingOut(false); // restore if something went wrong before redirect
+    }
+  };
 
   const navItems = [
     { name: 'Home', path: '/', icon: LayoutDashboard },
@@ -85,14 +97,13 @@ export const Header: React.FC = () => {
                         Edit Profile
                       </Link>
                       <button
-                        onClick={() => {
-                          setIsProfileOpen(false);
-                          logout();
-                        }}
-                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-400 transition-colors hover:bg-red-500/10"
+                        onClick={handleLogout}
+                        disabled={loggingOut}
+                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50"
                       >
-                        <LogOut className="h-4 w-4" />
-                        Logout
+                        {loggingOut
+                          ? <><Loader2 className="h-4 w-4 animate-spin" />Logging out…</>
+                          : <><LogOut className="h-4 w-4" />Logout</>}
                       </button>
                     </div>
                   </motion.div>

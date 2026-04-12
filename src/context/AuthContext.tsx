@@ -154,11 +154,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           'X-Client-Host': window.location.host,
         },
       }).catch(() =>
-        // Fallback GET in case POST fails
+        // Fallback GET in case POST fails (network hiccup, etc.)
         fetch(`${CONFIG.WORKER_URL}/api/auth/logout`, { method: 'GET', credentials: 'include' })
+          .catch(() => {/* non-critical — cookie expiry handles it */})
       );
 
-      // Sign out native Supabase session (OAuth users)
+      // Sign out native Supabase session (OAuth users); non-critical
       const supabase = getSupabaseClient();
       await Promise.race([
         supabase.auth.signOut({ scope: 'global' }),
@@ -167,7 +168,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.error('Logout error:', err);
     } finally {
-      // Clear everything regardless
+      // Always clear everything — even if the worker call failed
       setSupabaseToken(null);
       lastAuthCheckRef.current = 0;
       setUser(null);
