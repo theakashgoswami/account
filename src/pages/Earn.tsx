@@ -479,6 +479,8 @@ const QuizSection: React.FC<{
   const [showAnswersModal, setShowAnswersModal] = useState(false);
   const [answerDetails, setAnswerDetails] = useState<any[]>([]);
 
+  // ✅ ADD THESE FUNCTIONS
+  const getQuizCacheKey = () => `quiz_cache_${userId}`;
   const getAnswersKey = () => `quiz_answers_${userId}`;
 
   useEffect(() => {
@@ -577,8 +579,18 @@ const handleSubmit = async () => {
     });
     setShowSpin(true);
     
-    // Refresh parent to update spin status
-    await onRefresh();
+    // Update cache to submitted state
+      const today = getTodayDate();
+      localStorage.setItem(getQuizCacheKey(), JSON.stringify({
+        questions: questions,
+        date: today,
+        submitted: true,
+        selections: selections,
+        correctAnswers: res.correctAnswers ?? []
+      }));
+
+      // Refresh parent
+      await onRefresh();
     
   } catch (error: any) {
     console.error("Quiz crash:", error);
