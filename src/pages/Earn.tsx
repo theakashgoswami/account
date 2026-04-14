@@ -538,29 +538,21 @@ const handleOptionSelect = (qid: string, option: string) => {
   console.log("🧠 Updated selections:", newSelections);
 };
 
- const handleSubmit = async () => {
-  const isComplete = questions.every(q => selections[String(q.qid)]);
+ // Earn.tsx - Update handleSubmit in QuizSection
 
-if (!isComplete || submitting) {
-  alert("⚠️ Please answer all questions");
-  return;
-}
+const handleSubmit = async () => {
+  const isComplete = questions.every(q => selections[String(q.qid)]);
+  
+  if (!isComplete || submitting) {
+    alert("⚠️ Please answer all questions");
+    return;
+  }
 
   setSubmitting(true);
-// 🔥 BUILD SAFE PAYLOAD (CRITICAL FIX)
-const payload: Record<string, string> = {};
 
-questions.forEach((q: any) => {
-  const key = String(q.qid);
-
-  if (selections[key]) {
-    payload[key] = selections[key];
-  }
-});
-
-console.log("🚀 Final payload:", payload);
   try {
-    const res = await API.submitQuiz(payload, questions.map((q: any) => q.qid));
+    // 🔥 Only send selections - qids automatically from keys
+    const res = await API.submitQuiz(selections);
 
     if (!res || res.success !== true) {
       console.error("Quiz failed:", res);
@@ -568,32 +560,29 @@ console.log("🚀 Final payload:", payload);
       return;
     }
 
-    // 🔥 cache clean
+    // Clear cache
+    localStorage.removeItem(getQuizCacheKey());
     localStorage.removeItem(getAnswersKey());
-
-    // 🔥 build correct answers safely
-    const answers: Record<string, string> = {};
+    
+    // Update state
+    const answersMap: Record<string, string> = {};
     res.correctAnswers?.forEach((q: any) => {
-      answers[String(q.qid)] = q.correct_option;
+      answersMap[String(q.qid)] = q.correct_option;
     });
 
-    setQuizResult({ ...res, answers });
+    setQuizResult({ 
+      ...res, 
+      answers: answersMap,
+      score: res.score 
+    });
     setShowSpin(true);
-
-    // 🔥 mark cache submitted
-    const cacheKey = `quiz_cache_${userId}`;
-    const cached = localStorage.getItem(cacheKey);
-
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      parsed.submitted = true;
-      parsed.selections = selections;
-      parsed.correctAnswers = res.correctAnswers ?? [];
-      localStorage.setItem(cacheKey, JSON.stringify(parsed));
-    }
-
-  } catch (error) {
+    
+    // Refresh parent to update spin status
+    await onRefresh();
+    
+  } catch (error: any) {
     console.error("Quiz crash:", error);
+    alert(error.message || "Failed to submit quiz");
   } finally {
     setSubmitting(false);
   }
