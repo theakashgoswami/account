@@ -486,8 +486,21 @@ const QuizSection: React.FC<{
       const savedAnswers = localStorage.getItem(getAnswersKey());
       if (savedAnswers) {
         try {
-          const parsed = JSON.parse(savedAnswers);
-          setSelections(parsed);
+         try {
+  const parsed = JSON.parse(savedAnswers);
+
+  const safe: Record<string, string> = {};
+
+  questions.forEach(q => {
+    const key = String(q.qid);
+    if (parsed[key]) safe[key] = parsed[key];
+  });
+
+  setSelections(safe);
+  console.log("📝 Loaded safe answers");
+} catch (e) {
+  console.error("Failed to load saved answers", e);
+}
           console.log('📝 Loaded saved answers from cache');
         } catch (e) {
           console.error('Failed to load saved answers', e);
@@ -518,19 +531,43 @@ const QuizSection: React.FC<{
     }
   }, [userId, submitted]);
 
-  const handleOptionSelect = (qid: string, option: string) => {
-    const newSelections = { ...selections, [qid]: option };
-    setSelections(newSelections);
-    saveAnswersToCache(newSelections);
+const handleOptionSelect = (qid: string, option: string) => {
+  const key = String(qid); // 🔥 FORCE STRING
+
+  const newSelections = {
+    ...selections,
+    [key]: option
   };
 
+  setSelections(newSelections);
+  saveAnswersToCache(newSelections);
+
+  console.log("🧠 Updated selections:", newSelections);
+};
+
  const handleSubmit = async () => {
-  if (Object.keys(selections).length < questions.length || submitting) return;
+  const isComplete = questions.every(q => selections[String(q.qid)]);
+
+if (!isComplete || submitting) {
+  alert("⚠️ Please answer all questions");
+  return;
+}
 
   setSubmitting(true);
+// 🔥 BUILD SAFE PAYLOAD (CRITICAL FIX)
+const payload: Record<string, string> = {};
 
+questions.forEach((q: any) => {
+  const key = String(q.qid);
+
+  if (selections[key]) {
+    payload[key] = selections[key];
+  }
+});
+
+console.log("🚀 Final payload:", payload);
   try {
-    const res = await API.submitQuiz(selections);
+    const res = await API.submitQuiz(payload);
 
     if (!res || res.success !== true) {
       console.error("Quiz failed:", res);
@@ -610,9 +647,9 @@ const QuizSection: React.FC<{
       const details = questions.map(q => ({
         qid: q.qid,
         question: q.question,
-        user_answer: selections[q.qid] || 'Not answered',
-        correct_answer: quizResult.answers?.[q.qid] || '',
-        is_correct: selections[q.qid] === quizResult.answers?.[q.qid],
+        user_answer: selections[String(q.qid)] || 'Not answered',
+        correct_answer: quizResult.answers?.[String(q.qid)] || '',
+        is_correct: selections[String(q.qid)] === quizResult.answers?.[String(q.qid)],
         option_a: q.option_a,
         option_b: q.option_b,
         option_c: q.option_c,
