@@ -144,48 +144,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // ─── Logout ────────────────────────────────────────────────────────────────
   const logout = useCallback(async () => {
+    // Clear client-side state immediately so UI feels instant
+    setSupabaseToken(null);
+    lastAuthCheckRef.current = 0;
+    setUser(null);
+
+    // Clear all localStorage tokens
+    [
+      'sb-auth-token', 'supabase.auth.token',
+      'agtech-auth', 'agtech-worker-supabase-token',
+    ].forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });
+    try { sessionStorage.clear(); } catch (_) {}
+
+    // Clear cookie client-side (belt-and-suspenders)
+    const exp = 'Thu, 01 Jan 1970 00:00:00 GMT';
+    document.cookie = `auth_token=; expires=${exp}; path=/; domain=.agtechscript.in; Secure; SameSite=None`;
+    document.cookie = `auth_token=; expires=${exp}; path=/; domain=${window.location.hostname}; Secure; SameSite=None`;
+    document.cookie = `auth_token=; expires=${exp}; path=/`;
+
+    // Sign out Supabase native session (OAuth users) — non-critical, fire-and-forget
     try {
-      // Clear server-side HttpOnly cookie
-      await fetch(`${CONFIG.WORKER_URL}/api/auth/logout`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Client-Host': window.location.host,
-        },
-      }).catch(() =>
-        // Fallback GET in case POST fails (network hiccup, etc.)
-        fetch(`${CONFIG.WORKER_URL}/api/auth/logout`, { method: 'GET', credentials: 'include' })
-          .catch(() => {/* non-critical — cookie expiry handles it */})
-      );
-
-      // Sign out native Supabase session (OAuth users); non-critical
       const supabase = getSupabaseClient();
-      await Promise.race([
-        supabase.auth.signOut({ scope: 'global' }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
-      ]).catch(() => {/* non-critical */});
-    } catch (err) {
-      console.error('Logout error:', err);
-    } finally {
-      // Always clear everything — even if the worker call failed
-      setSupabaseToken(null);
-      lastAuthCheckRef.current = 0;
-      setUser(null);
+      supabase.auth.signOut({ scope: 'global' }).catch(() => {});
+    } catch (_) {}
 
-      localStorage.removeItem('sb-auth-token');
-      localStorage.removeItem('supabase.auth.token');
-      localStorage.removeItem('agtech-auth');
-      localStorage.removeItem('agtech-worker-supabase-token');
-      sessionStorage.clear();
-
-      const exp = 'Thu, 01 Jan 1970 00:00:00 GMT';
-      document.cookie = `auth_token=; expires=${exp}; path=/; domain=.agtechscript.in; Secure; SameSite=None`;
-      document.cookie = `auth_token=; expires=${exp}; path=/; domain=${window.location.hostname}; Secure; SameSite=None`;
-      document.cookie = `auth_token=; expires=${exp}; path=/`;
-
-      window.location.href = `${CONFIG.MAIN_SITE}#login`;
-    }
+    // Redirect to the worker's /logout page — this is served from api.agtechscript.in
+    // which is the SAME domain the HttpOnly cookie was set on, guaranteeing it gets cleared.
+    // The page also calls /api/auth/logout before redirecting to main site login.
+    const returnTo = encodeURIComponent(`${CONFIG.MAIN_SITE}#login`);
+    window.location.href = `${CONFIG.WORKER_URL}/logout?redirect=${returnTo}`;
   }, []);
 
   // ─── Effects ───────────────────────────────────────────────────────────────
