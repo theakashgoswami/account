@@ -650,7 +650,7 @@ export const API = {
   claimStreak: ()                             => workerPost<any>('/api/user/claim-streak', {}),
 
   // Quiz writes
-  submitQuiz:      (selections: unknown)      => workerPost<any>('/api/user/submit-quiz',       { selections }),
+  submitQuiz: (selections: unknown, qids: (string | number)[]) => workerPost<any>('/api/user/submit-quiz', { selections, qids }),
   submitSuperQuiz: (selections: unknown)      => workerPost<any>('/api/user/submit-super-quiz', { selections }),
 
   // Redeem writes

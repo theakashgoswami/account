@@ -486,21 +486,14 @@ const QuizSection: React.FC<{
       const savedAnswers = localStorage.getItem(getAnswersKey());
       if (savedAnswers) {
         try {
-         try {
-  const parsed = JSON.parse(savedAnswers);
-
-  const safe: Record<string, string> = {};
-
-  questions.forEach(q => {
-    const key = String(q.qid);
-    if (parsed[key]) safe[key] = parsed[key];
-  });
-
-  setSelections(safe);
-  console.log("📝 Loaded safe answers");
-} catch (e) {
-  console.error("Failed to load saved answers", e);
-}
+          const parsed = JSON.parse(savedAnswers);
+          // Only load answers for qids that are in the current question set
+          const safe: Record<string, string> = {};
+          questions.forEach(q => {
+            const key = String(q.qid);
+            if (parsed[key]) safe[key] = parsed[key];
+          });
+          setSelections(safe);
           console.log('📝 Loaded saved answers from cache');
         } catch (e) {
           console.error('Failed to load saved answers', e);
@@ -567,7 +560,7 @@ questions.forEach((q: any) => {
 
 console.log("🚀 Final payload:", payload);
   try {
-    const res = await API.submitQuiz(payload);
+    const res = await API.submitQuiz(payload, questions.map((q: any) => q.qid));
 
     if (!res || res.success !== true) {
       console.error("Quiz failed:", res);
