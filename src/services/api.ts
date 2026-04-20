@@ -356,138 +356,77 @@ export const API = {
     }
   },
 
- // api.ts - REPLACE getQuizQuestions
+  // ── Quiz Questions ──────────────────────────────────────
+  // NOTE: Earn.tsx handles localStorage caching (quiz_cache_${uid}).
+  // This function simply fetches from Supabase — no duplicate caching here.
+  async getQuizQuestions(uid: string) {
+    const db = await getDB();
+    // No Supabase session → fall back to worker (worker populates KV for submit)
+    if (!db) return (await workerGet<any>('/api/user/earn')) ?? { success: false, earn: [] };
 
-async getQuizQuestions(uid: string) {
-  const db = await getDB();
-  if (!db) return { success: false, earn: [], submitted: false };
+    try {
+      const today = getTodayIST();
 
-  const today = getTodayIST();
-  const cacheKey = `quiz_questions_${uid}`;
-  
-  // Check cache first
-  const cached = localStorage.getItem(cacheKey);
-  if (cached) {
-    const parsed = JSON.parse(cached);
-    if (parsed.date === today && !parsed.submitted) {
-      console.log("📦 Using cached quiz questions");
-      return {
-        earn: parsed.questions,
-        submitted: false,
-        selections: parsed.selections || {},
-        correctAnswers: []
-      };
-    }
-    if (parsed.date === today && parsed.submitted) {
-      console.log("✅ Quiz already submitted today (from cache)");
-      return {
-        earn: parsed.questions,
-        submitted: true,
-        selections: parsed.selections || {},
-        correctAnswers: parsed.correctAnswers || []
-      };
-    }
-  }
+      // Already submitted today?
+      const { data: existing } = await db
+        .from('quiz_submissions')
+        .select('score,answers,questions')
+        .eq('user_id', uid)
+        .eq('quiz_date', today)
+        .maybeSingle();
 
-  try {
-    // Check if already submitted today
-    const { data: existing } = await db
-      .from('quiz_submissions')
-      .select('score, answers, questions')
-      .eq('user_id', uid)
-      .eq('quiz_date', today)
-      .maybeSingle();
+      if (existing) {
+        const questionIds = Array.isArray(existing.questions) ? existing.questions : [];
+        // Fetch question details + correct answers together
+        const { data: submittedQuestions } = await db
+          .from('quiz_questions')
+          .select('qid,question,option_a,option_b,option_c,option_d,prepare_link,correct_option')
+          .in('qid', questionIds);
+        return {
+          success: true,
+          submitted: true,
+          score: existing.score ?? 0,
+          selections: existing.answers ?? {},
+          earn: (submittedQuestions ?? []).map((q: any) => ({
+            qid: q.qid, question: q.question,
+            option_a: q.option_a, option_b: q.option_b,
+            option_c: q.option_c, option_d: q.option_d,
+            prepare_link: q.prepare_link,
+          })),
+          correctAnswers: (submittedQuestions ?? []).map((q: any) => ({
+            qid: q.qid, correct_option: q.correct_option,
+          })),
+        };
+      }
 
-    if (existing) {
-      // Get question details
-      const questionIds = Array.isArray(existing.questions) ? existing.questions : [];
-      const { data: questions } = await db
+      // Fresh questions — exclude qids seen in last 7 days
+      const { data: recentSubmissions } = await db
+        .from('quiz_submissions')
+        .select('questions')
+        .eq('user_id', uid)
+        .gte('quiz_date', daysAgoISO(7));
+
+      const usedQids = new Set(
+        (recentSubmissions ?? []).flatMap((row: any) =>
+          Array.isArray(row.questions) ? row.questions : []
+        )
+      );
+
+      const { data: allQuestions } = await db
         .from('quiz_questions')
-        .select('qid, question, option_a, option_b, option_c, option_d, prepare_link')
-        .in('qid', questionIds);
-      
-      // Get correct answers for display
-      const { data: correctData } = await db
-        .from('quiz_questions')
-        .select('qid, correct_option')
-        .in('qid', questionIds);
-      
-      const result = {
-        earn: questions || [],
-        submitted: true,
-        selections: existing.answers || {},
-        correctAnswers: correctData || [],
-        score: existing.score || 0
-      };
-      
-      // Cache it
-      localStorage.setItem(cacheKey, JSON.stringify({
-        date: today,
-        submitted: true,
-        questions: result.earn,
-        selections: result.selections,
-        correctAnswers: result.correctAnswers
-      }));
-      
-      return result;
-    }
+        .select('qid,question,option_a,option_b,option_c,option_d,prepare_link')
+        .eq('active', true);
 
-    // Get fresh questions (exclude last 7 days)
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    
-    const { data: recentSubmissions } = await db
-      .from('quiz_submissions')
-      .select('questions')
-      .eq('user_id', uid)
-      .gte('quiz_date', sevenDaysAgo.toISOString().split('T')[0]);
-    
-    const usedQids = new Set(
-      (recentSubmissions || []).flatMap((row: any) => 
-        Array.isArray(row.questions) ? row.questions : []
-      )
-    );
-    
-    // Get available questions
-    const { data: allQuestions } = await db
-      .from('quiz_questions')
-      .select('qid, question, option_a, option_b, option_c, option_d, prepare_link')
-      .eq('active', true);
-    
-    const pool = (allQuestions || []).filter((q: any) => !usedQids.has(q.qid));
-    const selectablePool = pool.length >= 5 ? pool : allQuestions || [];
-    
-    // Shuffle and pick 5
-    const shuffled = [...selectablePool];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      const pool = (allQuestions ?? []).filter((q: any) => !usedQids.has(q.qid));
+      const selectablePool = pool.length >= 5 ? pool : (allQuestions ?? []);
+      const selected = shuffleArray(selectablePool).slice(0, Math.min(5, selectablePool.length));
+
+      return { success: true, submitted: false, earn: selected, score: 0, selections: {}, correctAnswers: [] };
+    } catch (err) {
+      console.error('getQuizQuestions error:', err);
+      return (await workerGet<any>('/api/user/earn')) ?? { success: false, earn: [] };
     }
-    const selected = shuffled.slice(0, Math.min(5, selectablePool.length));
-    
-    const result = {
-      earn: selected,
-      submitted: false,
-      selections: {},
-      correctAnswers: []
-    };
-    
-    // Cache fresh questions
-    localStorage.setItem(cacheKey, JSON.stringify({
-      date: today,
-      submitted: false,
-      questions: selected,
-      selections: {},
-      correctAnswers: []
-    }));
-    
-    return result;
-    
-  } catch (error) {
-    console.error("getQuizQuestions error:", error);
-    return { success: false, earn: [], submitted: false };
-  }
-},
+  },
 
   // ── Super Quiz Questions ─────────────────────────────────
   async getSuperQuestions(uid: string) {
@@ -718,13 +657,10 @@ async getQuizQuestions(uid: string) {
   recordSpin:  (type: string, points: number) => workerPost<any>('/api/user/record-spin',  { type, points }),
   claimStreak: ()                             => workerPost<any>('/api/user/claim-streak', {}),
 
-  // Quiz writes
-  // api.ts - submitQuiz stays same
-
-submitQuiz: async (selections: Record<string, string>) => {
-  // 🔥 Worker call - yeh to hona hi hoga
-  return workerPost<any>('/api/user/submit-quiz', { selections });
-},
+  // Quiz writes — ALWAYS go to worker (atomic grading, anti-cheat)
+  // selections = { "<qid>": "A"|"B"|"C"|"D", ... }
+  // Worker uses Object.keys(selections) to know which qids to grade against
+  submitQuiz:      (selections: Record<string, string>) => workerPost<any>('/api/user/submit-quiz',       { selections }),
   submitSuperQuiz: (selections: unknown)      => workerPost<any>('/api/user/submit-super-quiz', { selections }),
 
   // Redeem writes

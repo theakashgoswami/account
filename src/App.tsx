@@ -15,6 +15,7 @@ import { History } from './pages/History';
 import { Profile } from './pages/Profile';
 import { Claim } from './pages/Claim';
 import { Leaderboard } from './pages/Leaderboard';
+import { ResetPassword } from './pages/ResetPassword';
 
 // ✅ login removed — <a> tag directly used instead
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -60,17 +61,16 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 // ✅ AuthProvider import removed — it lives in main.tsx now
 export default function App() {
   return (
-    <Layout>
-      <Routes>
-        <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/earn" element={<ProtectedRoute><Earn /></ProtectedRoute>} />
-        <Route path="/claim" element={<ProtectedRoute><Claim /></ProtectedRoute>} />
-        <Route path="/rewards" element={<ProtectedRoute><Rewards /></ProtectedRoute>} />
-        <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
-        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-        <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Layout>
+    <Routes>
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/" element={<Layout><ProtectedRoute><Dashboard /></ProtectedRoute></Layout>} />
+      <Route path="/earn" element={<Layout><ProtectedRoute><Earn /></ProtectedRoute></Layout>} />
+      <Route path="/claim" element={<Layout><ProtectedRoute><Claim /></ProtectedRoute></Layout>} />
+      <Route path="/rewards" element={<Layout><ProtectedRoute><Rewards /></ProtectedRoute></Layout>} />
+      <Route path="/history" element={<Layout><ProtectedRoute><History /></ProtectedRoute></Layout>} />
+      <Route path="/profile" element={<Layout><ProtectedRoute><Profile /></ProtectedRoute></Layout>} />
+      <Route path="/leaderboard" element={<Layout><ProtectedRoute><Leaderboard /></ProtectedRoute></Layout>} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }

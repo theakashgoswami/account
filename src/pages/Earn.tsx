@@ -131,62 +131,65 @@ export const Earn: React.FC = () => {
   const getQuizAnswersKey = () => `quiz_answers_${user?.user_id}`;
 
   const loadQuizWithCache = useCallback(async (userId: string) => {
-    const cacheKey = getQuizCacheKey();
-    const answersKey = getQuizAnswersKey();
+    const cacheKey = `quiz_cache_${userId}`;
+    const answersKey = `quiz_answers_${userId}`;
     const today = getTodayDate();
-    
+
+    // Clean up the old duplicate cache key from a previous version
+    localStorage.removeItem(`quiz_questions_${userId}`);
+
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
-      const parsed = JSON.parse(cached);
-      if (parsed.date === today && !parsed.submitted) {
-        console.log('📦 Loading quiz from cache');
-        const savedAnswers = localStorage.getItem(answersKey);
-        if (savedAnswers) {
-          sessionStorage.setItem('quiz_answers_temp', savedAnswers);
+      try {
+        const parsed = JSON.parse(cached);
+        if (parsed.date === today && !parsed.submitted) {
+          // Restore saved answers into sessionStorage so QuizSection can load them
+          const savedAnswers = localStorage.getItem(answersKey);
+          if (savedAnswers) sessionStorage.setItem('quiz_answers_temp', savedAnswers);
+          return {
+            earn: parsed.questions,
+            submitted: false,
+            selections: parsed.selections ?? {},
+            correctAnswers: parsed.correctAnswers ?? [],
+          };
         }
-        return {
-          earn: parsed.questions,
-          submitted: false,
-          selections: parsed.selections ?? {},
-          correctAnswers: parsed.correctAnswers ?? []
-        };
-      }
-      if (parsed.date === today && parsed.submitted) {
-        console.log('✅ Quiz already submitted today');
-        return {
-          earn: parsed.questions,
-          submitted: true,
-          selections: parsed.selections ?? {},
-          correctAnswers: parsed.correctAnswers ?? []
-        };
-      }
-      if (parsed.date !== today) {
-        console.log('🗑️ Old quiz found, clearing cache');
+        if (parsed.date === today && parsed.submitted) {
+          return {
+            earn: parsed.questions,
+            submitted: true,
+            selections: parsed.selections ?? {},
+            correctAnswers: parsed.correctAnswers ?? [],
+            score: parsed.score ?? 0,
+          };
+        }
+        // Old date — clear it
         localStorage.removeItem(cacheKey);
         localStorage.removeItem(answersKey);
+      } catch {
+        localStorage.removeItem(cacheKey);
       }
     }
-    
-    console.log('🌐 Fetching fresh quiz from API');
-    const freshQuiz = await API.getQuizQuestions(userId);
-    
-    if (freshQuiz?.earn) {
-      localStorage.setItem(cacheKey, JSON.stringify({
-        questions: freshQuiz.earn,
-        date: today,
-        submitted: !!freshQuiz.submitted,
-        selections: freshQuiz.selections ?? {},
-        correctAnswers: freshQuiz.correctAnswers ?? []
-      }));
 
+    // Fetch fresh from API (Supabase direct or worker fallback)
+    const freshQuiz = await API.getQuizQuestions(userId);
+
+    if (freshQuiz?.earn?.length) {
+      localStorage.setItem(cacheKey, JSON.stringify({
+        questions:      freshQuiz.earn,
+        date:           today,
+        submitted:      !!freshQuiz.submitted,
+        selections:     freshQuiz.selections ?? {},
+        correctAnswers: freshQuiz.correctAnswers ?? [],
+        score:          freshQuiz.score ?? 0,
+      }));
       if (!freshQuiz.submitted) {
         localStorage.removeItem(answersKey);
         sessionStorage.removeItem('quiz_answers_temp');
       }
     }
-    
+
     return freshQuiz ?? { earn: [], submitted: false, selections: {}, correctAnswers: [] };
-  }, [user?.user_id]);
+  }, []);
 
   const loadData = useCallback(async () => {
     if (!user?.user_id) return;
@@ -562,35 +565,27 @@ const handleSubmit = async () => {
       return;
     }
 
-    // Clear cache
-    localStorage.removeItem(getQuizCacheKey());
+    // Mark cache as submitted so refresh shows correct state
+    const cacheKey = `quiz_cache_${userId}`;
+    localStorage.setItem(cacheKey, JSON.stringify({
+      questions:      questions,
+      date:           getTodayDate(),
+      submitted:      true,
+      selections:     selections,
+      correctAnswers: res.correctAnswers ?? [],
+      score:          res.score ?? 0,
+    }));
     localStorage.removeItem(getAnswersKey());
-    
-    // Update state
+
+    // Build answers map for scoring display
     const answersMap: Record<string, string> = {};
-    res.correctAnswers?.forEach((q: any) => {
+    (res.correctAnswers ?? []).forEach((q: any) => {
       answersMap[String(q.qid)] = q.correct_option;
     });
+    setQuizResult({ ...res, answers: answersMap });
 
-    setQuizResult({ 
-      ...res, 
-      answers: answersMap,
-      score: res.score 
-    });
     setShowSpin(true);
-    
-    // Update cache to submitted state
-      const today = getTodayDate();
-      localStorage.setItem(getQuizCacheKey(), JSON.stringify({
-        questions: questions,
-        date: today,
-        submitted: true,
-        selections: selections,
-        correctAnswers: res.correctAnswers ?? []
-      }));
-
-      // Refresh parent
-      await onRefresh();
+    // No onRefresh() here — it would re-fetch and reset state prematurely
     
   } catch (error: any) {
     console.error("Quiz crash:", error);
